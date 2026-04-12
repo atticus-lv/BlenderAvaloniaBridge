@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.BlenderInspectorPageView"
+             x:DataType="viewModels:BlenderInspectorPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="14">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Object Inspector"
+                     FontSize="26"
+                     FontWeight="Bold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="Current Blender bridge homepage, now hosted as its own page view."
+                     FontSize="12"
+                     Foreground="#FF94A3B8" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Content="Refresh Objects"
+                Padding="14,8"
+                Command="{Binding RefreshObjectsCommand}" />
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF172033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto"
+              RowSpacing="10">
+          <TextBlock Grid.Row="0"
+                     Text="Scene Objects"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <ComboBox Grid.Row="0"
+                    Grid.Column="1"
+                    ItemsSource="{Binding Objects}"
+                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}"
+                    SelectionChanged="OnObjectSelectionChanged">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="viewModels:BlenderObjectListItem">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Text="{Binding Label}"
+                             Foreground="#FFF8FAFC" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding ObjectType}"
+                             Foreground="#FF94A3B8" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock Grid.Row="1"
+                     Text="Reference"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="1"
+                     Text="{Binding SelectedReferenceText}"
+                     TextWrapping="Wrap"
+                     Foreground="#FFFDE68A" />
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF111B2D"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto"
+              RowSpacing="12">
+          <TextBlock Grid.Row="0"
+                     Text="Name"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBox Grid.Row="0"
+                   Grid.Column="1"
+                   Text="{Binding ObjectName, Mode=TwoWay}"
+                   LostFocus="OnNameLostFocus"
+                   KeyDown="OnNameKeyDown" />
+
+          <TextBlock Grid.Row="1"
+                     Text="Location"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <Grid Grid.Row="1"
+                Grid.Column="1"
+                ColumnDefinitions="*,*,*"
+                ColumnSpacing="8">
+            <TextBox Grid.Column="0"
+                     Text="{Binding LocationX, Mode=TwoWay}"
+                     LostFocus="OnLocationLostFocus"
+                     KeyDown="OnLocationKeyDown" />
+            <TextBox Grid.Column="1"
+                     Text="{Binding LocationY, Mode=TwoWay}"
+                     LostFocus="OnLocationLostFocus"
+                     KeyDown="OnLocationKeyDown" />
+            <TextBox Grid.Column="2"
+                     Text="{Binding LocationZ, Mode=TwoWay}"
+                     LostFocus="OnLocationLostFocus"
+                     KeyDown="OnLocationKeyDown" />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF0B1321"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid RowDefinitions="Auto,Auto,*"
+              RowSpacing="12">
+          <TextBlock Text="Operators"
+                     FontSize="16"
+                     FontWeight="SemiBold"
+                     Foreground="#FFF8FAFC" />
+
+          <WrapPanel Grid.Row="1"
+                     Orientation="Horizontal"
+                     ItemWidth="150"
+                     ItemHeight="42">
+            <Button Content="Add Cube"
+                    Margin="0,0,10,10"
+                    Command="{Binding AddCubeCommand}" />
+            <Button Content="Duplicate"
+                    Margin="0,0,10,10"
+                    Command="{Binding DuplicateCommand}" />
+            <Button Content="View Selected"
+                    Margin="0,0,10,10"
+                    Command="{Binding ViewSelectedCommand}" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF1D2432"
+              BorderBrush="#253449"
+              BorderThickness="1"
+              CornerRadius="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding StatusText}"
+                     FontWeight="SemiBold"
+                     Foreground="#FFFDE68A" />
+          <TextBlock Text="{Binding BridgeStatusText}"
+                     Foreground="#FFCBD5E1" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,0 +1,106 @@
+KEYBOARD_EVENT_TYPES = {
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+    "SPACE", "TAB", "RET", "NUMPAD_ENTER", "BACK_SPACE", "DEL",
+    "LEFT_ARROW", "RIGHT_ARROW", "UP_ARROW", "DOWN_ARROW", "HOME", "END", "ESC",
+}
+
+
+TITLE_BAR_HEIGHT = 28
+
+
+def clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
+
+
+def overlay_rect(
+    region_width,
+    region_height,
+    overlay_width,
+    overlay_height,
+    source_width=None,
+    source_height=None,
+    margin=40,
+    offset_x=0,
+    offset_y=0,
+    title_bar_height=TITLE_BAR_HEIGHT,
+    display_scale=1.0,
+):
+    display_scale = max(0.25, float(display_scale))
+    scaled_title_bar_height = max(20, int(round(title_bar_height * display_scale)))
+    desired_width = max(64.0, float(overlay_width) * display_scale)
+    desired_height = max(64.0, float(overlay_height) * display_scale)
+    max_width = max(64, region_width - margin * 2)
+    max_height = max(64, region_height - margin * 2 - scaled_title_bar_height)
+    fit_scale = min(1.0, max_width / max(1.0, desired_width), max_height / max(1.0, desired_height))
+    draw_width = max(64, int(round(desired_width * fit_scale)))
+    draw_height = max(64, int(round(desired_height * fit_scale)))
+    total_height = draw_height + scaled_title_bar_height
+    centered_x = int((region_width - draw_width) * 0.5)
+    centered_y = int((region_height - total_height) * 0.5)
+    x = clamp(centered_x + int(offset_x), margin, max(margin, region_width - margin - draw_width))
+    y = clamp(centered_y + int(offset_y), margin, max(margin, region_height - margin - total_height))
+    return {
+        "x": x,
+        "y": y,
+        "width": draw_width,
+        "height": total_height,
+        "content_x": x,
+        "content_y": y,
+        "content_width": draw_width,
+        "content_height": draw_height,
+        "title_bar_height": scaled_title_bar_height,
+        "title_bar_y": y + draw_height,
+        "source_width": source_width if source_width is not None else overlay_width,
+        "source_height": source_height if source_height is not None else overlay_height,
+        "display_scale": display_scale,
+        "fit_scale": fit_scale,
+        "scale": display_scale * fit_scale,
+    }
+
+
+def contains_point(rect, x, y):
+    return rect["x"] <= x <= rect["x"] + rect["width"] and rect["y"] <= y <= rect["y"] + rect["height"]
+
+
+def contains_content_point(rect, x, y):
+    return (
+        rect["content_x"] <= x <= rect["content_x"] + rect["content_width"]
+        and rect["content_y"] <= y <= rect["content_y"] + rect["content_height"]
+    )
+
+
+def contains_title_bar(rect, x, y):
+    return (
+        rect["x"] <= x <= rect["x"] + rect["width"]
+        and rect["title_bar_y"] <= y <= rect["title_bar_y"] + rect["title_bar_height"]
+    )
+
+
+def to_avalonia_coords(rect, x, y):
+    normalized_x = clamp((x - rect["content_x"]) / max(1, rect["content_width"]), 0.0, 0.999999)
+    normalized_y = clamp((y - rect["content_y"]) / max(1, rect["content_height"]), 0.0, 0.999999)
+    local_x = int(normalized_x * max(1, rect.get("source_width", rect["width"])))
+    local_y_from_bottom = int(normalized_y * max(1, rect.get("source_height", rect["height"])))
+    local_y = max(0, rect.get("source_height", rect["height"]) - 1 - local_y_from_bottom)
+    return local_x, local_y
+
+
+def modifiers_from_event(event):
+    modifiers = []
+    if getattr(event, "shift", False):
+        modifiers.append("shift")
+    if getattr(event, "ctrl", False):
+        modifiers.append("ctrl")
+    if getattr(event, "alt", False):
+        modifiers.append("alt")
+    return modifiers
+
+
+def wheel_delta(event_type):
+    if event_type == "WHEELUPMOUSE":
+        return 0.0, 1.0
+    if event_type == "WHEELDOWNMOUSE":
+        return 0.0, -1.0
+    return 0.0, 0.0

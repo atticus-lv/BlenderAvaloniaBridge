@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BlenderAvaloniaBridge.Core/BlenderAvaloniaBridge.Core.csproj" />
+    <Project Path="src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BlenderAvaloniaBridge.Tests/BlenderAvaloniaBridge.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,57 @@
+using Xunit;
+
+namespace BlenderAvaloniaBridge.Tests;
+
+public sealed class CommandLineOptionsTests
+{
+    [Fact]
+    public void Parse_WithoutBridgeArguments_UsesDesktopMode()
+    {
+        var options = CommandLineOptions.Parse(Array.Empty<string>());
+
+        Assert.Equal(LaunchMode.DesktopWindow, options.Mode);
+        Assert.Equal(0, options.Port);
+        Assert.Empty(options.AppArgs);
+    }
+
+    [Fact]
+    public void Parse_WithNonBridgePortArgument_DoesNotSwitchModes()
+    {
+        var options = CommandLineOptions.Parse(new[] { "--port", "34567", "--environment", "dev" });
+
+        Assert.Equal(LaunchMode.DesktopWindow, options.Mode);
+        Assert.Equal(0, options.Port);
+        Assert.Equal(new[] { "--port", "34567", "--environment", "dev" }, options.AppArgs);
+    }
+
+    [Fact]
+    public void Parse_WithExplicitPrefixedBridgeArguments_UsesBridgeMode()
+    {
+        var options = CommandLineOptions.Parse(new[]
+        {
+            "--blender-bridge", "true",
+            "--blender-bridge-host", "127.0.0.1",
+            "--blender-bridge-port", "34567",
+            "--blender-bridge-width", "1024",
+            "--blender-bridge-height", "768",
+            "--theme", "dark",
+        });
+
+        Assert.Equal(LaunchMode.BlenderBridge, options.Mode);
+        Assert.Equal("127.0.0.1", options.Host);
+        Assert.Equal(34567, options.Port);
+        Assert.Equal(1024, options.Width);
+        Assert.Equal(768, options.Height);
+        Assert.Equal(new[] { "--theme", "dark" }, options.AppArgs);
+    }
+
+    [Fact]
+    public void Parse_WithLegacyBridgeFlags_DoesNotUseBridgeMode()
+    {
+        var options = CommandLineOptions.Parse(new[] { "--bridge", "true", "--host", "127.0.0.1", "--port", "45678" });
+
+        Assert.Equal(LaunchMode.DesktopWindow, options.Mode);
+        Assert.Equal(0, options.Port);
+        Assert.Equal(new[] { "--bridge", "true", "--host", "127.0.0.1", "--port", "45678" }, options.AppArgs);
+    }
+}

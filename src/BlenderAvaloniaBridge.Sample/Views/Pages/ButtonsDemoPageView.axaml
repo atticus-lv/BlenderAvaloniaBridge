@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.ButtonsDemoPageView"
+             x:DataType="viewModels:ButtonsDemoPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="18">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Buttons + Checkbox"
+                   FontSize="26"
+                   FontWeight="Bold"
+                   Foreground="#FFF8FAFC" />
+        <TextBlock Text="A small control showcase page separated from the Blender bridge page."
+                   Foreground="#FF94A3B8" />
+      </StackPanel>
+
+      <Border Padding="18"
+              Background="#FF162033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="14">
+        <StackPanel Spacing="14">
+          <TextBlock Text="Actions"
+                     FontSize="16"
+                     FontWeight="SemiBold"
+                     Foreground="#FFF8FAFC" />
+
+          <WrapPanel Orientation="Horizontal"
+                     ItemSpacing="10"
+                     LineSpacing="10">
+            <Button Content="Primary Action"
+                    Padding="16,10"
+                    Command="{Binding TriggerPrimaryActionCommand}" />
+            <Button Content="Secondary Action"
+                    Padding="16,10"
+                    Command="{Binding TriggerSecondaryActionCommand}" />
+          </WrapPanel>
+
+          <StackPanel Spacing="10">
+            <CheckBox Content="Enable primary option"
+                      IsChecked="{Binding IsPrimaryOptionEnabled, Mode=TwoWay}" />
+            <CheckBox Content="Enable secondary option"
+                      IsChecked="{Binding IsSecondaryOptionEnabled, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="18"
+              Background="#FF101826"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="14">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Activity"
+                     FontSize="16"
+                     FontWeight="SemiBold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="{Binding ActivityText}"
+                     TextWrapping="Wrap"
+                     Foreground="#FFE2E8F0" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

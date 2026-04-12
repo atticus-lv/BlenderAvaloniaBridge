@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>BlenderAvaloniaBridge</RootNamespace>
+    <AssemblyName>BlenderAvaloniaBridge.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>BlenderAvaloniaBridge.Core</PackageId>
+    <Description>Reusable Avalonia offscreen bridge host for Blender integration.</Description>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Headless" Version="12.0.0" />
+    <PackageReference Include="Avalonia.HarfBuzz" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Skia" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.0" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BlenderAvaloniaBridge.Sample.Views.MainWindow"
+        Width="1180"
+        Height="860"
+        MinWidth="960"
+        MinHeight="680"
+        Title="Blender Avalonia Bridge Demo"
+        Background="#FF0F172A" />

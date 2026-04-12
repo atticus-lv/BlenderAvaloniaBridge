@@ -1,271 +1,195 @@
-# Blender 5.0 + Avalonia Offscreen Bridge MVP
+# Blender Avalonia Bridge
 
-This repository contains a minimal working prototype that connects a Blender 5.0 addon to a separate Avalonia headless UI process.
+Windows-first toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia.
 
-Top-level deliverables:
+[中文](E:/blender_ava_demo/docs/README.zh-CN.md) | English
 
-- `blender_addon/`
-- `avalonia/`
+## Choose A Path
 
-The design goal is correctness first:
+### Recommended Integration
 
-- Blender launches the Avalonia process from a user-specified path.
-- Avalonia renders offscreen as a separate process.
-- Avalonia sends raw `BGRA8` frames over localhost TCP.
-- Blender receives frames, converts them to a Blender image, and draws them in `VIEW_3D` with a `POST_PIXEL` handler.
-- Blender captures mouse, wheel, key, and text input through a modal operator and forwards it back to Avalonia.
-- The Blender launcher now passes an explicit `--bridge true` flag so the same executable can reliably distinguish bridge mode from desktop-window mode.
-- The same Avalonia executable can also launch as a normal desktop window when started without bridge arguments.
+Use this when you are building your own Avalonia app and your own Blender addon.
 
-## Project Structure
+1. Integrate `BlenderAvaloniaBridge.Core` into your Avalonia project.
+2. Copy `src/blender_extension/avalonia_bridge/core/` into your own Blender addon.
+3. Optionally plug in your own message or business handler.
 
-```text
-blender_addon/
-  __init__.py
-  preferences.py
-  properties.py
-  operators.py
-  panel.py
-  runtime.py
-  process_manager.py
-  transport.py
-  frame_store.py
-  image_bridge.py
-  draw_overlay.py
-  input_mapper.py
+Avalonia side:
 
-avalonia/
-  BlenderAvaloniaBridge.slnx
-  Directory.Build.props
-  NuGet.Config
-  src/BlenderAvaloniaBridge/
-    App.axaml
-    App.axaml.cs
-    Program.cs
-    Views/MainView.axaml
-    Views/MainView.axaml.cs
-    ViewModels/MainViewModel.cs
-    Bridge/
-  tests/BlenderAvaloniaBridge.Tests/
+```csharp
+using Avalonia;
+using BlenderAvaloniaBridge;
+
+internal static class Program
+{
+    [STAThread]
+    public static async Task<int> Main(string[] args)
+    {
+        var launch = BlenderBridgeLauncher.TryParse(args);
+
+        if (launch.IsBridgeMode)
+        {
+            await BlenderBridgeLauncher.RunBridgeAsync(
+                launch,
+                createBridgeWindow: () => new MainWindow());
+
+            return 0;
+        }
+
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
+        return 0;
+    }
+
+    public static AppBuilder BuildAvaloniaApp()
+        => AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .LogToTrace();
+}
 ```
 
-## Requirements
+Blender side:
 
-- Windows
-- Blender 5.0
-- .NET 8 SDK
+```python
+from .core import (
+    BridgeConfig,
+    BridgeController,
+    DefaultBusinessBridgeHandler,
+)
 
-## Communication Protocol
 
-The bridge uses one localhost TCP connection.
+controller = BridgeController(
+    BridgeConfig(
+        executable_path="C:/path/to/YourAvaloniaApp.exe",
+        width=1100,
+        height=760,
+        host="127.0.0.1",
+        show_overlay_debug=False,
+    ),
+    business_handler=DefaultBusinessBridgeHandler(),
+    state_callback=lambda snapshot: print(snapshot.last_message),
+)
+```
 
-Packet format:
+What you copy into your Blender addon:
 
-1. `uint32 little-endian`: JSON header length
-2. `uint32 little-endian`: binary payload length
-3. UTF-8 JSON header
-4. optional payload
+- `src/blender_extension/avalonia_bridge/core/`
 
-Supported control message types:
+What you do not need to copy:
 
-- `init`
-- `resize`
-- `pointer_move`
-- `pointer_down`
-- `pointer_up`
-- `wheel`
-- `key_down`
-- `key_up`
-- `text`
-- `focus`
-- `frame`
-- `error`
+- `src/blender_extension/avalonia_bridge/panel.py`
+- `src/blender_extension/avalonia_bridge/operators.py`
+- `src/blender_extension/avalonia_bridge/preferences.py`
+- `src/blender_extension/avalonia_bridge/properties.py`
+- `src/blender_extension/avalonia_bridge/runtime.py`
 
-## Why Raw BGRA8 Instead Of PNG
+Optional customization points:
 
-This MVP uses raw `BGRA8` frames instead of PNG.
+- Avalonia side: implement `IBlenderBridgeMessageHost` or `IBlenderBridgeStatusSink`
+- Blender side: replace `DefaultBusinessBridgeHandler` with your own handler
 
-Tradeoff:
+Bridge CLI arguments are intentionally namespaced so they do not collide with your app's own CLI:
 
-- Simpler and closer to future texture-upload optimization.
-- More bandwidth and more CPU work on the Blender side because bytes must be converted into Blender RGBA float pixels.
+- `--blender-bridge true`
+- `--blender-bridge-host 127.0.0.1`
+- `--blender-bridge-port 34567`
+- `--blender-bridge-width 1100`
+- `--blender-bridge-height 760`
 
-For an `800x600` frame, the payload is `1,920,000` bytes.
+### Quick Try With Your Own Avalonia App
 
-## Build And Publish Avalonia
+Use this when you want to try the bridge without writing your own Blender addon yet.
+
+1. Integrate `BlenderAvaloniaBridge.Core` into your Avalonia project.
+2. Install the current `src/blender_extension/avalonia_bridge/` Blender extension from this repo.
+3. In Blender, point `Avalonia Path` to your Avalonia executable.
+4. Click `Start UI Bridge`.
+
+This is the fastest way to validate:
+
+- process launch
+- connection
+- frame streaming
+- Blender-side overlay and input forwarding
+
+### Preview The Included Sample
+
+Use this when you just want to see the repo working end-to-end.
+
+1. Build the sample Avalonia project in this repo.
+2. Install the current Blender extension in `src/blender_extension/avalonia_bridge/`.
+3. Point the addon to the built sample executable.
+4. Click `Start UI Bridge`.
+
+## Repo Layout
+
+```text
+src/
+  BlenderAvaloniaBridge.Core/            reusable Avalonia SDK
+  BlenderAvaloniaBridge.Sample/          sample app and demo UI
+  blender_extension/
+    avalonia_bridge/                     Blender extension shell used in this repo
+      core/                              copyable Blender bridge core package
+tests/
+  BlenderAvaloniaBridge.Tests/
+  blender_extension/avalonia_bridge/
+```
+
+## Build
 
 Run from the repository root.
 
-Debug build:
+Restore:
 
 ```powershell
-$env:DOTNET_CLI_HOME='E:\blender_ava_demo\.dotnet'
-dotnet build .\avalonia\src\BlenderAvaloniaBridge\BlenderAvaloniaBridge.csproj -c Debug --configfile .\avalonia\NuGet.Config
+$env:DOTNET_CLI_HOME=(Resolve-Path '.').Path
+dotnet restore .\BlenderAvaloniaBridge.slnx --configfile .\NuGet.Config
 ```
 
-Debug executable path:
-
-```text
-avalonia\src\BlenderAvaloniaBridge\bin\Debug\net8.0\BlenderAvaloniaBridge.exe
-```
-
-Release build:
+Build the sample app:
 
 ```powershell
-$env:DOTNET_CLI_HOME='E:\blender_ava_demo\.dotnet'
-dotnet build .\avalonia\src\BlenderAvaloniaBridge\BlenderAvaloniaBridge.csproj -c Release --configfile .\avalonia\NuGet.Config
+dotnet build .\BlenderAvaloniaBridge.slnx -c Debug
 ```
 
-Release publish:
+Publish a release exe:
 
 ```powershell
-$env:DOTNET_CLI_HOME='E:\blender_ava_demo\.dotnet'
-dotnet publish .\avalonia\src\BlenderAvaloniaBridge\BlenderAvaloniaBridge.csproj -c Release -r win-x64 --self-contained false -o .\avalonia\artifacts\publish\release --configfile .\avalonia\NuGet.Config
+dotnet build .\BlenderAvaloniaBridge.slnx -c Release
+dotnet publish .\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj -c Release -r win-x64 --self-contained false -o .\artifacts\publish\release-net10 --configfile .\NuGet.Config
 ```
 
-Release executable path:
-
-```text
-avalonia\artifacts\publish\release\BlenderAvaloniaBridge.exe
-```
-
-Native AOT publish:
+Publish an AOT exe:
 
 ```powershell
-$env:DOTNET_CLI_HOME='E:\blender_ava_demo\.dotnet'
-dotnet publish .\avalonia\src\BlenderAvaloniaBridge\BlenderAvaloniaBridge.csproj -c Release -r win-x64 -p:PublishAot=true -o .\avalonia\artifacts\publish\aot --configfile .\avalonia\NuGet.Config
+dotnet publish .\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj -c Release -r win-x64 -p:PublishAot=true -o .\artifacts\publish\aot-net10 --configfile .\NuGet.Config
 ```
 
-AOT executable path:
+Common executable paths:
 
-```text
-avalonia\artifacts\publish\aot\BlenderAvaloniaBridge.exe
-```
+- `src\BlenderAvaloniaBridge.Sample\bin\Debug\net10.0\BlenderAvaloniaBridge.Sample.exe`
+- `artifacts\publish\release-net10\BlenderAvaloniaBridge.Sample.exe`
+- `artifacts\publish\aot-net10\BlenderAvaloniaBridge.Sample.exe`
 
-Optional DLL path:
+Recommended Blender addon path target:
 
-```text
-avalonia\src\BlenderAvaloniaBridge\bin\Debug\net8.0\BlenderAvaloniaBridge.dll
-```
+- AOT exe for best performance
 
-The Blender addon supports both `.exe` and `.dll`. If you point it at a `.dll`, the addon launches it with `dotnet`.
+## Blender Extension Setup
 
-## Desktop Window Mode
-
-The same executable supports two launch modes:
-
-- No `--host/--port`: opens as a normal Avalonia desktop window.
-- With `--bridge true --host/--port`: runs in Blender bridge mode and connects back to Blender.
-
-Examples:
-
-```powershell
-.\avalonia\src\BlenderAvaloniaBridge\bin\Debug\net8.0\BlenderAvaloniaBridge.exe
-.\avalonia\artifacts\publish\release\BlenderAvaloniaBridge.exe
-.\avalonia\artifacts\publish\aot\BlenderAvaloniaBridge.exe
-```
-
-When launched this way, the app opens the same button/TextBox/scroll/status UI in a standard desktop window.
-
-## Install The Blender Addon
-
-Repository note:
-
-- The source addon was originally authored under the requested `blender_addon/` layout.
-- For Blender 5 extension-style installation, the installed folder can be renamed to `avalonia_bridge/` and include `blender_manifest.toml`, which is the layout currently used in this workspace.
-
-Option 1:
-
-- Zip the `blender_addon/` folder contents.
-- In Blender 5.0 open `Edit > Preferences > Add-ons > Install from Disk`.
-- Select the zip and enable `RenderBuilder Avalonia Bridge`.
-
-Option 2:
-
-- Copy `blender_addon/` into Blender's add-ons directory.
-- Restart Blender and enable the addon.
-
-## Configure The Avalonia Executable Path In Blender
-
-There are two places to set it:
-
-1. Add-on preferences:
-   `Edit > Preferences > Add-ons > RenderBuilder Avalonia Bridge`
-2. 3D View sidebar:
-   `View3D > Sidebar > RenderBuilder`
-
-Field name:
-
-- `Avalonia Path`
-
-Accepted path types:
-
-- Debug executable
-- Release executable
-- AOT executable
-- Debug or Release DLL
-
-If the path is missing, invalid, or points to an unsupported file type, the addon shows a clear error in the panel and in Blender operator reports.
-
-## Start The Demo
-
-1. Build or publish one of the Avalonia outputs above.
-2. Install and enable the addon in Blender 5.0.
-3. In the `RenderBuilder` sidebar panel, set `Avalonia Path`.
+1. Install the `src/blender_extension/avalonia_bridge/` folder as a Blender extension.
+2. Open `View3D > Sidebar > RenderBuilder`.
+3. Set `Avalonia Path`.
 4. Click `Start UI Bridge`.
-5. Wait for the connection status to change to `Connected`.
-6. Click inside the overlay to enter capture mode.
-7. Try:
-   - move the mouse
-   - click the button
-   - type in the text box
-   - use the mouse wheel inside the scroll area
-8. Click outside the overlay or press `Esc` to release focus.
-9. Click `Stop UI Bridge` to stop the process and overlay.
 
-## Current UI Behavior
+## More Docs
 
-The Avalonia UI includes:
+- Architecture and protocol notes: [docs/ARCHITECTURE.md](E:/blender_ava_demo/docs/ARCHITECTURE.md)
+- 中文架构说明: [docs/ARCHITECTURE.zh-CN.md](E:/blender_ava_demo/docs/ARCHITECTURE.zh-CN.md)
 
-- one button
-- one `TextBox`
-- one `ScrollViewer`
-- one status text field
+## Known Limits
 
-The status text updates with recent input, for example:
-
-- `MouseMove 120,45`
-- `Clicked Button (1)`
-- `Typed: a`
-
-## Verification Performed
-
-The following were run successfully in this workspace:
-
-- `dotnet test` for `avalonia/tests/BlenderAvaloniaBridge.Tests`
-- `dotnet build -c Debug`
-- `dotnet build -c Release`
-- `dotnet publish -c Release -r win-x64 --self-contained false`
-- `dotnet publish -c Release -r win-x64 -p:PublishAot=true`
-
-Runtime handshake verified:
-
-- Debug executable connected and returned `init` ack plus first `frame`
-- Release executable connected and returned `init` ack plus first `frame`
-- Native AOT executable connected and returned `init` ack plus first `frame`
-
-## Known Limitations
-
-- This is a Windows-first MVP.
-- Blender-side automated tests were not run in this workspace because standalone Python/Blender Python is not available on PATH here.
-- The addon uses a simple image update path and redraw overlay, not optimized GPU texture streaming.
-- The underlying bridge framebuffer remains fixed-size for this MVP, but the displayed overlay is now centered in the active `VIEW_3D` region and auto-fitted with preserved aspect ratio.
-- Input capture currently focuses on left mouse, wheel, keyboard press/release, and direct text input only.
-- IME composition, clipboard integration, drag/drop, and advanced key-layout handling are not implemented.
-- The addon assumes Blender 5.0 APIs for `gpu`, draw handler usage, and modal input.
-
-## Assumptions
-
-- Blender version target is fixed at 5.0.
-- The Avalonia bridge runs as a separate child process and is never embedded into Blender.
-- `localhost TCP + raw BGRA8` is preferred over PNG for first-pass correctness.
+- Windows-first
+- Shared memory path is Windows-only
+- Fixed bridge size per launch
+- No IME / clipboard / drag-drop
+- Blender background mode is not suitable for GPU overlay testing

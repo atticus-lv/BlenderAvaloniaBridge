@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Disable Avalonia build telemetry in this workspace to avoid host-specific permission issues. -->
+    <UsedAvaloniaProducts></UsedAvaloniaProducts>
+  </PropertyGroup>
+</Project>

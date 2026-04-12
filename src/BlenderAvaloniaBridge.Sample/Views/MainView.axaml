@@ -1,0 +1,174 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:animation="using:Avalonia.Animation"
+             xmlns:pages="clr-namespace:BlenderAvaloniaBridge.Sample.Views.Pages"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.MainView"
+             x:DataType="viewModels:MainViewModel">
+  <UserControl.DataTemplates>
+    <DataTemplate DataType="viewModels:ButtonsDemoPageViewModel">
+      <pages:ButtonsDemoPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:SortableListDemoPageViewModel">
+      <pages:SortableListDemoPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:BlenderInspectorPageViewModel">
+      <pages:BlenderInspectorPageView />
+    </DataTemplate>
+  </UserControl.DataTemplates>
+
+  <Border Padding="16"
+          Background="#FF0B1220">
+    <Border.Styles>
+      <Style Selector="Button.nav-button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+      </Style>
+      <Style Selector="Button.nav-button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#16233A" />
+      </Style>
+      <Style Selector="Button.nav-button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1D2D48" />
+      </Style>
+    </Border.Styles>
+
+    <SplitView IsPaneOpen="{Binding IsSidebarOpen}"
+               DisplayMode="CompactInline"
+               CompactPaneLength="78"
+               OpenPaneLength="208"
+               PanePlacement="Left"
+               UseLightDismissOverlayMode="False"
+               PaneBackground="#FF0F172A">
+      <SplitView.Pane>
+        <Border Padding="14"
+                Background="#FF0F172A"
+                BorderBrush="#1E293B"
+                BorderThickness="0,0,1,0">
+          <Grid RowDefinitions="Auto,*,Auto"
+                RowSpacing="14">
+            <Button Width="44"
+                    Height="44"
+                    HorizontalAlignment="Left"
+                    Content="{Binding SidebarToggleText}"
+                    Command="{Binding ToggleSidebarCommand}" />
+
+            <StackPanel Grid.Row="1"
+                        Spacing="10">
+              <Button Classes="nav-button"
+                      Command="{Binding ShowButtonsPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#1E3A5F">
+                      <TextBlock Text="01"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFE2E8F0" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Buttons"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowSortableListPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#164E63">
+                      <TextBlock Text="02"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFECFEFF" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="List Sort"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowBlenderPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#3F2A56">
+                      <TextBlock Text="03"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFF5F3FF" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Blender"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+            </StackPanel>
+
+            <Border Grid.Row="2"
+                    Padding="12"
+                    Background="#101826"
+                    BorderBrush="#1E293B"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    IsVisible="{Binding IsSidebarOpen}">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Current Page"
+                           FontSize="11"
+                           Foreground="#FF64748B" />
+                <TextBlock Text="{Binding CurrentPageTitle}"
+                           FontWeight="SemiBold"
+                           Foreground="#FFF8FAFC" />
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Border>
+      </SplitView.Pane>
+
+      <Border Margin="16,0,0,0"
+              Background="#FF0F172A"
+              BorderBrush="#111827"
+              BorderThickness="1"
+              CornerRadius="18">
+        <TransitioningContentControl Content="{Binding CurrentPage}">
+          <TransitioningContentControl.PageTransition>
+            <animation:CrossFade Duration="0:0:0.25" />
+          </TransitioningContentControl.PageTransition>
+        </TransitioningContentControl>
+      </Border>
+    </SplitView>
+  </Border>
+</UserControl>
