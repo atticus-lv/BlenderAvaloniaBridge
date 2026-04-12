@@ -1,0 +1,33 @@
+schema_version = "1.0.0"
+
+id = "avalonia_bridge"
+type = "add-on"
+version = "0.1.0"
+
+name = "Avalonia Bridge"
+tagline = "Avalonia Bridge"
+maintainer = "Atticus"
+copyright = ["2025 Atticus", ]
+
+license = [
+    "SPDX-License-Identifier: Custom",
+]
+
+tags = ["Render"]
+blender_version_min = "5.0.0"
+platforms = ["windows-x64", ]
+
+
+[permissions]
+files = "Write Data"
+
+[build]
+paths_exclude_pattern = [
+    "__pycache__/",
+    "/.git/",
+    "/*.zip",
+    "/.gitignore",
+    "/.gitmodules",
+    "/.idea/",
+    "/build/",
+]
