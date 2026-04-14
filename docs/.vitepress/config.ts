@@ -68,6 +68,12 @@ const enSidebar = [
 ];
 
 export default withMermaid(defineConfig({
+  base:
+    process.env.GITHUB_ACTIONS === 'true' &&
+    process.env.GITHUB_REPOSITORY &&
+    !process.env.GITHUB_REPOSITORY.endsWith('.github.io')
+      ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/`
+      : '/',
   title: 'Blender Avalonia Bridge',
   description: 'Windows-first bridge toolkit for embedding Avalonia UI inside Blender.',
   cleanUrls: true,
