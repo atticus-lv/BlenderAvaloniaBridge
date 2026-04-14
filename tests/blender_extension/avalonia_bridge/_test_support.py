@@ -71,6 +71,7 @@ def install_fake_blender_modules():
         BoolProperty=lambda **kwargs: kwargs,
         StringProperty=lambda **kwargs: kwargs,
         IntProperty=lambda **kwargs: kwargs,
+        EnumProperty=lambda **kwargs: kwargs,
         PointerProperty=lambda **kwargs: kwargs,
     )
     bpy.utils = types.SimpleNamespace(
@@ -86,6 +87,8 @@ def install_fake_blender_modules():
     sys.modules["blf"] = blf
 
     gpu = types.ModuleType("gpu")
+    gpu._buffer_calls = []
+    gpu._texture_calls = []
     gpu.shader = types.SimpleNamespace(
         from_builtin=lambda _name: object(),
         create_from_info=lambda _info: object(),
@@ -99,8 +102,20 @@ def install_fake_blender_modules():
     gpu.types = types.SimpleNamespace(
         GPUShaderCreateInfo=type("GPUShaderCreateInfo", (), {}),
         GPUStageInterfaceInfo=type("GPUStageInterfaceInfo", (), {}),
-        Buffer=lambda *_args, **_kwargs: object(),
-        GPUTexture=lambda *_args, **_kwargs: object(),
+        Buffer=lambda component_type, dimensions, data: gpu._buffer_calls.append(
+            {
+                "component_type": component_type,
+                "dimensions": dimensions,
+                "data": data,
+            }
+        ) or object(),
+        GPUTexture=lambda size, format, data: gpu._texture_calls.append(
+            {
+                "size": size,
+                "format": format,
+                "data": data,
+            }
+        ) or object(),
     )
     sys.modules["gpu"] = gpu
 

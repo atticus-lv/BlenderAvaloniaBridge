@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using Avalonia.Controls;
 using BlenderAvaloniaBridge.Runtime;
+using BlenderAvaloniaBridge.Runtime.FrameTransport;
 using BlenderAvaloniaBridge.Transport;
 
 namespace BlenderAvaloniaBridge;
@@ -59,9 +60,9 @@ public sealed class BlenderBridgeHost
         Action<BlenderBridgeDiagnosticsSnapshot>? diagnosticsSink,
         CancellationToken cancellationToken)
     {
-        if (options.UseSharedMemory && options.SupportsFrames && !OperatingSystem.IsWindows())
+        if (options.UseSharedMemory && options.SupportsFrames)
         {
-            throw new PlatformNotSupportedException("Shared-memory bridge mode is currently supported on Windows only.");
+            SharedFrameWriterFactory.Instance.ValidatePlatformSupport();
         }
 
         using var tcpClient = new TcpClient();

@@ -1,17 +1,17 @@
 # Quick Start
 
-## 1. Publish the Avalonia Sample as AOT
+## 1. Publish the Avalonia Sample
 
 Make sure `.NET 10 SDK` is installed, then run this from the repository root:
 
-```powershell
-dotnet publish .\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj -c Release -r win-x64 -p:PublishAot=true -o .\artifacts\publish\aot-net10 --configfile .\NuGet.Config
+```bash
+dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release -o ./artifacts/publish/net10 --configfile ./NuGet.Config
 ```
 
-The output executable is created at:
+The published bridge files are created at:
 
 ```text
-artifacts\publish\aot-net10\BlenderAvaloniaBridge.Sample.exe
+artifacts/publish/net10/
 ```
 
 ## 2. Add the local Blender extension repository
@@ -24,14 +24,15 @@ src\blender_extension
 
 Then enable the `avalonia_bridge` extension from that repository.
 
-## 3. Point the panel to the AOT exe and start it
+## 3. Point the panel to the bridge binary and start it
 
 After enabling the extension:
 
 1. Open `View3D > Sidebar > AvaloniaBridgeDemo`
-2. Set `Avalonia Executable` to the published AOT exe
+2. Set `Avalonia Executable` to the published bridge binary, such as `BlenderAvaloniaBridge.Sample.dll` or a published native executable
 3. Adjust `Display Size` and `Render Scaling` if needed
-3. Click `Start UI Bridge`
+4. Keep `Mode` on `Headless Frames + Input` to use the default Windows/macOS shared-memory frame transport
+5. Click `Start UI Bridge`
 
 If everything is wired correctly, the sample UI should appear in the Blender overlay.
 

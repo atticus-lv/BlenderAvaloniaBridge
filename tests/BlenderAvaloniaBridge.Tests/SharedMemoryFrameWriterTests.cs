@@ -1,7 +1,7 @@
 using System.IO.MemoryMappedFiles;
 using System.Runtime.Versioning;
 using System.Buffers.Binary;
-using BlenderAvaloniaBridge.Runtime;
+using BlenderAvaloniaBridge.Runtime.FrameTransport;
 using Xunit;
 
 namespace BlenderAvaloniaBridge.Tests;
@@ -12,9 +12,14 @@ public sealed class SharedMemoryFrameWriterTests
     [Fact]
     public void WriteFrame_RotatesAcrossDoubleBufferSlots()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var mappingName = $"RenderBuilderTest_{Guid.NewGuid():N}";
         const int frameSize = 8;
-        using var writer = new SharedMemoryFrameWriter(mappingName, frameSize, 2);
+        using var writer = new WindowsSharedMemoryFrameWriter(mappingName, frameSize, 2);
 
         var slot0 = writer.WriteFrame(new byte[] { 1, 2, 3, 4 }, 10);
         var slot1 = writer.WriteFrame(new byte[] { 5, 6, 7, 8 }, 11);
@@ -36,8 +41,13 @@ public sealed class SharedMemoryFrameWriterTests
     [Fact]
     public void WriteFrame_ThrowsWhenPayloadExceedsSlotSize()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var mappingName = $"RenderBuilderTest_{Guid.NewGuid():N}";
-        using var writer = new SharedMemoryFrameWriter(mappingName, 4, 2);
+        using var writer = new WindowsSharedMemoryFrameWriter(mappingName, 4, 2);
 
         var error = Assert.Throws<ArgumentException>(() => writer.WriteFrame(new byte[] { 1, 2, 3, 4, 5 }, 1));
 
@@ -47,9 +57,14 @@ public sealed class SharedMemoryFrameWriterTests
     [Fact]
     public void WriteLinearRgbaFrameFromRgba_WritesConvertedFloatsIntoSharedMemory()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var mappingName = $"RenderBuilderTest_{Guid.NewGuid():N}";
         const int frameSize = 16;
-        using var writer = new SharedMemoryFrameWriter(mappingName, frameSize, 2);
+        using var writer = new WindowsSharedMemoryFrameWriter(mappingName, frameSize, 2);
 
         var slot = writer.WriteLinearRgbaFrameFromRgba(new byte[] { 15, 23, 42, 255 }, 3);
 

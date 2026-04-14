@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+import shutil
 import subprocess
 import threading
 from collections import deque
@@ -26,8 +29,11 @@ def validate_executable_path(path_text: str) -> Path:
         raise ProcessLaunchError(f"Path does not exist: {path}")
     if path.is_dir():
         raise ProcessLaunchError(f"Path points to a directory, not a file: {path}")
-    if path.suffix.lower() not in {".exe", ".dll"}:
-        raise ProcessLaunchError("Only .exe and .dll targets are supported in this MVP.")
+    if path.suffix.lower() in {".exe", ".dll"}:
+        return path
+    if os.access(path, os.X_OK):
+        return path
+    raise ProcessLaunchError("Supported targets are .dll, .exe, or an executable file.")
     return path
 
 
@@ -58,8 +64,24 @@ def build_command(
     ]
     args = [str(path), *bridge_args]
     if path.suffix.lower() == ".dll":
-        args = ["dotnet", str(path), *bridge_args]
+        args = [_resolve_dotnet_host(), str(path), *bridge_args]
     return args, str(path.parent)
+
+
+def _resolve_dotnet_host() -> str:
+    resolved = shutil.which("dotnet")
+    if resolved:
+        return resolved
+
+    for candidate in (
+        Path("/usr/local/share/dotnet/dotnet"),
+        Path("/opt/homebrew/bin/dotnet"),
+        Path("/usr/local/bin/dotnet"),
+    ):
+        if candidate.exists():
+            return str(candidate)
+
+    raise ProcessLaunchError("Unable to locate 'dotnet'. Install .NET or use a published executable path instead of a DLL.")
 
 
 class ProcessManager:

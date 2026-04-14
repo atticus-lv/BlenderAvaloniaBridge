@@ -56,7 +56,7 @@ Blender Avalonia Bridge 是一个让你能够在 Blender 中无缝使用 Avaloni
 
 ## 已知限制
 
-- 目前只支持 Windows 平台
+- 目前 headless 共享内存桥接支持 Windows 和 macOS 平台
 - headless模式限制
   - 不支持layout动画：如splitview的pane动画效果会被，会直接切换状态
   - 不支持transitions动画: 如item位移的位置变换，会卡顿并跳转到最终位置

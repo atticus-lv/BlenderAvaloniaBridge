@@ -40,7 +40,7 @@ If you don't want to distribute the core business code directly as Python source
 
 ## Known Limitations
 
-- Currently only supported on the Windows platform
+- Headless shared-memory bridge currently supports Windows and macOS
 - Internal drawing limits
     - Layout animation is not supported: For example, the pane animation effect of SplitView will be changed to switch directly to the state
     - Transitions animation is not supported: If the position of the item is displaced, it will freeze and jump to the final position

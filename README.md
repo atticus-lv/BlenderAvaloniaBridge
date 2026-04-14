@@ -1,6 +1,6 @@
 # Blender Avalonia Bridge
 
-Windows-first toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia.
+Cross-platform toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia. Windows and macOS headless shared-memory bridges are supported.
 
 ## Documentation
 
@@ -23,5 +23,4 @@ docs/
   zh-CN/
   en/
 ```
-
 

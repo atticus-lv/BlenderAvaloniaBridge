@@ -24,7 +24,7 @@ from .core import (
 
 controller = BridgeController(
     BridgeConfig(
-        executable_path="C:/path/to/YourAvaloniaApp.exe",
+        executable_path="/path/to/YourAvaloniaApp.dll",
         width=1100,
         height=760,
         render_scaling=1.25,
@@ -64,6 +64,8 @@ In the sample addon UI, this appears as:
 - `Render Scaling`
 
 The default `render_scaling` is `1.25`.
+
+Headless frame transport uses shared memory by default on Windows and macOS. The bridge keeps the protocol fields (`shm_name`, `frame_size`, `slot_count`) internal to the transport setup, so addon UIs usually do not need a separate shared-memory toggle.
 
 ## Integration points
 

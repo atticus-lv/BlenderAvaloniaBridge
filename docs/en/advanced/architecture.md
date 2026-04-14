@@ -59,4 +59,4 @@ The same session model supports both runtime modes:
 - Control channel: localhost TCP
 - Packet format: length-prefixed + JSON header
 - Init handshake includes capability fields such as `window_mode`, `supports_business`, `supports_frames`, and `supports_input`
-- Frame transport: shared memory on Windows, with TCP payload fallback when needed when frame transport is enabled
+- Frame transport: shared memory on Windows and macOS in headless mode, while the existing TCP frame packet path remains available as a compatibility fallback when no shared-memory handle is supplied

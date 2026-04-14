@@ -1,17 +1,17 @@
 using System.IO.MemoryMappedFiles;
 using System.Runtime.Versioning;
 
-namespace BlenderAvaloniaBridge.Runtime;
+namespace BlenderAvaloniaBridge.Runtime.FrameTransport;
 
 [SupportedOSPlatform("windows")]
-internal sealed class SharedMemoryFrameWriter : IDisposable
+internal sealed class WindowsSharedMemoryFrameWriter : ISharedFrameWriter
 {
     private readonly int _slotSize;
     private readonly int _slotCount;
     private readonly MemoryMappedFile _mapping;
     private readonly MemoryMappedViewAccessor _accessor;
 
-    public SharedMemoryFrameWriter(string mappingName, int slotSize, int slotCount)
+    public WindowsSharedMemoryFrameWriter(string mappingName, int slotSize, int slotCount)
     {
         if (string.IsNullOrWhiteSpace(mappingName))
         {
@@ -36,6 +36,8 @@ internal sealed class SharedMemoryFrameWriter : IDisposable
 
     public int WriteFrame(byte[] payload, int sequence)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+
         if (payload.Length > _slotSize)
         {
             throw new ArgumentException("Payload exceeds the shared-memory slot size.", nameof(payload));

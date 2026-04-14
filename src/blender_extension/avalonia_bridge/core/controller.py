@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import bpy
 import subprocess
 import threading
@@ -133,6 +135,8 @@ class BridgeController:
         self._render_height = self._scale_dimension(display_height, self._render_scaling)
         if self._config.supports_frames:
             self.frame_pipeline.create_shared_memory(self._render_width, self._render_height)
+        else:
+            self.shared_memory_bridge.close()
         self.server = self._server_factory(
             host=self._config.host,
             on_packet=self._on_packet,

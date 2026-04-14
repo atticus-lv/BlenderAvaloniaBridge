@@ -26,7 +26,7 @@ from .core import (
 
 controller = BridgeController(
     BridgeConfig(
-        executable_path="C:/path/to/YourAvaloniaApp.exe",
+        executable_path="/path/to/YourAvaloniaApp.dll",
         width=1100,
         height=760,
         render_scaling=1.25,
@@ -68,6 +68,8 @@ controller.start()
 - `Render Scaling`
 
 默认 `render_scaling` 是 `1.25`
+
+在 Windows 和 macOS 上，headless 帧传输默认走共享内存。桥接会继续复用现有 `shm_name`、`frame_size`、`slot_count` 握手字段，但一般不需要把“是否使用共享内存”单独暴露到扩展 UI。
 
 
 

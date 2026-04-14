@@ -59,4 +59,4 @@ sequenceDiagram
 - 控制通道：localhost TCP
 - 包格式：长度前缀 + JSON header
 - `init` 握手会携带 `window_mode`、`supports_business`、`supports_frames`、`supports_input` 等 capability 字段
-- 帧传输：当启用 frame transport 时，Windows 默认共享内存，必要时回退到 TCP payload
+- 帧传输：在 headless 模式下，Windows 和 macOS 默认通过共享内存传输帧；如果握手里没有可用的共享内存句柄，则保留现有 TCP frame packet 作为兼容回退路径

@@ -15,7 +15,7 @@ license = [
 
 tags = ["Render"]
 blender_version_min = "5.0.0"
-platforms = ["windows-x64", ]
+platforms = ["windows-x64", "macos-arm64", "macos-x64", ]
 
 
 [permissions]

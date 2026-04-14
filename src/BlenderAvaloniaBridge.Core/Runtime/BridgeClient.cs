@@ -1,22 +1,22 @@
-using System.Runtime.Versioning;
 using System.Diagnostics;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Transport;
+using BlenderAvaloniaBridge.Runtime.FrameTransport;
 
 namespace BlenderAvaloniaBridge.Runtime;
 
-[SupportedOSPlatform("windows")]
 internal sealed class BridgeClient
 {
     private readonly BlenderBridgeOptions _options;
     private readonly LengthPrefixedConnection _connection;
     private readonly BridgeDiagnosticsCollector? _diagnostics;
     private readonly IBridgeUiSession _uiSession;
+    private readonly ISharedFrameWriterFactory _sharedFrameWriterFactory;
     private readonly FrameDispatchScheduler _frameScheduler;
     private readonly RemoteBusinessEndpoint _businessEndpoint;
     private readonly SemaphoreSlim _frameSignal = new(0, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
-    private SharedMemoryFrameWriter? _sharedMemoryWriter;
+    private ISharedFrameWriter? _sharedMemoryWriter;
     private int _sharedFrameSize;
     private int _sharedSlotCount;
     private int _sequence;
@@ -27,12 +27,14 @@ internal sealed class BridgeClient
         LengthPrefixedConnection connection,
         IBridgeUiSession uiSession,
         BlenderBridgeOptions options,
-        BridgeDiagnosticsCollector? diagnostics = null)
+        BridgeDiagnosticsCollector? diagnostics = null,
+        ISharedFrameWriterFactory? sharedFrameWriterFactory = null)
     {
         _connection = connection;
         _uiSession = uiSession;
         _options = options.Clone();
         _diagnostics = diagnostics;
+        _sharedFrameWriterFactory = sharedFrameWriterFactory ?? SharedFrameWriterFactory.Instance;
         _frameScheduler = new FrameDispatchScheduler(_options.ActiveFrameInterval, _options.IdleHeartbeatInterval);
         _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessEnvelopeAsync);
         if (_uiSession.SupportsFrames)
@@ -164,7 +166,7 @@ internal sealed class BridgeClient
 
         _sharedFrameSize = envelope.FrameSize.Value;
         _sharedSlotCount = envelope.SlotCount.GetValueOrDefault(2);
-        _sharedMemoryWriter = new SharedMemoryFrameWriter(envelope.SharedMemoryName, _sharedFrameSize, _sharedSlotCount);
+        _sharedMemoryWriter = _sharedFrameWriterFactory.Create(envelope.SharedMemoryName, _sharedFrameSize, _sharedSlotCount);
     }
 
     private async Task ApplyEnvelopeAsync(ProtocolEnvelope envelope)

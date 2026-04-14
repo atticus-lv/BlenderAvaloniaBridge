@@ -29,7 +29,7 @@ class _RecordingProcessManager:
     def __init__(self):
         self.calls = []
 
-    def start(self, executable_path, host, port, width, height, render_scaling):
+    def start(self, executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
         self.calls.append(
             {
                 "executable_path": executable_path,
@@ -38,11 +38,30 @@ class _RecordingProcessManager:
                 "width": width,
                 "height": height,
                 "render_scaling": render_scaling,
+                "window_mode": window_mode,
+                "supports_business": supports_business,
+                "supports_frames": supports_frames,
+                "supports_input": supports_input,
             }
         )
         return types.SimpleNamespace(pid=2468)
 
     def stop(self):
+        return None
+
+
+class _RecordingSharedMemoryBridge:
+    def __init__(self):
+        self.frame_size = 0
+        self.slot_count = 0
+        self.name = "TestSharedMemory"
+
+    def create(self, frame_size, slot_count=2):
+        self.frame_size = frame_size
+        self.slot_count = slot_count
+        return self.name
+
+    def close(self):
         return None
 
 
@@ -64,6 +83,9 @@ class ControllerRenderScalingTests(unittest.TestCase):
                 process_manager=process_manager,
                 server_factory=_FakeServer,
             )
+            shared_memory_bridge = _RecordingSharedMemoryBridge()
+            controller.shared_memory_bridge = shared_memory_bridge
+            controller.frame_pipeline.shared_memory_bridge = shared_memory_bridge
 
             controller.start()
 
