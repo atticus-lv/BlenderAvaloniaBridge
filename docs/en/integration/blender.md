@@ -33,6 +33,7 @@ controller = BridgeController(
         executable_path="C:/path/to/YourAvaloniaApp.exe",
         width=1100,
         height=760,
+        render_scaling=1.25,
         host="127.0.0.1",
         show_overlay_debug=False,
     ),
@@ -41,11 +42,28 @@ controller = BridgeController(
 )
 ```
 
+## Sizing and render density
+
+The bridge now separates logical size from render density:
+
+- `width` and `height` control the logical Avalonia window size
+- `render_scaling` controls how densely the headless frame is rendered before Blender displays it
+
+This is useful when Blender and Avalonia do not line up perfectly on DPI assumptions. Instead of increasing `width` and `height` just to make the overlay look sharper, prefer raising `render_scaling` so layout stays stable while the captured frame gains more pixels.
+
+In the sample addon UI, this appears as:
+
+- `Display Size`
+- `Render Scaling`
+
+The default `render_scaling` is `1.25`.
+
 ## The usual integration points
 
 - Lifecycle: call `start()`, `stop()`, and `tick_once()` from your own operators or runtime adapter
 - Input forwarding: call `handle_event(context, event)` from your event pipeline
 - State sync: use `state_callback`, `state_snapshot()`, or `diagnostics_snapshot()` to feed your own UI
+- User-facing controls: expose `width`, `height`, and `render_scaling` together so users can tune layout size and sharpness independently
 
 ## Recommended split
 
