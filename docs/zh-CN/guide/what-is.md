@@ -7,17 +7,31 @@ Blender Avalonia Bridge 是一个让你能够在 Blender 中无缝使用 Avaloni
 
 这样你不需要在 Blender 里自己维护一整套 GPU 绘制 UI 框架，也不需要把所有业务都写成 Python 面板逻辑。
 
+
+
+## 模式
+
+当前支持两种交互模式`window_mode`：
+
+- `headless`：默认，将avalonia的画面绘制在blender 中，和blender原生面板一样使用，区域内将捕捉鼠标/键盘事件
+- `desktop`：经典的桌面窗口模式，只进行business连接。点击blender窗口将失去焦点
+
+
+
 ## 适合谁
 
 - 想给 Blender 工具做更强 UI 表现的开发者
 - 想重用 .NET 生态和 Avalonia 能力的团队
 - 需要把业务逻辑更多放在独立可执行程序中的项目
 
+
+
 ## 不适合谁
 
 - 只想写一个非常简单的 Blender 面板
 - 不希望维护 Python 和 C# 两套代码
 - 明确要求所有逻辑都运行在 Blender Python 进程内
+
 
 
 ## 优势
@@ -38,10 +52,12 @@ Blender Avalonia Bridge 是一个让你能够在 Blender 中无缝使用 Avaloni
 
 如果你不希望把核心业务代码直接以 Python 源码形式分发，可以使用 .NET AOT 把 Avalonia 项目编译为原生程序。这种方式和把 Python 编译成 `pyd` / `pyc` 不同，不会带来那类 Blender GPL 代码分发风险顾虑。
 
+
+
 ## 已知限制
 
 - 目前只支持 Windows 平台
-- 内部绘制限制
-  - 不支持layout动画：如splitview的pane动画效果会被，改为直接切换状态
+- headless模式限制
+  - 不支持layout动画：如splitview的pane动画效果会被，会直接切换状态
   - 不支持transitions动画: 如item位移的位置变换，会卡顿并跳转到最终位置
   - 不支持外部拖拽：blender会捕捉drop事件，导致无法把数据传输到avalonia

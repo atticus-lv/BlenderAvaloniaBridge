@@ -2,6 +2,11 @@
 
 Use this path when you already have your own Avalonia application and want to add Blender bridge support.
 
+The bridge SDK supports two runtime modes:
+
+- `headless`: `frames + input + business`
+- `desktop-business`: `business` only, hosted by a real Avalonia desktop window
+
 ## Current distribution model
 
 The repository does not publish a NuGet package yet, so you need to build `BlenderAvaloniaBridge.Core` locally first.
@@ -32,9 +37,18 @@ The recommended option is a project reference:
 
 If you only need a temporary integration, you can also reference the built DLL directly.
 
-## 3. Update your Program entry point
+## 3. Choose a bridge mode
 
-Handle bridge mode explicitly in `Program.cs` and keep the bridge window creation under your control:
+| Mode | Window Host | Frames | Input | Business | Use when |
+| --- | --- | --- | --- | --- | --- |
+| `headless` | Avalonia headless runtime | Yes | Yes | Yes | You want Blender to draw an overlay and forward input |
+| `desktop-business` | Real Avalonia desktop window | No | No | Yes | You want to keep a real Avalonia window and only exchange business data |
+
+The mode is selected explicitly through CLI bridge arguments, and the final active capabilities are confirmed in the `init` / `init ack` handshake.
+
+## 4. Update your Program entry point
+
+The recommended approach is to keep one shared entry point in `Program.cs` and branch automatically by `WindowMode`.
 
 ```csharp
 using Avalonia;
@@ -49,6 +63,15 @@ internal static class Program
 
         if (launch.IsBridgeMode)
         {
+            var options = launch.GetRequiredBridgeOptions();
+
+            if (options.WindowMode == BridgeWindowMode.Desktop)
+            {
+                DesktopBridgeLaunchContext.Configure(options);
+                BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
+                return 0;
+            }
+
             await BlenderBridgeLauncher.RunBridgeAsync(
                 launch,
                 createBridgeWindow: () => new MainWindow());
@@ -66,12 +89,3 @@ internal static class Program
             .LogToTrace();
 }
 ```
-
-## 4. Optional extension points
-
-For deeper integration, implement these interfaces in your own window or ViewModel:
-
-- `IBusinessEndpointSink`
-- `IBlenderBridgeStatusSink`
-
-That lets your app receive a unified business endpoint plus bridge status updates.

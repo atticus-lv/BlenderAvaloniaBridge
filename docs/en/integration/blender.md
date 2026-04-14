@@ -10,13 +10,7 @@ Copy this directory into your own addon package:
 src\blender_extension\avalonia_bridge\core\
 ```
 
-You do not need the repo-specific shell files:
-
-- `src/blender_extension/avalonia_bridge/panel.py`
-- `src/blender_extension/avalonia_bridge/operators.py`
-- `src/blender_extension/avalonia_bridge/preferences.py`
-- `src/blender_extension/avalonia_bridge/properties.py`
-- `src/blender_extension/avalonia_bridge/runtime.py`
+You do not need to copy the repo-specific shell files, but they can still be used as references.
 
 ## Minimal integration snippet
 
@@ -34,13 +28,26 @@ controller = BridgeController(
         width=1100,
         height=760,
         render_scaling=1.25,
+        window_mode="headless",
+        supports_business=True,
+        supports_frames=True,
+        supports_input=True,
         host="127.0.0.1",
         show_overlay_debug=False,
     ),
     business_endpoint=DefaultBusinessEndpoint(),
     state_callback=lambda snapshot: print(snapshot.last_message),
 )
+# run
+controller.start()
 ```
+
+## Transport modes
+
+There are two `window_mode` transport modes:
+
+- `headless`: default mode. Avalonia frames are streamed into the Blender window, usually drawn in the 3D viewport, and mouse/keyboard events are captured inside that region
+- `desktop`: classic desktop window mode, with business connection only
 
 ## Sizing and render density
 
@@ -49,7 +56,7 @@ The bridge now separates logical size from render density:
 - `width` and `height` control the logical Avalonia window size
 - `render_scaling` controls how densely the headless frame is rendered before Blender displays it
 
-This is useful when Blender and Avalonia do not line up perfectly on DPI assumptions. Instead of increasing `width` and `height` just to make the overlay look sharper, prefer raising `render_scaling` so layout stays stable while the captured frame gains more pixels.
+`render_scaling` is used to keep the UI layout aligned with desktop mode on high-resolution displays. It only applies to headless mode.
 
 In the sample addon UI, this appears as:
 
@@ -58,18 +65,12 @@ In the sample addon UI, this appears as:
 
 The default `render_scaling` is `1.25`.
 
-## The usual integration points
+## Integration points
 
 - Lifecycle: call `start()`, `stop()`, and `tick_once()` from your own operators or runtime adapter
-- Input forwarding: call `handle_event(context, event)` from your event pipeline
+- Input forwarding: call `handle_event(context, event)` from your event pipeline when remote input is enabled
 - State sync: use `state_callback`, `state_snapshot()`, or `diagnostics_snapshot()` to feed your own UI
-- User-facing controls: expose `width`, `height`, and `render_scaling` together so users can tune layout size and sharpness independently
+- User-facing controls: expose `width`, `height`, and `render_scaling` together so users can tune layout size and sharpness independently in headless mode
+- Capability-aware UX: reflect whether the current session has business only, frame streaming, or input enabled
 
-## Recommended split
-
-Keep your addon in two layers:
-
-- your addon shell for panels, operators, preferences, and property groups
-- the copied `core/` package for process management, transport, frame flow, overlay, and business bridging
-
-That keeps the reusable bridge internals independent from your addon-specific UI code.
+See [Architecture](../advanced/architecture.md) for the shared session model and capability negotiation flow.
