@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Transformation;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using BlenderAvaloniaBridge.Sample.ViewModels;
 
@@ -149,18 +150,24 @@ public sealed partial class SortableListDemoPageView : UserControl
     {
         try
         {
-            if (_dragStarted &&
+            var shouldMove =
+                _dragStarted &&
                 _sortableListBox is not null &&
-                DataContext is SortableListDemoPageViewModel viewModel &&
+                DataContext is SortableListDemoPageViewModel &&
                 _draggedItem is not null &&
                 _draggedIndex >= 0 &&
                 _targetIndex >= 0 &&
-                _draggedIndex != _targetIndex)
+                _draggedIndex != _targetIndex;
+
+            ResetTransformsWithoutTransition();
+
+            if (shouldMove &&
+                _sortableListBox is not null &&
+                DataContext is SortableListDemoPageViewModel viewModel &&
+                _draggedItem is not null)
             {
                 viewModel.MoveItemToIndex(_draggedItem, _targetIndex);
             }
-
-            ResetTransforms();
         }
         finally
         {
@@ -172,6 +179,7 @@ public sealed partial class SortableListDemoPageView : UserControl
 
             ReleasePointerCapture();
             ResetDragState();
+            Dispatcher.UIThread.Post(RestoreTransformsTransition, DispatcherPriority.Background);
         }
     }
 
@@ -203,6 +211,39 @@ public sealed partial class SortableListDemoPageView : UserControl
             if (_sortableListBox.ContainerFromIndex(index) is ListBoxItem container)
             {
                 SetTranslateTransform(container, 0, 0);
+            }
+        }
+    }
+
+    private void ResetTransformsWithoutTransition()
+    {
+        if (_sortableListBox?.Items is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < _sortableListBox.ItemCount; index++)
+        {
+            if (_sortableListBox.ContainerFromIndex(index) is ListBoxItem container)
+            {
+                container.Transitions = null;
+                SetTranslateTransform(container, 0, 0);
+            }
+        }
+    }
+
+    private void RestoreTransformsTransition()
+    {
+        if (_sortableListBox?.Items is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < _sortableListBox.ItemCount; index++)
+        {
+            if (_sortableListBox.ContainerFromIndex(index) is ListBoxItem container)
+            {
+                container.ClearValue(TransitionsProperty);
             }
         }
     }
