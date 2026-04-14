@@ -1,7 +1,5 @@
-from pathlib import Path
-
 import bpy
-
+from pathlib import Path
 
 PACKAGE_NAME = (__package__ or __name__.rpartition(".")[0]).strip(".")
 PACKAGE_BASENAME = PACKAGE_NAME.rsplit(".", 1)[-1] if PACKAGE_NAME else "avalonia_bridge"
@@ -9,7 +7,8 @@ PACKAGE_BASENAME = PACKAGE_NAME.rsplit(".", 1)[-1] if PACKAGE_NAME else "avaloni
 
 def default_executable_hint():
     repo_root = Path(__file__).resolve().parents[3]
-    return str(repo_root / "src" / "BlenderAvaloniaBridge.Sample" / "bin" / "Debug" / "net10.0" / "BlenderAvaloniaBridge.Sample.exe")
+    return str(
+        repo_root / "src" / "BlenderAvaloniaBridge.Sample" / "bin" / "Debug" / "net10.0" / "BlenderAvaloniaBridge.Sample.exe")
 
 
 class AvaloniaBridgeAddonPreferences(bpy.types.AddonPreferences):

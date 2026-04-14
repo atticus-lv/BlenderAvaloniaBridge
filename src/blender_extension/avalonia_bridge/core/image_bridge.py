@@ -41,9 +41,9 @@ class ImageBridge:
     @property
     def expects_gpu_draw(self):
         return (
-            self._texture is not None
-            or self._pending_rgba_float_source is not None
-            or self._last_mode == "gpu"
+                self._texture is not None
+                or self._pending_rgba_float_source is not None
+                or self._last_mode == "gpu"
         )
 
     def clear(self):
