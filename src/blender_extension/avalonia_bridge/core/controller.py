@@ -1,37 +1,74 @@
 import bpy
+import subprocess
 import threading
 import time
 from collections import deque
 from dataclasses import replace
+from typing import Callable, Mapping, TypedDict
 
 from . import input as input_mapper
-from .business import DefaultBusinessEndpoint, EndpointBusinessBridgeHandler
+from .business import (
+    BusinessBridgeHandler,
+    BusinessEndpoint,
+    DefaultBusinessEndpoint,
+    EndpointBusinessBridgeHandler,
+)
 from .config import BridgeConfig
 from .diagnostics import DiagnosticsRecorder
 from .frame_pipeline import FramePipeline
 from .overlay import OverlayDrawer
 from .process import ProcessManager, validate_executable_path
-from .state import BridgeStateSnapshot
+from .state import BridgeDiagnosticsSnapshot, BridgeStateSnapshot
 from .transport import BridgeServer
+
+
+PacketHeader = dict[str, object]
+StateCallback = Callable[[BridgeStateSnapshot], None]
+ServerFactory = Callable[..., BridgeServer]
+
+
+class DragState(TypedDict):
+    mouse_x: int
+    mouse_y: int
+    offset_x: int
+    offset_y: int
+
+
+class OverlayRect(TypedDict):
+    x: int
+    y: int
+    width: int
+    height: int
+    content_x: int
+    content_y: int
+    content_width: int
+    content_height: int
+    title_bar_height: int
+    title_bar_y: int
+    source_width: int
+    source_height: int
+    display_scale: float
+    fit_scale: float
+    scale: float
 
 
 class BridgeController:
     def __init__(
-            self,
-            config,
-            business_endpoint=None,
-            business_handler=None,
-            state_callback=None,
-            process_manager=None,
-            server_factory=BridgeServer,
-    ):
+        self,
+        config: BridgeConfig | Mapping[str, object],
+        business_endpoint: BusinessEndpoint | None = None,
+        business_handler: BusinessBridgeHandler | None = None,
+        state_callback: StateCallback | None = None,
+        process_manager: ProcessManager | None = None,
+        server_factory: ServerFactory = BridgeServer,
+    ) -> None:
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
-        self._state_callback = state_callback
-        self.business_endpoint = business_endpoint or DefaultBusinessEndpoint()
-        self.business_handler = business_handler or EndpointBusinessBridgeHandler(self.business_endpoint)
-        self.process_manager = process_manager or ProcessManager()
-        self._server_factory = server_factory
-        self.server = None
+        self._state_callback: StateCallback | None = state_callback
+        self.business_endpoint: BusinessEndpoint = business_endpoint or DefaultBusinessEndpoint()
+        self.business_handler: BusinessBridgeHandler = business_handler or EndpointBusinessBridgeHandler(self.business_endpoint)
+        self.process_manager: ProcessManager = process_manager or ProcessManager()
+        self._server_factory: ServerFactory = server_factory
+        self.server: BridgeServer | None = None
         self.frame_pipeline = FramePipeline()
         self.frame_store = self.frame_pipeline.frame_store
         self.image_bridge = self.frame_pipeline.image_bridge
@@ -39,11 +76,11 @@ class BridgeController:
         self.input_router = input_mapper.InputRouter(self)
         self.drawer = OverlayDrawer(self)
         self.capture_input = False
-        self._pending_pointer_move = None
-        self._pending_business_packets = deque()
+        self._pending_pointer_move: PacketHeader | None = None
+        self._pending_business_packets: deque[tuple[PacketHeader, bytes]] = deque()
         self._business_lock = threading.Lock()
-        self._diagnostics = DiagnosticsRecorder(now_ms=self._now_ms)
-        self._drag_state = None
+        self._diagnostics: DiagnosticsRecorder = DiagnosticsRecorder(now_ms=self._now_ms)
+        self._drag_state: DragState | None = None
         self._left_button_forwarded = False
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
@@ -68,7 +105,7 @@ class BridgeController:
     def show_overlay_debug(self):
         return bool(self._config.show_overlay_debug)
 
-    def set_config(self, config):
+    def set_config(self, config: BridgeConfig | Mapping[str, object]):
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
         self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
         self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
@@ -81,7 +118,7 @@ class BridgeController:
                 overlay_offset_y=int(self._config.overlay_offset_y),
             )
 
-    def start(self):
+    def start(self) -> subprocess.Popen[str]:
         self.stop()
         path = validate_executable_path(self._config.executable_path)
         self._diagnostics.reset()
@@ -206,7 +243,7 @@ class BridgeController:
         if frame_updated or business_updated:
             self.tag_redraw()
 
-    def handle_event(self, context, event):
+    def handle_event(self, context, event) -> bool:
         if not self._remote_supports_input:
             return False
         return self.input_router.handle_event(context, event)
@@ -217,17 +254,17 @@ class BridgeController:
         self._replace_state(capture_input=False, last_message="Pointer left overlay")
         self.tag_redraw()
 
-    def send_message(self, header, payload=b""):
+    def send_message(self, header: Mapping[str, object], payload: bytes = b"") -> bool:
         if self.server is None:
             self._diagnostics.record_outgoing_message(header, False)
             return False
-        message = dict(header)
+        message: PacketHeader = dict(header)
         message.setdefault("payload_length", len(payload or b""))
         sent = self.server.send(message, payload)
         self._diagnostics.record_outgoing_message(message, sent)
         return sent
 
-    def get_overlay_rect(self, context):
+    def get_overlay_rect(self, context) -> OverlayRect:
         region = context.region
         window_manager = getattr(context, "window_manager", None)
         if window_manager is None:
@@ -251,17 +288,17 @@ class BridgeController:
             display_scale=dpi_scale,
         )
 
-    def state_snapshot(self):
+    def state_snapshot(self) -> BridgeStateSnapshot:
         return replace(self._state)
 
-    def diagnostics_snapshot(self):
+    def diagnostics_snapshot(self) -> BridgeDiagnosticsSnapshot:
         return self._diagnostics.build_snapshot(
             image_bridge=self.image_bridge,
             drawer=self.drawer,
             pending_pointer_move=self._pending_pointer_move is not None,
         )
 
-    def status_line(self):
+    def status_line(self) -> str:
         connection = "connected" if self._state.connected else "waiting"
         frame_status = "frame streaming" if self._remote_supports_frames else "business only"
         input_status = "input enabled" if self._remote_supports_input else "input disabled"
@@ -315,7 +352,7 @@ class BridgeController:
         self._replace_state(last_error=str(exc))
         self.tag_redraw()
 
-    def _on_packet(self, header, payload):
+    def _on_packet(self, header: Mapping[str, object], payload: bytes):
         if self._is_business_packet(header):
             with self._business_lock:
                 self._pending_business_packets.append((dict(header), payload or b""))
@@ -324,7 +361,7 @@ class BridgeController:
             return
         self._handle_packet(header, payload)
 
-    def _handle_packet(self, header, payload):
+    def _handle_packet(self, header: Mapping[str, object], payload: bytes):
         packet_type = header.get("type", "")
         now_ms = self._now_ms()
         if self._is_business_packet(header):
@@ -387,7 +424,7 @@ class BridgeController:
             self._handle_packet(*packet)
             processed = True
 
-    def _pop_business_packet(self):
+    def _pop_business_packet(self) -> tuple[PacketHeader, bytes] | None:
         with self._business_lock:
             if not self._pending_business_packets:
                 return None
@@ -423,7 +460,7 @@ class BridgeController:
         except (TypeError, ValueError):
             return 1.0
 
-    def _flush_pointer_move(self):
+    def _flush_pointer_move(self) -> bool:
         if not self._pending_pointer_move:
             return False
         message = self._pending_pointer_move
