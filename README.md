@@ -4,6 +4,10 @@ Windows-first toolkit for running an Avalonia UI in a separate process, streamin
 
 [中文文档](./docs/zh-CN/index.md) | [English Docs](./docs/en/index.md)
 
+## GitHub Pages
+
+Documentation site: <https://atticus-lv.github.io/BlenderAvaloniaBridge/>
+
 ## Repo Layout
 
 ```text
