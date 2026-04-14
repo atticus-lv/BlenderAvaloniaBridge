@@ -1,12 +1,11 @@
+import bpy
 import threading
 import time
 from collections import deque
 from dataclasses import replace
 
-import bpy
-
 from . import input as input_mapper
-from .business import DefaultBusinessBridgeHandler, DefaultBusinessEndpoint, EndpointBusinessBridgeHandler
+from .business import DefaultBusinessEndpoint, EndpointBusinessBridgeHandler
 from .config import BridgeConfig
 from .frame_pipeline import FramePipeline
 from .overlay import OverlayDrawer
@@ -17,13 +16,13 @@ from .transport import BridgeServer
 
 class BridgeController:
     def __init__(
-        self,
-        config,
-        business_endpoint=None,
-        business_handler=None,
-        state_callback=None,
-        process_manager=None,
-        server_factory=BridgeServer,
+            self,
+            config,
+            business_endpoint=None,
+            business_handler=None,
+            state_callback=None,
+            process_manager=None,
+            server_factory=BridgeServer,
     ):
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
         self._state_callback = state_callback
@@ -36,6 +35,7 @@ class BridgeController:
         self.frame_store = self.frame_pipeline.frame_store
         self.image_bridge = self.frame_pipeline.image_bridge
         self.shared_memory_bridge = self.frame_pipeline.shared_memory_bridge
+        self.input_router = input_mapper.InputRouter(self)
         self.drawer = OverlayDrawer(self)
         self.capture_input = False
         self._pending_pointer_move = None
@@ -177,101 +177,7 @@ class BridgeController:
             self.tag_redraw()
 
     def handle_event(self, context, event):
-        rect = self.get_overlay_rect(context)
-        x = getattr(event, "mouse_region_x", -1)
-        y = getattr(event, "mouse_region_y", -1)
-        inside = input_mapper.contains_content_point(rect, x, y)
-        in_title_bar = input_mapper.contains_title_bar(rect, x, y)
-        modifiers = input_mapper.modifiers_from_event(event)
-        pointer_event_types = {"MOUSEMOVE", "LEFTMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"}
-
-        if event.type == "LEFTMOUSE" and event.value == "PRESS" and in_title_bar:
-            if self.capture_input:
-                self.release_capture_input()
-            self._drag_state = {
-                "mouse_x": x,
-                "mouse_y": y,
-                "offset_x": self._state.overlay_offset_x,
-                "offset_y": self._state.overlay_offset_y,
-            }
-            self._replace_state(last_message="Dragging overlay")
-            self.tag_redraw()
-            return True
-
-        if event.type == "MOUSEMOVE" and self._drag_state is not None:
-            self._replace_state(
-                overlay_offset_x=int(self._drag_state["offset_x"] + (x - self._drag_state["mouse_x"])),
-                overlay_offset_y=int(self._drag_state["offset_y"] + (y - self._drag_state["mouse_y"])),
-            )
-            self.tag_redraw()
-            return True
-
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self._drag_state is not None:
-            self._drag_state = None
-            self._replace_state(last_message="Overlay moved")
-            self.tag_redraw()
-            return True
-
-        if event.type in pointer_event_types:
-            self._sync_hover_capture(inside)
-
-        if event.type == "LEFTMOUSE" and event.value == "PRESS":
-            if inside:
-                px, py = input_mapper.to_avalonia_coords(rect, x, y)
-                self._flush_pointer_move()
-                sent = self.send_message(
-                    {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": "left", "modifiers": modifiers}
-                )
-                if sent:
-                    self._left_button_forwarded = True
-                self._replace_state(last_message=f"PointerDown {px},{py}")
-                self.tag_redraw()
-                return True
-            return False
-
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and (self.capture_input or self._left_button_forwarded):
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": "left", "modifiers": modifiers}
-            )
-            self._left_button_forwarded = False
-            self._replace_state(last_message=f"PointerUp {px},{py}")
-            self.tag_redraw()
-            return True
-
-        if event.type == "MOUSEMOVE" and self.capture_input:
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            self._diagnostics["pointer_move_received"] += 1
-            if self._pending_pointer_move is not None:
-                self._diagnostics["pointer_move_coalesced"] += 1
-            self._pending_pointer_move = {"type": "pointer_move", "seq": 6, "x": px, "y": py, "modifiers": modifiers}
-            return True
-
-        if event.type in {"WHEELUPMOUSE", "WHEELDOWNMOUSE"} and self.capture_input:
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            dx, dy = input_mapper.wheel_delta(event.type)
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": "wheel", "seq": 7, "x": px, "y": py, "delta_x": dx, "delta_y": dy, "modifiers": modifiers}
-            )
-            self._replace_state(last_message=f"Wheel {dy:+.0f}")
-            self.tag_redraw()
-            return True
-
-        if self.capture_input and event.type in input_mapper.KEYBOARD_EVENT_TYPES and event.value in {"PRESS", "RELEASE"}:
-            message_type = "key_down" if event.value == "PRESS" else "key_up"
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": message_type, "seq": 8, "key": event.type, "text": event.unicode or "", "modifiers": modifiers}
-            )
-            if event.value == "PRESS" and event.unicode:
-                self.send_message({"type": "text", "seq": 9, "text": event.unicode})
-            self._replace_state(last_message=f"{message_type} {event.type}")
-            self.tag_redraw()
-            return True
-
-        return False
+        return self.input_router.handle_event(context, event)
 
     def release_capture_input(self):
         self.capture_input = False
@@ -291,14 +197,23 @@ class BridgeController:
 
     def get_overlay_rect(self, context):
         region = context.region
+        window_manager = getattr(context, "window_manager", None)
+        if window_manager is None:
+            window_manager = getattr(getattr(bpy, "data", None), "window_managers", {}).get("WinMan")
+        bridge_state = getattr(window_manager, "avalonia_bridge_state", None) if window_manager is not None else None
+        if bridge_state is not None:
+            self._render_scaling = self._sanitize_render_scaling(getattr(bridge_state, "render_scaling", self._render_scaling))
+        # Input coordinates should map to the logical UI size, not the render resolution.
+        source_width = self._state.width
+        source_height = self._state.height
         dpi_scale = self._overlay_display_scale(context)
         return input_mapper.overlay_rect(
             region.width,
             region.height,
             self._state.width,
             self._state.height,
-            source_width=self._render_width,
-            source_height=self._render_height,
+            source_width=source_width,
+            source_height=source_height,
             offset_x=self._state.overlay_offset_x,
             offset_y=self._state.overlay_offset_y,
             display_scale=dpi_scale,
@@ -516,9 +431,11 @@ class BridgeController:
 
         input_applied_at = header.get("input_applied_at_unix_ms")
         if input_applied_at is not None and diagnostics["last_input_sent_at_ms"] is not None:
-            diagnostics["last_input_to_apply_ms"] = max(0.0, float(input_applied_at) - diagnostics["last_input_sent_at_ms"])
+            diagnostics["last_input_to_apply_ms"] = max(0.0,
+                                                        float(input_applied_at) - diagnostics["last_input_sent_at_ms"])
 
-        for key in ("ui_apply_ms", "capture_frame_ms", "copy_bgra_ms", "linear_convert_ms", "shared_write_ms", "frame_send_ms"):
+        for key in ("ui_apply_ms", "capture_frame_ms", "copy_bgra_ms", "linear_convert_ms", "shared_write_ms",
+                    "frame_send_ms"):
             value = header.get(key)
             if value is not None and diagnostics.get(key) is not None:
                 diagnostics[key].append(float(value))
