@@ -10,6 +10,8 @@ public sealed class BlenderBridgeOptions
 
     public int Height { get; set; } = 600;
 
+    public double RenderScaling { get; set; } = 1.25;
+
     public int TargetFps { get; set; } = 60;
 
     public int IdleHeartbeatFps { get; set; } = 4;
@@ -37,6 +39,7 @@ public sealed class BlenderBridgeOptions
             Port = Port,
             Width = Width,
             Height = Height,
+            RenderScaling = RenderScaling,
             TargetFps = TargetFps,
             IdleHeartbeatFps = IdleHeartbeatFps,
             ContinuousFrameWindowMs = ContinuousFrameWindowMs,
@@ -65,6 +68,11 @@ public sealed class BlenderBridgeOptions
         if (Height <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(Height));
+        }
+
+        if (double.IsNaN(RenderScaling) || double.IsInfinity(RenderScaling) || RenderScaling <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(RenderScaling));
         }
 
         if (TargetFps < 0)

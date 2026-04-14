@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace BlenderAvaloniaBridge;
 
 public enum LaunchMode
@@ -12,6 +14,7 @@ public sealed record CommandLineOptions(
     int Port,
     int Width,
     int Height,
+    double RenderScaling,
     int TargetFps,
     int IdleHeartbeatFps,
     int ContinuousFrameWindowMs,
@@ -46,6 +49,7 @@ public sealed record CommandLineOptions(
             Port: port,
             Width: int.TryParse(values.GetValueOrDefault("width", "800"), out var width) ? width : 800,
             Height: int.TryParse(values.GetValueOrDefault("height", "600"), out var height) ? height : 600,
+            RenderScaling: TryParseDoubleInvariant(values.GetValueOrDefault("render-scaling"), 1.25),
             TargetFps: int.TryParse(values.GetValueOrDefault("target-fps", "60"), out var targetFps) ? targetFps : 60,
             IdleHeartbeatFps: int.TryParse(values.GetValueOrDefault("idle-heartbeat-fps", "4"), out var idleHeartbeatFps) ? idleHeartbeatFps : 4,
             ContinuousFrameWindowMs: int.TryParse(values.GetValueOrDefault("continuous-frame-window-ms", "1000"), out var continuousFrameWindowMs) ? continuousFrameWindowMs : 1000,
@@ -64,6 +68,7 @@ public sealed record CommandLineOptions(
             Port = Port,
             Width = Width,
             Height = Height,
+            RenderScaling = RenderScaling,
             TargetFps = TargetFps,
             IdleHeartbeatFps = IdleHeartbeatFps,
             ContinuousFrameWindowMs = ContinuousFrameWindowMs,
@@ -95,6 +100,7 @@ public sealed record CommandLineOptions(
             "--blender-bridge-port" => "port",
             "--blender-bridge-width" => "width",
             "--blender-bridge-height" => "height",
+            "--blender-bridge-render-scaling" => "render-scaling",
             "--blender-bridge-target-fps" => "target-fps",
             "--blender-bridge-idle-heartbeat-fps" => "idle-heartbeat-fps",
             "--blender-bridge-continuous-frame-window-ms" => "continuous-frame-window-ms",
@@ -116,5 +122,12 @@ public sealed record CommandLineOptions(
     private static bool IsTrue(string? value)
     {
         return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static double TryParseDoubleInvariant(string? value, double fallback)
+    {
+        return double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
     }
 }

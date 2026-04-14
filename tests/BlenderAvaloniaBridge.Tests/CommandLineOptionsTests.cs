@@ -34,6 +34,7 @@ public sealed class CommandLineOptionsTests
             "--blender-bridge-port", "34567",
             "--blender-bridge-width", "1024",
             "--blender-bridge-height", "768",
+            "--blender-bridge-render-scaling", "1.25",
             "--theme", "dark",
         });
 
@@ -42,6 +43,7 @@ public sealed class CommandLineOptionsTests
         Assert.Equal(34567, options.Port);
         Assert.Equal(1024, options.Width);
         Assert.Equal(768, options.Height);
+        Assert.Equal(1.25, options.RenderScaling);
         Assert.Equal(new[] { "--theme", "dark" }, options.AppArgs);
     }
 
