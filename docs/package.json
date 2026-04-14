@@ -1,0 +1,16 @@
+{
+  "name": "blender-avalonia-bridge-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev .",
+    "docs:build": "vitepress build .",
+    "docs:preview": "vitepress preview .",
+    "test": "node --test ./tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "mermaid": "^11.14.0",
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vitepress": "^1.6.4"
+  }
+}

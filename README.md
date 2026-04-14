@@ -2,189 +2,75 @@
 
 Windows-first toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia.
 
-[中文](E:/blender_ava_demo/docs/README.zh-CN.md) | English
+[中文文档](./docs/zh-CN/index.md) | [English Docs](./docs/en/index.md)
 
-## Choose A Path
+## Documentation Site
 
-### Recommended Integration
+The project now ships a VitePress documentation site under [`docs/`](./docs/).
 
-Use this when you are building your own Avalonia app and your own Blender addon.
+Run it locally:
 
-1. Integrate `BlenderAvaloniaBridge.Core` into your Avalonia project.
-2. Copy `src/blender_extension/avalonia_bridge/core/` into your own Blender addon.
-3. Optionally plug in your own message or business handler.
-
-Avalonia side:
-
-```csharp
-using Avalonia;
-using BlenderAvaloniaBridge;
-
-internal static class Program
-{
-    [STAThread]
-    public static async Task<int> Main(string[] args)
-    {
-        var launch = BlenderBridgeLauncher.TryParse(args);
-
-        if (launch.IsBridgeMode)
-        {
-            await BlenderBridgeLauncher.RunBridgeAsync(
-                launch,
-                createBridgeWindow: () => new MainWindow());
-
-            return 0;
-        }
-
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
-        return 0;
-    }
-
-    public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .LogToTrace();
-}
+```powershell
+cd .\docs
+npm install
+npm run docs:dev
 ```
 
-Blender side:
+Build the static site:
 
-```python
-from .core import (
-    BridgeConfig,
-    BridgeController,
-    DefaultBusinessBridgeHandler,
-)
-
-
-controller = BridgeController(
-    BridgeConfig(
-        executable_path="C:/path/to/YourAvaloniaApp.exe",
-        width=1100,
-        height=760,
-        host="127.0.0.1",
-        show_overlay_debug=False,
-    ),
-    business_handler=DefaultBusinessBridgeHandler(),
-    state_callback=lambda snapshot: print(snapshot.last_message),
-)
+```powershell
+cd .\docs
+npm run docs:build
 ```
 
-What you copy into your Blender addon:
+Main entry points:
 
-- `src/blender_extension/avalonia_bridge/core/`
-
-What you do not need to copy:
-
-- `src/blender_extension/avalonia_bridge/panel.py`
-- `src/blender_extension/avalonia_bridge/operators.py`
-- `src/blender_extension/avalonia_bridge/preferences.py`
-- `src/blender_extension/avalonia_bridge/properties.py`
-- `src/blender_extension/avalonia_bridge/runtime.py`
-
-Optional customization points:
-
-- Avalonia side: implement `IBlenderBridgeMessageHost` or `IBlenderBridgeStatusSink`
-- Blender side: replace `DefaultBusinessBridgeHandler` with your own handler
-
-Bridge CLI arguments are intentionally namespaced so they do not collide with your app's own CLI:
-
-- `--blender-bridge true`
-- `--blender-bridge-host 127.0.0.1`
-- `--blender-bridge-port 34567`
-- `--blender-bridge-width 1100`
-- `--blender-bridge-height 760`
-
-### Quick Try With Your Own Avalonia App
-
-Use this when you want to try the bridge without writing your own Blender addon yet.
-
-1. Integrate `BlenderAvaloniaBridge.Core` into your Avalonia project.
-2. Install the current `src/blender_extension/avalonia_bridge/` Blender extension from this repo.
-3. In Blender, point `Avalonia Path` to your Avalonia executable.
-4. Click `Start UI Bridge`.
-
-This is the fastest way to validate:
-
-- process launch
-- connection
-- frame streaming
-- Blender-side overlay and input forwarding
-
-### Preview The Included Sample
-
-Use this when you just want to see the repo working end-to-end.
-
-1. Build the sample Avalonia project in this repo.
-2. Install the current Blender extension in `src/blender_extension/avalonia_bridge/`.
-3. Point the addon to the built sample executable.
-4. Click `Start UI Bridge`.
+- [Overview](./docs/en/guide/what-is.md)
+- [简介](./docs/zh-CN/guide/what-is.md)
+- [Quick Start](./docs/en/guide/quick-start.md)
+- [Blender Integration](./docs/en/integration/blender.md)
+- [Avalonia Integration](./docs/en/integration/avalonia.md)
+- [Project Architecture](./docs/en/advanced/architecture.md)
 
 ## Repo Layout
 
 ```text
 src/
-  BlenderAvaloniaBridge.Core/            reusable Avalonia SDK
-  BlenderAvaloniaBridge.Sample/          sample app and demo UI
+  BlenderAvaloniaBridge.Core/
+  BlenderAvaloniaBridge.Sample/
   blender_extension/
-    avalonia_bridge/                     Blender extension shell used in this repo
-      core/                              copyable Blender bridge core package
+    avalonia_bridge/
+      core/
 tests/
   BlenderAvaloniaBridge.Tests/
   blender_extension/avalonia_bridge/
+docs/
+  .vitepress/
+  zh-CN/
+  en/
 ```
 
-## Build
+## Quick Start
 
-Run from the repository root.
+The fastest end-to-end path is:
 
-Restore:
+1. Publish the sample as AOT from `src/BlenderAvaloniaBridge.Sample`
+2. Add `src/blender_extension` as a local Blender extension repository
+3. Enable `avalonia_bridge`
+4. Point the panel to the published exe and click `Start UI Bridge`
 
-```powershell
-$env:DOTNET_CLI_HOME=(Resolve-Path '.').Path
-dotnet restore .\BlenderAvaloniaBridge.slnx --configfile .\NuGet.Config
-```
+See the full walkthrough in [Quick Start](./docs/en/guide/quick-start.md).
 
-Build the sample app:
+## What It Is
 
-```powershell
-dotnet build .\BlenderAvaloniaBridge.slnx -c Debug
-```
+Blender Avalonia Bridge is a componentized way to use Avalonia inside Blender.
 
-Publish a release exe:
+It is a strong fit for:
 
-```powershell
-dotnet build .\BlenderAvaloniaBridge.slnx -c Release
-dotnet publish .\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj -c Release -r win-x64 --self-contained false -o .\artifacts\publish\release-net10 --configfile .\NuGet.Config
-```
-
-Publish an AOT exe:
-
-```powershell
-dotnet publish .\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj -c Release -r win-x64 -p:PublishAot=true -o .\artifacts\publish\aot-net10 --configfile .\NuGet.Config
-```
-
-Common executable paths:
-
-- `src\BlenderAvaloniaBridge.Sample\bin\Debug\net10.0\BlenderAvaloniaBridge.Sample.exe`
-- `artifacts\publish\release-net10\BlenderAvaloniaBridge.Sample.exe`
-- `artifacts\publish\aot-net10\BlenderAvaloniaBridge.Sample.exe`
-
-Recommended Blender addon path target:
-
-- AOT exe for best performance
-
-## Blender Extension Setup
-
-1. Install the `src/blender_extension/avalonia_bridge/` folder as a Blender extension.
-2. Open `View3D > Sidebar > RenderBuilder`.
-3. Set `Avalonia Path`.
-4. Click `Start UI Bridge`.
-
-## More Docs
-
-- Architecture and protocol notes: [docs/ARCHITECTURE.md](E:/blender_ava_demo/docs/ARCHITECTURE.md)
-- 中文架构说明: [docs/ARCHITECTURE.zh-CN.md](E:/blender_ava_demo/docs/ARCHITECTURE.zh-CN.md)
+- teams that want a distinctive UI without maintaining a Blender GPU drawing stack
+- Avalonia / .NET users who want to reuse the broader .NET ecosystem
+- teams that prefer compiling business code into a native AOT executable instead of shipping Python source
+- teams that are comfortable maintaining both Python and C#
 
 ## Known Limits
 
