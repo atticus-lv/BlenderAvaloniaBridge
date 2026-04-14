@@ -2,11 +2,9 @@
 
 Windows-first toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia.
 
-[中文文档](./docs/zh-CN/index.md) | [English Docs](./docs/en/index.md)
+## Documentation
 
-## GitHub Pages
-
-Documentation site: <https://atticus-lv.github.io/BlenderAvaloniaBridge/>
+<https://atticus-lv.github.io/BlenderAvaloniaBridge/>
 
 ## Repo Layout
 
@@ -26,5 +24,4 @@ docs/
   en/
 ```
 
-See the full walkthrough in [Quick Start](./docs/en/guide/quick-start.md).
 
