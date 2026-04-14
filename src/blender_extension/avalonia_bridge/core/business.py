@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import bpy
-
+from dataclasses import dataclass
 
 OBJECT_RNA_TYPE = "bpy.types.Object"
 SCENE_RNA_TYPE = "bpy.types.Scene"
@@ -78,13 +76,13 @@ class BusinessRequest:
 
     @classmethod
     def response(
-        cls,
-        reply_to,
-        payload=None,
-        ok=True,
-        error=None,
-        business_version=BUSINESS_VERSION,
-        message_id=0,
+            cls,
+            reply_to,
+            payload=None,
+            ok=True,
+            error=None,
+            business_version=BUSINESS_VERSION,
+            message_id=0,
     ):
         return BusinessResponse(
             business_version=business_version,
@@ -269,7 +267,8 @@ class OperatorBridge:
         for selected in previous_selection:
             if bpy.data.objects.get(selected.name) is not None:
                 selected.select_set(True)
-        objects.active = previous_active if previous_active and bpy.data.objects.get(previous_active.name) is not None else None
+        objects.active = previous_active if previous_active and bpy.data.objects.get(
+            previous_active.name) is not None else None
 
 
 class ObjectPropertyBridge:
@@ -493,7 +492,8 @@ class DefaultBusinessEndpoint(BusinessEndpoint):
             return _legacy_to_business_response(request.message_id, legacy, business_version=request.business_version)
 
         if request.name == "object.property.set":
-            if not isinstance(payload.get("target"), dict) or not isinstance(payload.get("data_path"), str) or "value" not in payload:
+            if not isinstance(payload.get("target"), dict) or not isinstance(payload.get("data_path"),
+                                                                             str) or "value" not in payload:
                 return _error_response(
                     "invalid_payload",
                     "object.property.set expects target, data_path, and value.",

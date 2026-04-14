@@ -1,29 +1,29 @@
+import bpy
 import threading
 import time
 from collections import deque
 from dataclasses import replace
 
-import bpy
-
 from . import input as input_mapper
-from .business import DefaultBusinessBridgeHandler, DefaultBusinessEndpoint, EndpointBusinessBridgeHandler
+from .business import DefaultBusinessEndpoint, EndpointBusinessBridgeHandler
 from .config import BridgeConfig
+from .diagnostics import DiagnosticsRecorder
 from .frame_pipeline import FramePipeline
 from .overlay import OverlayDrawer
 from .process import ProcessManager, validate_executable_path
-from .state import BridgeDiagnosticsSnapshot, BridgeStateSnapshot
+from .state import BridgeStateSnapshot
 from .transport import BridgeServer
 
 
 class BridgeController:
     def __init__(
-        self,
-        config,
-        business_endpoint=None,
-        business_handler=None,
-        state_callback=None,
-        process_manager=None,
-        server_factory=BridgeServer,
+            self,
+            config,
+            business_endpoint=None,
+            business_handler=None,
+            state_callback=None,
+            process_manager=None,
+            server_factory=BridgeServer,
     ):
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
         self._state_callback = state_callback
@@ -36,12 +36,13 @@ class BridgeController:
         self.frame_store = self.frame_pipeline.frame_store
         self.image_bridge = self.frame_pipeline.image_bridge
         self.shared_memory_bridge = self.frame_pipeline.shared_memory_bridge
+        self.input_router = input_mapper.InputRouter(self)
         self.drawer = OverlayDrawer(self)
         self.capture_input = False
         self._pending_pointer_move = None
         self._pending_business_packets = deque()
         self._business_lock = threading.Lock()
-        self._diagnostics = self._create_diagnostics()
+        self._diagnostics = DiagnosticsRecorder(now_ms=self._now_ms)
         self._drag_state = None
         self._left_button_forwarded = False
         self._remote_window_mode = "unknown"
@@ -83,7 +84,7 @@ class BridgeController:
     def start(self):
         self.stop()
         path = validate_executable_path(self._config.executable_path)
-        self._diagnostics = self._create_diagnostics()
+        self._diagnostics.reset()
         display_width = max(64, int(self._config.width))
         display_height = max(64, int(self._config.height))
         self._remote_window_mode = "unknown"
@@ -198,9 +199,8 @@ class BridgeController:
                 self.image_bridge.update_from_rgba32f_linear(payload, self._render_width, self._render_height)
             else:
                 self.image_bridge.update_from_bgra(payload, self._render_width, self._render_height)
-            self._record_timing("frame_stage_ms", (time.perf_counter() - update_started) * 1000.0)
-            self._diagnostics["frames_displayed"] += 1
-            self._diagnostics["last_frame_presented_at_ms"] = self._now_ms()
+            self._diagnostics.record_timing("frame_stage_ms", (time.perf_counter() - update_started) * 1000.0)
+            self._diagnostics.record_frame_presented()
             frame_updated = True
         business_updated = self._process_business_packets()
         if frame_updated or business_updated:
@@ -209,101 +209,7 @@ class BridgeController:
     def handle_event(self, context, event):
         if not self._remote_supports_input:
             return False
-        rect = self.get_overlay_rect(context)
-        x = getattr(event, "mouse_region_x", -1)
-        y = getattr(event, "mouse_region_y", -1)
-        inside = input_mapper.contains_content_point(rect, x, y)
-        in_title_bar = input_mapper.contains_title_bar(rect, x, y)
-        modifiers = input_mapper.modifiers_from_event(event)
-        pointer_event_types = {"MOUSEMOVE", "LEFTMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"}
-
-        if event.type == "LEFTMOUSE" and event.value == "PRESS" and in_title_bar:
-            if self.capture_input:
-                self.release_capture_input()
-            self._drag_state = {
-                "mouse_x": x,
-                "mouse_y": y,
-                "offset_x": self._state.overlay_offset_x,
-                "offset_y": self._state.overlay_offset_y,
-            }
-            self._replace_state(last_message="Dragging overlay")
-            self.tag_redraw()
-            return True
-
-        if event.type == "MOUSEMOVE" and self._drag_state is not None:
-            self._replace_state(
-                overlay_offset_x=int(self._drag_state["offset_x"] + (x - self._drag_state["mouse_x"])),
-                overlay_offset_y=int(self._drag_state["offset_y"] + (y - self._drag_state["mouse_y"])),
-            )
-            self.tag_redraw()
-            return True
-
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self._drag_state is not None:
-            self._drag_state = None
-            self._replace_state(last_message="Overlay moved")
-            self.tag_redraw()
-            return True
-
-        if event.type in pointer_event_types:
-            self._sync_hover_capture(inside)
-
-        if event.type == "LEFTMOUSE" and event.value == "PRESS":
-            if inside:
-                px, py = input_mapper.to_avalonia_coords(rect, x, y)
-                self._flush_pointer_move()
-                sent = self.send_message(
-                    {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": "left", "modifiers": modifiers}
-                )
-                if sent:
-                    self._left_button_forwarded = True
-                self._replace_state(last_message=f"PointerDown {px},{py}")
-                self.tag_redraw()
-                return True
-            return False
-
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and (self.capture_input or self._left_button_forwarded):
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": "left", "modifiers": modifiers}
-            )
-            self._left_button_forwarded = False
-            self._replace_state(last_message=f"PointerUp {px},{py}")
-            self.tag_redraw()
-            return True
-
-        if event.type == "MOUSEMOVE" and self.capture_input:
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            self._diagnostics["pointer_move_received"] += 1
-            if self._pending_pointer_move is not None:
-                self._diagnostics["pointer_move_coalesced"] += 1
-            self._pending_pointer_move = {"type": "pointer_move", "seq": 6, "x": px, "y": py, "modifiers": modifiers}
-            return True
-
-        if event.type in {"WHEELUPMOUSE", "WHEELDOWNMOUSE"} and self.capture_input:
-            px, py = input_mapper.to_avalonia_coords(rect, x, y)
-            dx, dy = input_mapper.wheel_delta(event.type)
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": "wheel", "seq": 7, "x": px, "y": py, "delta_x": dx, "delta_y": dy, "modifiers": modifiers}
-            )
-            self._replace_state(last_message=f"Wheel {dy:+.0f}")
-            self.tag_redraw()
-            return True
-
-        if self.capture_input and event.type in input_mapper.KEYBOARD_EVENT_TYPES and event.value in {"PRESS", "RELEASE"}:
-            message_type = "key_down" if event.value == "PRESS" else "key_up"
-            self._flush_pointer_move()
-            self.send_message(
-                {"type": message_type, "seq": 8, "key": event.type, "text": event.unicode or "", "modifiers": modifiers}
-            )
-            if event.value == "PRESS" and event.unicode:
-                self.send_message({"type": "text", "seq": 9, "text": event.unicode})
-            self._replace_state(last_message=f"{message_type} {event.type}")
-            self.tag_redraw()
-            return True
-
-        return False
+        return self.input_router.handle_event(context, event)
 
     def release_capture_input(self):
         self.capture_input = False
@@ -313,24 +219,33 @@ class BridgeController:
 
     def send_message(self, header, payload=b""):
         if self.server is None:
-            self._record_outgoing_message(header, False)
+            self._diagnostics.record_outgoing_message(header, False)
             return False
         message = dict(header)
         message.setdefault("payload_length", len(payload or b""))
         sent = self.server.send(message, payload)
-        self._record_outgoing_message(message, sent)
+        self._diagnostics.record_outgoing_message(message, sent)
         return sent
 
     def get_overlay_rect(self, context):
         region = context.region
+        window_manager = getattr(context, "window_manager", None)
+        if window_manager is None:
+            window_manager = getattr(getattr(bpy, "data", None), "window_managers", {}).get("WinMan")
+        bridge_state = getattr(window_manager, "avalonia_bridge_state", None) if window_manager is not None else None
+        if bridge_state is not None:
+            self._render_scaling = self._sanitize_render_scaling(getattr(bridge_state, "render_scaling", self._render_scaling))
+        # Input coordinates should map to the logical UI size, not the render resolution.
+        source_width = self._state.width
+        source_height = self._state.height
         dpi_scale = self._overlay_display_scale(context)
         return input_mapper.overlay_rect(
             region.width,
             region.height,
             self._state.width,
             self._state.height,
-            source_width=self._render_width,
-            source_height=self._render_height,
+            source_width=source_width,
+            source_height=source_height,
             offset_x=self._state.overlay_offset_x,
             offset_y=self._state.overlay_offset_y,
             display_scale=dpi_scale,
@@ -340,33 +255,9 @@ class BridgeController:
         return replace(self._state)
 
     def diagnostics_snapshot(self):
-        diagnostics = self._diagnostics
-        pointer_received = diagnostics["pointer_move_received"]
-        pointer_coalesced = diagnostics["pointer_move_coalesced"]
-        intervals = diagnostics["frame_intervals_ms"]
-        frame_cadence_ms = sum(intervals) / len(intervals) if intervals else None
-        fps = (1000.0 / frame_cadence_ms) if frame_cadence_ms and frame_cadence_ms > 0.0 else None
-        uptime_s = max(0.0, (self._now_ms() - diagnostics["session_started_at_ms"]) / 1000.0)
-        image_diag = self.image_bridge.diagnostics_snapshot()
-        draw_diag = self.drawer.diagnostics_snapshot()
-        convert_ms = self._avg_timing("linear_convert_ms")
-        if convert_ms is None:
-            convert_ms = self._avg_timing("copy_bgra_ms")
-        return BridgeDiagnosticsSnapshot(
-            mode=self.image_bridge.last_mode,
-            uptime_s=uptime_s,
-            fps=fps,
-            frame_cadence_ms=frame_cadence_ms,
-            last_frame_seq=diagnostics["last_frame_seq"],
-            last_input_type=diagnostics["last_input_type"] or "-",
-            input_to_next_frame_ms=diagnostics["last_input_to_frame_ms"],
-            input_to_apply_ms=diagnostics["last_input_to_apply_ms"],
-            capture_to_blender_recv_ms=diagnostics["last_frame_pipeline_ms"],
-            capture_frame_ms=self._avg_timing("capture_frame_ms"),
-            convert_ms=convert_ms,
-            gpu_upload_ms=image_diag["texture_update_avg_ms"],
-            overlay_draw_ms=draw_diag["draw_avg_ms"],
-            pointer_move_drop_pct=(pointer_coalesced / pointer_received * 100.0) if pointer_received else 0.0,
+        return self._diagnostics.build_snapshot(
+            image_bridge=self.image_bridge,
+            drawer=self.drawer,
             pending_pointer_move=self._pending_pointer_move is not None,
         )
 
@@ -447,15 +338,15 @@ class BridgeController:
                     self._replace_state(last_error=response.get("message", f"{response_type} failed"))
             return response
         if packet_type == "frame":
-            self._record_frame_packet(header, now_ms)
+            self._diagnostics.record_frame_packet(header, now_ms)
             self.frame_pipeline.ingest_frame(header, payload)
             self._replace_state(last_message="Frame received")
         elif packet_type == "frame_ready":
             try:
-                self._record_frame_packet(header, now_ms)
+                self._diagnostics.record_frame_packet(header, now_ms)
                 read_started = time.perf_counter()
                 self.frame_pipeline.ingest_shared_frame(header)
-                self._record_timing("shared_memory_read_ms", (time.perf_counter() - read_started) * 1000.0)
+                self._diagnostics.record_timing("shared_memory_read_ms", (time.perf_counter() - read_started) * 1000.0)
                 self._replace_state(last_message=f"Frame slot {int(header.get('slot', 0))} received")
             except Exception as exc:
                 self._replace_state(last_error=f"Shared memory read failed: {exc}")
@@ -539,93 +430,6 @@ class BridgeController:
         self._pending_pointer_move = None
         return self.send_message(message)
 
-    def _record_outgoing_message(self, header, sent):
-        message_type = header.get("type", "")
-        input_types = {"pointer_move", "pointer_down", "pointer_up", "wheel", "key_down", "key_up", "text"}
-        if message_type == "pointer_move" and sent:
-            self._diagnostics["pointer_move_sent"] += 1
-        if message_type in input_types:
-            if sent:
-                self._diagnostics["events_sent"] += 1
-                self._diagnostics["last_input_sent_at_ms"] = self._now_ms()
-                self._diagnostics["awaiting_input_frame"] = True
-                self._diagnostics["last_input_type"] = message_type
-            else:
-                self._diagnostics["event_send_failures"] += 1
-
-    def _record_frame_packet(self, header, now_ms):
-        packet_type = header.get("type", "")
-        diagnostics = self._diagnostics
-        diagnostics["frames_received"] += 1
-        if packet_type == "frame_ready":
-            diagnostics["frame_ready_received"] += 1
-        previous = diagnostics["last_frame_received_at_ms"]
-        if previous is not None:
-            diagnostics["frame_intervals_ms"].append(now_ms - previous)
-        diagnostics["last_frame_received_at_ms"] = now_ms
-        diagnostics["last_frame_seq"] = int(header.get("seq", 0))
-
-        captured_at = header.get("captured_at_unix_ms")
-        if captured_at is not None:
-            diagnostics["last_frame_pipeline_ms"] = max(0.0, now_ms - float(captured_at))
-
-        sent_at = header.get("sent_at_unix_ms")
-        if sent_at is not None:
-            diagnostics["last_frame_transport_ms"] = max(0.0, now_ms - float(sent_at))
-
-        capture_started_at = header.get("capture_started_at_unix_ms")
-        if capture_started_at is not None:
-            diagnostics["capture_started_to_recv_ms"] = max(0.0, now_ms - float(capture_started_at))
-            if sent_at is not None:
-                diagnostics["capture_started_transport_ms"] = max(0.0, float(sent_at) - float(capture_started_at))
-
-        input_applied_at = header.get("input_applied_at_unix_ms")
-        if input_applied_at is not None and diagnostics["last_input_sent_at_ms"] is not None:
-            diagnostics["last_input_to_apply_ms"] = max(0.0, float(input_applied_at) - diagnostics["last_input_sent_at_ms"])
-
-        for key in ("ui_apply_ms", "capture_frame_ms", "copy_bgra_ms", "linear_convert_ms", "shared_write_ms", "frame_send_ms"):
-            value = header.get(key)
-            if value is not None and diagnostics.get(key) is not None:
-                diagnostics[key].append(float(value))
-
-        if diagnostics["awaiting_input_frame"] and diagnostics["last_input_sent_at_ms"] is not None:
-            diagnostics["last_input_to_frame_ms"] = max(0.0, now_ms - diagnostics["last_input_sent_at_ms"])
-            diagnostics["awaiting_input_frame"] = False
-
-    def _create_diagnostics(self):
-        return {
-            "session_started_at_ms": self._now_ms(),
-            "pointer_move_received": 0,
-            "pointer_move_sent": 0,
-            "pointer_move_coalesced": 0,
-            "events_sent": 0,
-            "event_send_failures": 0,
-            "frames_received": 0,
-            "frame_ready_received": 0,
-            "frames_displayed": 0,
-            "frame_intervals_ms": deque(maxlen=60),
-            "last_frame_received_at_ms": None,
-            "last_frame_presented_at_ms": None,
-            "last_frame_seq": 0,
-            "last_input_sent_at_ms": None,
-            "last_input_type": "",
-            "awaiting_input_frame": False,
-            "last_input_to_frame_ms": None,
-            "last_input_to_apply_ms": None,
-            "last_frame_pipeline_ms": None,
-            "last_frame_transport_ms": None,
-            "capture_started_transport_ms": None,
-            "capture_started_to_recv_ms": None,
-            "shared_memory_read_ms": deque(maxlen=60),
-            "frame_stage_ms": deque(maxlen=60),
-            "ui_apply_ms": deque(maxlen=60),
-            "capture_frame_ms": deque(maxlen=60),
-            "copy_bgra_ms": deque(maxlen=60),
-            "linear_convert_ms": deque(maxlen=60),
-            "shared_write_ms": deque(maxlen=60),
-            "frame_send_ms": deque(maxlen=60),
-        }
-
     @staticmethod
     def _is_business_packet(header):
         return header.get("type") == "business_request"
@@ -633,11 +437,6 @@ class BridgeController:
     @staticmethod
     def _now_ms():
         return time.time() * 1000.0
-
-    def _record_timing(self, key, value_ms):
-        bucket = self._diagnostics.get(key)
-        if bucket is not None:
-            bucket.append(value_ms)
 
     def _check_process_health(self):
         poll_exit = getattr(self.process_manager, "poll_exit", None)
@@ -666,12 +465,6 @@ class BridgeController:
             last_message="Process exited",
         )
         self.tag_redraw()
-
-    def _avg_timing(self, key):
-        bucket = self._diagnostics.get(key)
-        if not bucket:
-            return None
-        return sum(bucket) / len(bucket)
 
     def tag_redraw(self):
         context = getattr(bpy, "context", None)

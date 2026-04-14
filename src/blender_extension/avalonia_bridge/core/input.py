@@ -6,7 +6,6 @@ KEYBOARD_EVENT_TYPES = {
     "LEFT_ARROW", "RIGHT_ARROW", "UP_ARROW", "DOWN_ARROW", "HOME", "END", "ESC",
 }
 
-
 TITLE_BAR_HEIGHT = 28
 
 
@@ -15,17 +14,17 @@ def clamp(value, minimum, maximum):
 
 
 def overlay_rect(
-    region_width,
-    region_height,
-    overlay_width,
-    overlay_height,
-    source_width=None,
-    source_height=None,
-    margin=40,
-    offset_x=0,
-    offset_y=0,
-    title_bar_height=TITLE_BAR_HEIGHT,
-    display_scale=1.0,
+        region_width,
+        region_height,
+        overlay_width,
+        overlay_height,
+        source_width=None,
+        source_height=None,
+        margin=40,
+        offset_x=0,
+        offset_y=0,
+        title_bar_height=TITLE_BAR_HEIGHT,
+        display_scale=1.0,
 ):
     display_scale = max(0.25, float(display_scale))
     scaled_title_bar_height = max(20, int(round(title_bar_height * display_scale)))
@@ -66,15 +65,15 @@ def contains_point(rect, x, y):
 
 def contains_content_point(rect, x, y):
     return (
-        rect["content_x"] <= x <= rect["content_x"] + rect["content_width"]
-        and rect["content_y"] <= y <= rect["content_y"] + rect["content_height"]
+            rect["content_x"] <= x <= rect["content_x"] + rect["content_width"]
+            and rect["content_y"] <= y <= rect["content_y"] + rect["content_height"]
     )
 
 
 def contains_title_bar(rect, x, y):
     return (
-        rect["x"] <= x <= rect["x"] + rect["width"]
-        and rect["title_bar_y"] <= y <= rect["title_bar_y"] + rect["title_bar_height"]
+            rect["x"] <= x <= rect["x"] + rect["width"]
+            and rect["title_bar_y"] <= y <= rect["title_bar_y"] + rect["title_bar_height"]
     )
 
 
@@ -104,3 +103,106 @@ def wheel_delta(event_type):
     if event_type == "WHEELDOWNMOUSE":
         return 0.0, -1.0
     return 0.0, 0.0
+
+
+class InputRouter:
+    def __init__(self, controller):
+        self._controller = controller
+
+    def handle_event(self, context, event):
+        controller = self._controller
+        rect = controller.get_overlay_rect(context)
+        x = getattr(event, "mouse_region_x", -1)
+        y = getattr(event, "mouse_region_y", -1)
+        inside = contains_content_point(rect, x, y)
+        in_title_bar = contains_title_bar(rect, x, y)
+        modifiers = modifiers_from_event(event)
+        pointer_event_types = {"MOUSEMOVE", "LEFTMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"}
+
+        if event.type == "LEFTMOUSE" and event.value == "PRESS" and in_title_bar:
+            if controller.capture_input:
+                controller.release_capture_input()
+            controller._drag_state = {
+                "mouse_x": x,
+                "mouse_y": y,
+                "offset_x": controller._state.overlay_offset_x,
+                "offset_y": controller._state.overlay_offset_y,
+            }
+            controller._replace_state(last_message="Dragging overlay")
+            controller.tag_redraw()
+            return True
+
+        if event.type == "MOUSEMOVE" and controller._drag_state is not None:
+            controller._replace_state(
+                overlay_offset_x=int(controller._drag_state["offset_x"] + (x - controller._drag_state["mouse_x"])),
+                overlay_offset_y=int(controller._drag_state["offset_y"] + (y - controller._drag_state["mouse_y"])),
+            )
+            controller.tag_redraw()
+            return True
+
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and controller._drag_state is not None:
+            controller._drag_state = None
+            controller._replace_state(last_message="Overlay moved")
+            controller.tag_redraw()
+            return True
+
+        if event.type in pointer_event_types:
+            controller._sync_hover_capture(inside)
+
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+            if inside:
+                px, py = to_avalonia_coords(rect, x, y)
+                controller._flush_pointer_move()
+                sent = controller.send_message(
+                    {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": "left", "modifiers": modifiers}
+                )
+                if sent:
+                    controller._left_button_forwarded = True
+                controller._replace_state(last_message=f"PointerDown {px},{py}")
+                controller.tag_redraw()
+                return True
+            return False
+
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and (
+                controller.capture_input or controller._left_button_forwarded):
+            px, py = to_avalonia_coords(rect, x, y)
+            controller._flush_pointer_move()
+            controller.send_message(
+                {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": "left", "modifiers": modifiers}
+            )
+            controller._left_button_forwarded = False
+            controller._replace_state(last_message=f"PointerUp {px},{py}")
+            controller.tag_redraw()
+            return True
+
+        if event.type == "MOUSEMOVE" and controller.capture_input:
+            px, py = to_avalonia_coords(rect, x, y)
+            controller._diagnostics.record_pointer_move_received(controller._pending_pointer_move is not None)
+            controller._pending_pointer_move = {"type": "pointer_move", "seq": 6, "x": px, "y": py,
+                                                "modifiers": modifiers}
+            return True
+
+        if event.type in {"WHEELUPMOUSE", "WHEELDOWNMOUSE"} and controller.capture_input:
+            px, py = to_avalonia_coords(rect, x, y)
+            dx, dy = wheel_delta(event.type)
+            controller._flush_pointer_move()
+            controller.send_message(
+                {"type": "wheel", "seq": 7, "x": px, "y": py, "delta_x": dx, "delta_y": dy, "modifiers": modifiers}
+            )
+            controller._replace_state(last_message=f"Wheel {dy:+.0f}")
+            controller.tag_redraw()
+            return True
+
+        if controller.capture_input and event.type in KEYBOARD_EVENT_TYPES and event.value in {"PRESS", "RELEASE"}:
+            message_type = "key_down" if event.value == "PRESS" else "key_up"
+            controller._flush_pointer_move()
+            controller.send_message(
+                {"type": message_type, "seq": 8, "key": event.type, "text": event.unicode or "", "modifiers": modifiers}
+            )
+            if event.value == "PRESS" and event.unicode:
+                controller.send_message({"type": "text", "seq": 9, "text": event.unicode})
+            controller._replace_state(last_message=f"{message_type} {event.type}")
+            controller.tag_redraw()
+            return True
+
+        return False

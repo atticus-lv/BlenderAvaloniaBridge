@@ -5,8 +5,6 @@ from gpu_extras.batch import batch_for_shader
 from math import cos, pi, sin
 from time import perf_counter
 
-from . import input as input_mapper
-
 
 class OverlayDrawer:
     def __init__(self, runtime):
