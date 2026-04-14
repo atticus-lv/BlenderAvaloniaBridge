@@ -1,5 +1,11 @@
 namespace BlenderAvaloniaBridge;
 
+public enum BridgeWindowMode
+{
+    Headless,
+    Desktop,
+}
+
 public sealed class BlenderBridgeOptions
 {
     public string Host { get; set; } = "127.0.0.1";
@@ -11,6 +17,14 @@ public sealed class BlenderBridgeOptions
     public int Height { get; set; } = 600;
 
     public double RenderScaling { get; set; } = 1.25;
+
+    public BridgeWindowMode WindowMode { get; set; } = BridgeWindowMode.Headless;
+
+    public bool SupportsBusiness { get; set; } = true;
+
+    public bool SupportsFrames { get; set; } = true;
+
+    public bool SupportsInput { get; set; } = true;
 
     public int TargetFps { get; set; } = 60;
 
@@ -31,7 +45,7 @@ public sealed class BlenderBridgeOptions
     internal TimeSpan ContinuousFrameWindow =>
         ContinuousFrameWindowMs > 0 ? TimeSpan.FromMilliseconds(ContinuousFrameWindowMs) : TimeSpan.Zero;
 
-    internal BlenderBridgeOptions Clone()
+    public BlenderBridgeOptions Clone()
     {
         return new BlenderBridgeOptions
         {
@@ -40,6 +54,10 @@ public sealed class BlenderBridgeOptions
             Width = Width,
             Height = Height,
             RenderScaling = RenderScaling,
+            WindowMode = WindowMode,
+            SupportsBusiness = SupportsBusiness,
+            SupportsFrames = SupportsFrames,
+            SupportsInput = SupportsInput,
             TargetFps = TargetFps,
             IdleHeartbeatFps = IdleHeartbeatFps,
             ContinuousFrameWindowMs = ContinuousFrameWindowMs,
@@ -73,6 +91,21 @@ public sealed class BlenderBridgeOptions
         if (double.IsNaN(RenderScaling) || double.IsInfinity(RenderScaling) || RenderScaling <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(RenderScaling));
+        }
+
+        if (!SupportsBusiness && (SupportsFrames || SupportsInput))
+        {
+            throw new ArgumentException("Frames or input cannot be enabled when business transport is disabled.");
+        }
+
+        if (WindowMode == BridgeWindowMode.Desktop && SupportsFrames)
+        {
+            throw new ArgumentException("Desktop window mode does not support frame transport.");
+        }
+
+        if (WindowMode == BridgeWindowMode.Desktop && SupportsInput)
+        {
+            throw new ArgumentException("Desktop window mode does not support remote input injection.");
         }
 
         if (TargetFps < 0)

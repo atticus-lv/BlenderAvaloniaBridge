@@ -9,10 +9,12 @@ using BlenderAvaloniaBridge.Protocol;
 namespace BlenderAvaloniaBridge.Runtime;
 
 internal sealed class HeadlessUiHost
+    : IBridgeUiSession
 {
     private readonly Func<Window> _windowFactory;
     private readonly BlenderBridgeOptions _options;
     private readonly HeadlessRuntimeThread _runtimeThread;
+    private readonly bool _ownsRuntimeThread;
     private IBlenderBridgeStatusSink? _statusSink;
     private IBlenderBridgeMessageHost? _messageHost;
     private IBusinessEndpointSink? _businessEndpointSink;
@@ -24,13 +26,18 @@ internal sealed class HeadlessUiHost
     private DateTimeOffset _continuousFramesUntil = DateTimeOffset.MinValue;
     private bool _animationFrameQueued;
 
+    public bool SupportsFrames => _options.SupportsFrames;
+
+    public bool SupportsInput => _options.SupportsInput;
+
     public event Action? FrameRequested;
 
-    public HeadlessUiHost(HeadlessRuntimeThread runtimeThread, Func<Window> windowFactory, BlenderBridgeOptions options)
+    public HeadlessUiHost(HeadlessRuntimeThread runtimeThread, Func<Window> windowFactory, BlenderBridgeOptions options, bool ownsRuntimeThread = false)
     {
         _runtimeThread = runtimeThread;
         _windowFactory = windowFactory;
         _options = options.Clone();
+        _ownsRuntimeThread = ownsRuntimeThread;
         _width = _options.Width;
         _height = _options.Height;
         _renderScaling = _options.RenderScaling;
@@ -70,33 +77,42 @@ internal sealed class HeadlessUiHost
         });
     }
 
-    public async Task ApplyAsync(ProtocolEnvelope envelope)
+    public async Task DeliverBridgeMessageAsync(ProtocolEnvelope envelope)
     {
         await InitializeAsync();
 
-        if (envelope.Type == "resize" && envelope.Width.HasValue && envelope.Height.HasValue)
-        {
-            _width = envelope.Width.Value;
-            _height = envelope.Height.Value;
-            await _runtimeThread.InvokeAsync(() =>
-            {
-                if (_window is not null)
-                {
-                    _window.Width = _width;
-                    _window.Height = _height;
-                    _statusSink?.SetBridgeStatus($"Resize {_width}x{_height}");
-                    ExtendContinuousFrames(_options.ContinuousFrameWindow);
-                }
-
-                return true;
-            });
-            return;
-        }
-
         await _runtimeThread.InvokeAsync(() =>
         {
-            _inputDispatcher!.DispatchAsync(_window!, envelope).GetAwaiter().GetResult();
-            ExtendContinuousFrames(_options.ContinuousFrameWindow);
+            switch (envelope.Type)
+            {
+                case "resize" when envelope.Width.HasValue && envelope.Height.HasValue:
+                    _width = envelope.Width.Value;
+                    _height = envelope.Height.Value;
+                    if (_window is not null)
+                    {
+                        _window.Width = _width;
+                        _window.Height = _height;
+                        _statusSink?.SetBridgeStatus($"Resize {_width}x{_height}");
+                    }
+
+                    ExtendContinuousFrames(_options.ContinuousFrameWindow);
+                    break;
+                case "pointer_move":
+                case "pointer_down":
+                case "pointer_up":
+                case "wheel":
+                case "key_down":
+                case "key_up":
+                case "text":
+                case "focus":
+                    _inputDispatcher!.DispatchAsync(_window!, envelope).GetAwaiter().GetResult();
+                    ExtendContinuousFrames(_options.ContinuousFrameWindow);
+                    break;
+                default:
+                    _messageHost?.HandleBridgeMessageAsync(envelope).GetAwaiter().GetResult();
+                    break;
+            }
+
             return true;
         });
     }
@@ -138,6 +154,10 @@ internal sealed class HeadlessUiHost
                 Height = ScaleDimension(_height, _renderScaling),
                 PixelFormat = "bgra8",
                 Stride = ScaleDimension(_width, _renderScaling) * 4,
+                WindowMode = "headless",
+                SupportsBusiness = _options.SupportsBusiness,
+                SupportsFrames = _options.SupportsFrames,
+                SupportsInput = _options.SupportsInput,
                 Message = "headless-ready"
             });
     }
@@ -154,24 +174,6 @@ internal sealed class HeadlessUiHost
         {
             _messageHost?.AttachBridgeClient(businessEndpoint as IBlenderBridgeClient);
             _businessEndpointSink?.AttachBusinessEndpoint(businessEndpoint);
-            return true;
-        });
-    }
-
-    public Task AttachBridgeClientAsync(IBlenderBridgeClient bridgeClient)
-    {
-        return _runtimeThread.InvokeAsync(() =>
-        {
-            _messageHost?.AttachBridgeClient(bridgeClient);
-            return true;
-        });
-    }
-
-    public Task DeliverBridgeMessageAsync(ProtocolEnvelope envelope)
-    {
-        return _runtimeThread.InvokeAsync(() =>
-        {
-            _messageHost?.HandleBridgeMessageAsync(envelope).GetAwaiter().GetResult();
             return true;
         });
     }
@@ -280,5 +282,13 @@ internal sealed class HeadlessUiHost
     private static int ScaleDimension(int logicalSize, double renderScaling)
     {
         return Math.Max(1, (int)Math.Round(logicalSize * renderScaling, MidpointRounding.AwayFromZero));
+    }
+
+    public void Dispose()
+    {
+        if (_ownsRuntimeThread)
+        {
+            _runtimeThread.Dispose();
+        }
     }
 }

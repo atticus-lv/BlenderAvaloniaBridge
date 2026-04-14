@@ -18,6 +18,10 @@ class AvaloniaBridgeState(bpy.types.PropertyGroup):
     )
     process_id: bpy.props.IntProperty(name="Process ID", default=0)
     listen_port: bpy.props.IntProperty(name="Listen Port", default=0)
+    remote_window_mode: bpy.props.StringProperty(name="Remote Window Mode", default="unknown")
+    remote_supports_business: bpy.props.BoolProperty(name="Remote Supports Business", default=True)
+    remote_supports_frames: bpy.props.BoolProperty(name="Remote Supports Frames", default=True)
+    remote_supports_input: bpy.props.BoolProperty(name="Remote Supports Input", default=True)
     overlay_offset_x: bpy.props.IntProperty(name="Overlay Offset X", default=0, min=-4096, max=4096)
     overlay_offset_y: bpy.props.IntProperty(name="Overlay Offset Y", default=0, min=-4096, max=4096)
 

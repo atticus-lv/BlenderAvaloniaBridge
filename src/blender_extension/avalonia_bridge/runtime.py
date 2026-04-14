@@ -18,6 +18,14 @@ def apply_state_snapshot(state, snapshot):
         state.overlay_offset_x = int(snapshot.overlay_offset_x)
     if hasattr(state, "overlay_offset_y"):
         state.overlay_offset_y = int(snapshot.overlay_offset_y)
+    if hasattr(state, "remote_window_mode"):
+        state.remote_window_mode = snapshot.remote_window_mode
+    if hasattr(state, "remote_supports_business"):
+        state.remote_supports_business = bool(snapshot.remote_supports_business)
+    if hasattr(state, "remote_supports_frames"):
+        state.remote_supports_frames = bool(snapshot.remote_supports_frames)
+    if hasattr(state, "remote_supports_input"):
+        state.remote_supports_input = bool(snapshot.remote_supports_input)
     return state
 
 
@@ -91,6 +99,10 @@ class BridgeRuntime:
             width=max(64, int(getattr(state, "overlay_width", 1100))),
             height=max(64, int(getattr(state, "overlay_height", 760))),
             render_scaling=float(getattr(state, "render_scaling", 1.25)),
+            window_mode=getattr(preferences, "bridge_transport_mode", "headless"),
+            supports_business=True,
+            supports_frames=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
+            supports_input=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
             host="127.0.0.1",
             show_overlay_debug=bool(getattr(preferences, "show_overlay_debug", False)),
             overlay_offset_x=int(getattr(state, "overlay_offset_x", 0)),

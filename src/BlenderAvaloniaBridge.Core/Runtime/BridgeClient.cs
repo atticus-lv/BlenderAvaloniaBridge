@@ -11,7 +11,7 @@ internal sealed class BridgeClient
     private readonly BlenderBridgeOptions _options;
     private readonly LengthPrefixedConnection _connection;
     private readonly BridgeDiagnosticsCollector? _diagnostics;
-    private readonly HeadlessUiHost _uiHost;
+    private readonly IBridgeUiSession _uiSession;
     private readonly FrameDispatchScheduler _frameScheduler;
     private readonly RemoteBusinessEndpoint _businessEndpoint;
     private readonly SemaphoreSlim _frameSignal = new(0, 1);
@@ -25,17 +25,20 @@ internal sealed class BridgeClient
 
     internal BridgeClient(
         LengthPrefixedConnection connection,
-        HeadlessUiHost uiHost,
+        IBridgeUiSession uiSession,
         BlenderBridgeOptions options,
         BridgeDiagnosticsCollector? diagnostics = null)
     {
         _connection = connection;
-        _uiHost = uiHost;
+        _uiSession = uiSession;
         _options = options.Clone();
         _diagnostics = diagnostics;
         _frameScheduler = new FrameDispatchScheduler(_options.ActiveFrameInterval, _options.IdleHeartbeatInterval);
         _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessEnvelopeAsync);
-        _uiHost.FrameRequested += OnUiFrameRequested;
+        if (_uiSession.SupportsFrames)
+        {
+            _uiSession.FrameRequested += OnUiFrameRequested;
+        }
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -50,21 +53,28 @@ internal sealed class BridgeClient
                 throw new InvalidOperationException($"Expected init packet, got {packet.Header.Type}.");
             }
 
-            if (packet.Header.Width.HasValue && packet.Header.Height.HasValue)
+            await _uiSession.InitializeAsync();
+            await _uiSession.DeliverBridgeMessageAsync(packet.Header);
+
+            var canStreamFrames = _uiSession.SupportsFrames && _options.SupportsFrames;
+            ConfigureSharedMemory(packet.Header, canStreamFrames);
+
+            await WritePacketAsync(_uiSession.CreateInitAck(NextSequence()), cancellationToken);
+            if (_options.SupportsBusiness)
             {
-                await _uiHost.ApplyAsync(packet.Header);
+                await _uiSession.AttachBusinessEndpointAsync(_businessEndpoint);
             }
-            else
+            if (canStreamFrames)
             {
-                await _uiHost.InitializeAsync();
+                await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
+                _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
             }
 
-            ConfigureSharedMemory(packet.Header);
-
-            await WritePacketAsync(_uiHost.CreateInitAck(NextSequence()), cancellationToken);
-            await WriteFrameAsync(await _uiHost.CaptureFrameAsync(NextSequence()), cancellationToken);
-            _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
-            await _uiHost.AttachBusinessEndpointAsync(_businessEndpoint);
+            if (!canStreamFrames)
+            {
+                await RunMessageLoopWithoutFramesAsync(cancellationToken);
+                return;
+            }
 
             while (true)
             {
@@ -81,7 +91,7 @@ internal sealed class BridgeClient
                     {
                         readCts.Cancel();
                         await IgnoreCanceledReadAsync(readTask);
-                        await WriteFrameAsync(await _uiHost.CaptureFrameAsync(NextSequence()), cancellationToken);
+                        await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
                         _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
                         continue;
                     }
@@ -124,27 +134,30 @@ internal sealed class BridgeClient
 
                 if (_frameScheduler.IsFrameDue(DateTimeOffset.UtcNow))
                 {
-                    await WriteFrameAsync(await _uiHost.CaptureFrameAsync(NextSequence()), cancellationToken);
+                    await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
                     _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
                 }
             }
         }
         finally
         {
-            _uiHost.FrameRequested -= OnUiFrameRequested;
+            if (_uiSession.SupportsFrames)
+            {
+                _uiSession.FrameRequested -= OnUiFrameRequested;
+            }
             _sharedMemoryWriter?.Dispose();
             _sharedMemoryWriter = null;
         }
     }
 
-    private void ConfigureSharedMemory(ProtocolEnvelope envelope)
+    private void ConfigureSharedMemory(ProtocolEnvelope envelope, bool canStreamFrames)
     {
         _sharedMemoryWriter?.Dispose();
         _sharedMemoryWriter = null;
         _sharedFrameSize = 0;
         _sharedSlotCount = 0;
 
-        if (!_options.UseSharedMemory || string.IsNullOrWhiteSpace(envelope.SharedMemoryName) || !envelope.FrameSize.HasValue)
+        if (!canStreamFrames || !_options.UseSharedMemory || string.IsNullOrWhiteSpace(envelope.SharedMemoryName) || !envelope.FrameSize.HasValue)
         {
             return;
         }
@@ -163,7 +176,7 @@ internal sealed class BridgeClient
         }
 
         var stopwatch = Stopwatch.StartNew();
-        await _uiHost.ApplyAsync(envelope);
+        await _uiSession.DeliverBridgeMessageAsync(envelope);
         stopwatch.Stop();
 
         if (RequiresFrameForEnvelope(envelope))
@@ -293,5 +306,19 @@ internal sealed class BridgeClient
     private static bool IsBusinessResponse(ProtocolEnvelope envelope)
     {
         return envelope.Type == "business_response";
+    }
+
+    private async Task RunMessageLoopWithoutFramesAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var packet = await _connection.ReadAsync(cancellationToken);
+            if (packet is null)
+            {
+                break;
+            }
+
+            await ApplyEnvelopeAsync(packet.Header);
+        }
     }
 }

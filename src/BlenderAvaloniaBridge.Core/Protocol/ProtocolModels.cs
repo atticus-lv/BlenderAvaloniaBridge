@@ -65,6 +65,18 @@ public sealed class ProtocolEnvelope
     [JsonPropertyName("message")]
     public string? Message { get; set; }
 
+    [JsonPropertyName("window_mode")]
+    public string? WindowMode { get; set; }
+
+    [JsonPropertyName("supports_business")]
+    public bool? SupportsBusiness { get; set; }
+
+    [JsonPropertyName("supports_frames")]
+    public bool? SupportsFrames { get; set; }
+
+    [JsonPropertyName("supports_input")]
+    public bool? SupportsInput { get; set; }
+
     [JsonPropertyName("business_version")]
     public int? BusinessVersion { get; set; }
 

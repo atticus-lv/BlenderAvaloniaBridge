@@ -19,6 +19,7 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
 
         if preferences is not None:
             layout.prop(preferences, "avalonia_executable_path", text="Avalonia Path")
+            layout.prop(preferences, "bridge_transport_mode", text="Mode")
         else:
             warning_box = layout.box()
             warning_box.alert = True
@@ -31,9 +32,7 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
         row.prop(state, "overlay_width", text="W")
         row.prop(state, "overlay_height", text="H")
         size_box.prop(state, "render_scaling", text="Render Scaling")
-        size_box.label(text="The panel auto-fits and can be dragged by its title bar.")
-        size_box.label(text=f"Display size: {state.overlay_width} x {state.overlay_height}")
-        size_box.label(text=f"Rendered at: {state.render_scaling:.2f}x")
+
         if state.process_running:
             size_box.label(text="Restart the bridge after changing size or scaling.")
 
@@ -42,6 +41,10 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
         status_box.label(text=f"Connection: {'Connected' if snapshot.connected else 'Waiting'}")
         status_box.label(text=f"Hover: {'Inside' if snapshot.capture_input else 'Outside'}")
         status_box.label(text=f"Port: {snapshot.listen_port}")
+        status_box.label(text=f"Remote Mode: {snapshot.remote_window_mode}")
+        status_box.label(text=f"Business: {'On' if snapshot.remote_supports_business else 'Off'}")
+        status_box.label(text=f"Frames: {'On' if snapshot.remote_supports_frames else 'Off'}")
+        status_box.label(text=f"Input: {'On' if snapshot.remote_supports_input else 'Off'}")
 
         if snapshot.last_message:
             status_box.label(text=f"Last Message: {snapshot.last_message}")
@@ -55,13 +58,17 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
         diag_box = layout.box()
         diag_box.label(text="Bridge Diagnostics")
         diag_box.label(text=f"Mode: {diagnostics['mode']}")
-        if diagnostics["fps"] is not None and diagnostics["frame_cadence_ms"] is not None:
+        if not snapshot.remote_supports_frames:
+            diag_box.label(text="FPS: disabled")
+        elif diagnostics["fps"] is not None and diagnostics["frame_cadence_ms"] is not None:
             diag_box.label(text=f"FPS: {diagnostics['fps']:.1f} | Cadence: {diagnostics['frame_cadence_ms']:.1f} ms")
         else:
             diag_box.label(text="FPS: waiting")
         diag_box.label(text=f"Last frame seq: {diagnostics['last_frame_seq']}")
         diag_box.label(text=f"Last input: {diagnostics['last_input_type']}")
-        if diagnostics["input_to_next_frame_ms"] is not None:
+        if not snapshot.remote_supports_frames:
+            diag_box.label(text="Input -> next frame: disabled")
+        elif diagnostics["input_to_next_frame_ms"] is not None:
             diag_box.label(text=f"Input -> next frame: {diagnostics['input_to_next_frame_ms']:.1f} ms")
         else:
             diag_box.label(text="Input -> next frame: waiting")

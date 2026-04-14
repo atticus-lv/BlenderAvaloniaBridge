@@ -20,7 +20,7 @@ def validate_executable_path(path_text):
     return path
 
 
-def build_command(executable_path, host, port, width, height, render_scaling):
+def build_command(executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
     path = validate_executable_path(executable_path)
     bridge_args = [
         "--blender-bridge", "true",
@@ -29,6 +29,10 @@ def build_command(executable_path, host, port, width, height, render_scaling):
         "--blender-bridge-width", str(width),
         "--blender-bridge-height", str(height),
         "--blender-bridge-render-scaling", str(render_scaling),
+        "--blender-bridge-window-mode", str(window_mode),
+        "--blender-bridge-supports-business", str(bool(supports_business)).lower(),
+        "--blender-bridge-supports-frames", str(bool(supports_frames)).lower(),
+        "--blender-bridge-supports-input", str(bool(supports_input)).lower(),
     ]
     args = [str(path), *bridge_args]
     if path.suffix.lower() == ".dll":
@@ -40,8 +44,19 @@ class ProcessManager:
     def __init__(self):
         self.process = None
 
-    def start(self, executable_path, host, port, width, height, render_scaling):
-        args, cwd = build_command(executable_path, host, port, width, height, render_scaling)
+    def start(self, executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
+        args, cwd = build_command(
+            executable_path,
+            host,
+            port,
+            width,
+            height,
+            render_scaling,
+            window_mode,
+            supports_business,
+            supports_frames,
+            supports_input,
+        )
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         env = os.environ.copy()
         self.process = subprocess.Popen(

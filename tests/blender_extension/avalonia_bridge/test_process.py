@@ -13,7 +13,18 @@ class ProcessTests(unittest.TestCase):
             executable = Path(temp_dir) / "bridge.exe"
             executable.write_bytes(b"")
 
-            args, cwd = process.build_command(str(executable), "127.0.0.1", 34567, 800, 600, 1.25)
+            args, cwd = process.build_command(
+                str(executable),
+                "127.0.0.1",
+                34567,
+                800,
+                600,
+                1.25,
+                "headless",
+                True,
+                True,
+                True,
+            )
 
         self.assertEqual(str(executable), args[0])
         self.assertEqual(str(executable.parent), cwd)
@@ -22,6 +33,8 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("34567", args)
         self.assertIn("--blender-bridge-render-scaling", args)
         self.assertIn("1.25", args)
+        self.assertIn("--blender-bridge-window-mode", args)
+        self.assertIn("headless", args)
 
 
 if __name__ == "__main__":

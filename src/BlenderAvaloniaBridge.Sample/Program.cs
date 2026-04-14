@@ -14,6 +14,13 @@ internal static class Program
         {
             if (launch.IsBridgeMode)
             {
+                if (launch.GetRequiredBridgeOptions().WindowMode == BridgeWindowMode.Desktop)
+                {
+                    DesktopBridgeLaunchContext.Configure(launch.GetRequiredBridgeOptions());
+                    BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
+                    return 0;
+                }
+
                 await BlenderBridgeLauncher.RunBridgeAsync(
                     launch,
                     createBridgeWindow: () => new MainWindow());

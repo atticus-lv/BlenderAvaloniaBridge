@@ -59,25 +59,31 @@ public sealed class BlenderBridgeHost
         Action<BlenderBridgeDiagnosticsSnapshot>? diagnosticsSink,
         CancellationToken cancellationToken)
     {
-        if (options.UseSharedMemory && !OperatingSystem.IsWindows())
+        if (options.UseSharedMemory && options.SupportsFrames && !OperatingSystem.IsWindows())
         {
             throw new PlatformNotSupportedException("Shared-memory bridge mode is currently supported on Windows only.");
         }
 
-        using var runtimeThread = new HeadlessRuntimeThread();
         using var tcpClient = new TcpClient();
         await tcpClient.ConnectAsync(options.Host, options.Port, cancellationToken);
 
         using var networkStream = tcpClient.GetStream();
-        var diagnostics = options.EnableDiagnostics ? new BridgeDiagnosticsCollector() : null;
+        var diagnostics = options.EnableDiagnostics && options.SupportsFrames ? new BridgeDiagnosticsCollector() : null;
         var connection = new LengthPrefixedConnection(networkStream);
-        var uiHost = new HeadlessUiHost(runtimeThread, windowFactory, options);
-        var bridgeClient = new BridgeClient(connection, uiHost, options, diagnostics);
+        using var uiSession = CreateUiSession(windowFactory, options);
+        var bridgeClient = new BridgeClient(connection, uiSession, options, diagnostics);
 
         await bridgeClient.RunAsync(cancellationToken);
         if (diagnostics is not null)
         {
             diagnosticsSink?.Invoke(diagnostics.CreateSnapshot());
         }
+    }
+
+    private static IBridgeUiSession CreateUiSession(Func<Window> windowFactory, BlenderBridgeOptions options)
+    {
+        return options.WindowMode == BridgeWindowMode.Desktop
+            ? new DesktopWindowUiSession(windowFactory, options)
+            : new HeadlessUiHost(new HeadlessRuntimeThread(), windowFactory, options, ownsRuntimeThread: true);
     }
 }

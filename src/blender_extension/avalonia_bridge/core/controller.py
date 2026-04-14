@@ -44,12 +44,20 @@ class BridgeController:
         self._diagnostics = self._create_diagnostics()
         self._drag_state = None
         self._left_button_forwarded = False
+        self._remote_window_mode = "unknown"
+        self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
+        self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
+        self._remote_supports_input = bool(getattr(self._config, "supports_input", True))
         self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
         self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
         self._render_height = self._scale_dimension(self._config.height, self._render_scaling)
         self._state = BridgeStateSnapshot(
             width=max(64, int(self._config.width)),
             height=max(64, int(self._config.height)),
+            remote_window_mode=self._remote_window_mode,
+            remote_supports_business=self._remote_supports_business,
+            remote_supports_frames=self._remote_supports_frames,
+            remote_supports_input=self._remote_supports_input,
             overlay_offset_x=int(self._config.overlay_offset_x),
             overlay_offset_y=int(self._config.overlay_offset_y),
         )
@@ -78,10 +86,15 @@ class BridgeController:
         self._diagnostics = self._create_diagnostics()
         display_width = max(64, int(self._config.width))
         display_height = max(64, int(self._config.height))
+        self._remote_window_mode = "unknown"
+        self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
+        self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
+        self._remote_supports_input = bool(getattr(self._config, "supports_input", True))
         self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
         self._render_width = self._scale_dimension(display_width, self._render_scaling)
         self._render_height = self._scale_dimension(display_height, self._render_scaling)
-        self.frame_pipeline.create_shared_memory(self._render_width, self._render_height)
+        if self._config.supports_frames:
+            self.frame_pipeline.create_shared_memory(self._render_width, self._render_height)
         self.server = self._server_factory(
             host=self._config.host,
             on_packet=self._on_packet,
@@ -97,6 +110,10 @@ class BridgeController:
             display_width,
             display_height,
             self._render_scaling,
+            self._config.window_mode,
+            self._config.supports_business,
+            self._config.supports_frames,
+            self._config.supports_input,
         )
         self.capture_input = False
         self._pending_pointer_move = None
@@ -114,13 +131,18 @@ class BridgeController:
             last_message="Process launched",
             width=display_width,
             height=display_height,
+            remote_window_mode=self._remote_window_mode,
+            remote_supports_business=self._remote_supports_business,
+            remote_supports_frames=self._remote_supports_frames,
+            remote_supports_input=self._remote_supports_input,
             overlay_offset_x=int(self._config.overlay_offset_x),
             overlay_offset_y=int(self._config.overlay_offset_y),
         )
-        try:
-            self.drawer.ensure_handler()
-        except Exception as exc:
-            self._replace_state(last_error=str(exc))
+        if self._config.supports_frames:
+            try:
+                self.drawer.ensure_handler()
+            except Exception as exc:
+                self._replace_state(last_error=str(exc))
         self.tag_redraw()
         return process
 
@@ -140,6 +162,10 @@ class BridgeController:
             self._pending_business_packets.clear()
         self._drag_state = None
         self._left_button_forwarded = False
+        self._remote_window_mode = "unknown"
+        self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
+        self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
+        self._remote_supports_input = bool(getattr(self._config, "supports_input", True))
         self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
         self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
         self._render_height = self._scale_dimension(self._config.height, self._render_scaling)
@@ -149,6 +175,10 @@ class BridgeController:
             capture_input=False,
             process_id=0,
             listen_port=0,
+            remote_window_mode=self._remote_window_mode,
+            remote_supports_business=self._remote_supports_business,
+            remote_supports_frames=self._remote_supports_frames,
+            remote_supports_input=self._remote_supports_input,
         )
         self.tag_redraw()
 
@@ -177,6 +207,8 @@ class BridgeController:
             self.tag_redraw()
 
     def handle_event(self, context, event):
+        if not self._remote_supports_input:
+            return False
         rect = self.get_overlay_rect(context)
         x = getattr(event, "mouse_region_x", -1)
         y = getattr(event, "mouse_region_y", -1)
@@ -340,38 +372,51 @@ class BridgeController:
 
     def status_line(self):
         connection = "connected" if self._state.connected else "waiting"
-        capture = "hover active" if self._state.capture_input else "hover idle"
-        path = self.image_bridge.last_mode
+        frame_status = "frame streaming" if self._remote_supports_frames else "business only"
+        input_status = "input enabled" if self._remote_supports_input else "input disabled"
+        path = self.image_bridge.last_mode if self._remote_supports_frames else "no-frame"
         suffix = f" | {self.image_bridge.last_error}" if self.image_bridge.last_error else ""
         return (
             f"Display {self._state.width}x{self._state.height}"
             f" <- Render {self._render_width}x{self._render_height}"
-            f" | {connection} | {capture} | {path}{suffix}"
+            f" | {connection} | {frame_status} | {input_status} | {path}{suffix}"
         )
 
     def _on_connect(self, _server):
         self._replace_state(connected=True, last_message="Avalonia connected")
-        self.send_message(
-            {
-                "type": "init",
-                "seq": 1,
-                "width": self._render_width,
-                "height": self._render_height,
-                "pixel_format": "rgba32f_linear",
-                "stride": self._render_width * 16,
-                "shm_name": self.shared_memory_bridge.name,
-                "frame_size": self.shared_memory_bridge.frame_size,
-                "slot_count": self.shared_memory_bridge.slot_count,
-                "payload_length": 0,
-                "message": "blender-ready",
-            }
-        )
+        init_message = {
+            "type": "init",
+            "seq": 1,
+            "width": self._render_width,
+            "height": self._render_height,
+            "window_mode": self._config.window_mode,
+            "supports_business": bool(self._config.supports_business),
+            "supports_frames": bool(self._config.supports_frames),
+            "supports_input": bool(self._config.supports_input),
+            "payload_length": 0,
+            "message": "blender-ready",
+        }
+        if self._config.supports_frames:
+            init_message.update(
+                {
+                    "pixel_format": "rgba32f_linear",
+                    "stride": self._render_width * 16,
+                    "shm_name": self.shared_memory_bridge.name,
+                    "frame_size": self.shared_memory_bridge.frame_size,
+                    "slot_count": self.shared_memory_bridge.slot_count,
+                }
+            )
+        self.send_message(init_message)
         self.tag_redraw()
 
     def _on_disconnect(self):
         self.capture_input = False
         self._pending_pointer_move = None
         self._left_button_forwarded = False
+        self._remote_window_mode = "unknown"
+        self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
+        self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
+        self._remote_supports_input = bool(getattr(self._config, "supports_input", True))
         self._replace_state(connected=False, capture_input=False, last_message="Avalonia disconnected")
         self.tag_redraw()
 
@@ -415,7 +460,27 @@ class BridgeController:
             except Exception as exc:
                 self._replace_state(last_error=f"Shared memory read failed: {exc}")
         elif packet_type == "init":
-            self._replace_state(last_message=header.get("message", "Init acknowledged"))
+            self._remote_window_mode = header.get("window_mode", "unknown")
+            self._remote_supports_business = bool(header.get("supports_business", True))
+            self._remote_supports_frames = bool(header.get("supports_frames", True))
+            self._remote_supports_input = bool(header.get("supports_input", True))
+            if self._remote_supports_frames and self._config.supports_frames:
+                try:
+                    self.drawer.ensure_handler()
+                except Exception as exc:
+                    self._replace_state(last_error=str(exc))
+            else:
+                try:
+                    self.drawer.remove_handler()
+                except Exception:
+                    pass
+            self._replace_state(
+                last_message=header.get("message", "Init acknowledged"),
+                remote_window_mode=self._remote_window_mode,
+                remote_supports_business=self._remote_supports_business,
+                remote_supports_frames=self._remote_supports_frames,
+                remote_supports_input=self._remote_supports_input,
+            )
         elif packet_type == "error":
             self._replace_state(last_error=header.get("message", "Avalonia reported an error"))
         if packet_type not in {"frame", "frame_ready"}:

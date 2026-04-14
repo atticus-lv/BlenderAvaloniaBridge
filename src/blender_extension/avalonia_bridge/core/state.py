@@ -13,6 +13,10 @@ class BridgeStateSnapshot:
     last_message: str = ""
     width: int = 1100
     height: int = 760
+    remote_window_mode: str = "unknown"
+    remote_supports_business: bool = True
+    remote_supports_frames: bool = True
+    remote_supports_input: bool = True
     overlay_offset_x: int = 0
     overlay_offset_y: int = 0
 

@@ -44,7 +44,45 @@ public sealed class CommandLineOptionsTests
         Assert.Equal(1024, options.Width);
         Assert.Equal(768, options.Height);
         Assert.Equal(1.25, options.RenderScaling);
+        Assert.Equal(BridgeWindowMode.Headless, options.WindowMode);
+        Assert.True(options.SupportsBusiness);
+        Assert.True(options.SupportsFrames);
+        Assert.True(options.SupportsInput);
         Assert.Equal(new[] { "--theme", "dark" }, options.AppArgs);
+    }
+
+    [Fact]
+    public void Parse_WithDesktopBridgeArguments_UsesDesktopBusinessCapabilities()
+    {
+        var options = CommandLineOptions.Parse(new[]
+        {
+            "--blender-bridge", "true",
+            "--blender-bridge-window-mode", "desktop",
+            "--blender-bridge-supports-business", "true",
+            "--blender-bridge-supports-frames", "false",
+            "--blender-bridge-supports-input", "false",
+        });
+
+        Assert.Equal(LaunchMode.BlenderBridge, options.Mode);
+        Assert.Equal(BridgeWindowMode.Desktop, options.WindowMode);
+        Assert.True(options.SupportsBusiness);
+        Assert.False(options.SupportsFrames);
+        Assert.False(options.SupportsInput);
+    }
+
+    [Fact]
+    public void Parse_WithDesktopWindowModeDefaultsFramesAndInputToFalse()
+    {
+        var options = CommandLineOptions.Parse(new[]
+        {
+            "--blender-bridge", "true",
+            "--blender-bridge-window-mode", "desktop",
+        });
+
+        Assert.Equal(BridgeWindowMode.Desktop, options.WindowMode);
+        Assert.True(options.SupportsBusiness);
+        Assert.False(options.SupportsFrames);
+        Assert.False(options.SupportsInput);
     }
 
     [Fact]

@@ -31,11 +31,21 @@ class AvaloniaBridgeAddonPreferences(bpy.types.AddonPreferences):
         description="Show debug text in the GPU overlay",
         default=False,
     )
+    bridge_transport_mode: bpy.props.EnumProperty(
+        name="Bridge Mode",
+        description="Choose whether to stream a headless overlay or open a real Avalonia window with business-only transport",
+        items=(
+            ("headless", "Headless Frames + Input", "Use headless rendering with frame streaming and pointer/keyboard input"),
+            ("desktop", "Desktop Business Only", "Open a real Avalonia window and use only business transport"),
+        ),
+        default="headless",
+    )
 
     def draw(self, _context):
         layout = self.layout
         layout.label(text="Avalonia UI Bridge")
         layout.prop(self, "avalonia_executable_path")
+        layout.prop(self, "bridge_transport_mode")
         box = layout.box()
         box.label(text="Display")
         box.prop(self, "show_diagnostics_json")
