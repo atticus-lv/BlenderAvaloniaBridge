@@ -1,3 +1,9 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .controller import BridgeController, OverlayRect
+
+
 KEYBOARD_EVENT_TYPES = {
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
     "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
@@ -9,23 +15,23 @@ KEYBOARD_EVENT_TYPES = {
 TITLE_BAR_HEIGHT = 28
 
 
-def clamp(value, minimum, maximum):
+def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
 
 
 def overlay_rect(
-        region_width,
-        region_height,
-        overlay_width,
-        overlay_height,
-        source_width=None,
-        source_height=None,
-        margin=40,
-        offset_x=0,
-        offset_y=0,
-        title_bar_height=TITLE_BAR_HEIGHT,
-        display_scale=1.0,
-):
+    region_width: int,
+    region_height: int,
+    overlay_width: int,
+    overlay_height: int,
+    source_width: int | None = None,
+    source_height: int | None = None,
+    margin: int = 40,
+    offset_x: int = 0,
+    offset_y: int = 0,
+    title_bar_height: int = TITLE_BAR_HEIGHT,
+    display_scale: float = 1.0,
+) -> "OverlayRect":
     display_scale = max(0.25, float(display_scale))
     scaled_title_bar_height = max(20, int(round(title_bar_height * display_scale)))
     desired_width = max(64.0, float(overlay_width) * display_scale)
@@ -59,25 +65,25 @@ def overlay_rect(
     }
 
 
-def contains_point(rect, x, y):
+def contains_point(rect: "OverlayRect", x: int, y: int) -> bool:
     return rect["x"] <= x <= rect["x"] + rect["width"] and rect["y"] <= y <= rect["y"] + rect["height"]
 
 
-def contains_content_point(rect, x, y):
+def contains_content_point(rect: "OverlayRect", x: int, y: int) -> bool:
     return (
             rect["content_x"] <= x <= rect["content_x"] + rect["content_width"]
             and rect["content_y"] <= y <= rect["content_y"] + rect["content_height"]
     )
 
 
-def contains_title_bar(rect, x, y):
+def contains_title_bar(rect: "OverlayRect", x: int, y: int) -> bool:
     return (
             rect["x"] <= x <= rect["x"] + rect["width"]
             and rect["title_bar_y"] <= y <= rect["title_bar_y"] + rect["title_bar_height"]
     )
 
 
-def to_avalonia_coords(rect, x, y):
+def to_avalonia_coords(rect: "OverlayRect", x: int, y: int) -> tuple[int, int]:
     normalized_x = clamp((x - rect["content_x"]) / max(1, rect["content_width"]), 0.0, 0.999999)
     normalized_y = clamp((y - rect["content_y"]) / max(1, rect["content_height"]), 0.0, 0.999999)
     local_x = int(normalized_x * max(1, rect.get("source_width", rect["width"])))
@@ -86,7 +92,7 @@ def to_avalonia_coords(rect, x, y):
     return local_x, local_y
 
 
-def modifiers_from_event(event):
+def modifiers_from_event(event) -> list[str]:
     modifiers = []
     if getattr(event, "shift", False):
         modifiers.append("shift")
@@ -97,7 +103,7 @@ def modifiers_from_event(event):
     return modifiers
 
 
-def wheel_delta(event_type):
+def wheel_delta(event_type: str) -> tuple[float, float]:
     if event_type == "WHEELUPMOUSE":
         return 0.0, 1.0
     if event_type == "WHEELDOWNMOUSE":
@@ -106,10 +112,10 @@ def wheel_delta(event_type):
 
 
 class InputRouter:
-    def __init__(self, controller):
+    def __init__(self, controller: "BridgeController") -> None:
         self._controller = controller
 
-    def handle_event(self, context, event):
+    def handle_event(self, context, event) -> bool:
         controller = self._controller
         rect = controller.get_overlay_rect(context)
         x = getattr(event, "mouse_region_x", -1)
