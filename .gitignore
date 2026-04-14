@@ -3,6 +3,7 @@ bin/
 artifacts/
 .dotnet/
 .nuget-home/
+.appdata/
 .nuget/
 .idea/
 __pycache__/
