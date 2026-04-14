@@ -1,13 +1,22 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import TypedDict
+
+
+CommandLine = list[str]
+
+
+class ProcessExitReport(TypedDict):
+    returncode: int
+    stderr: str
 
 
 class ProcessLaunchError(RuntimeError):
     pass
 
 
-def validate_executable_path(path_text):
+def validate_executable_path(path_text: str) -> Path:
     path = Path(path_text).expanduser()
     if not path_text:
         raise ProcessLaunchError("Avalonia executable path is empty.")
@@ -20,7 +29,18 @@ def validate_executable_path(path_text):
     return path
 
 
-def build_command(executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
+def build_command(
+    executable_path: str,
+    host: str,
+    port: int,
+    width: int,
+    height: int,
+    render_scaling: float,
+    window_mode: str,
+    supports_business: bool,
+    supports_frames: bool,
+    supports_input: bool,
+) -> tuple[CommandLine, str]:
     path = validate_executable_path(executable_path)
     bridge_args = [
         "--blender-bridge", "true",
@@ -42,9 +62,21 @@ def build_command(executable_path, host, port, width, height, render_scaling, wi
 
 class ProcessManager:
     def __init__(self):
-        self.process = None
+        self.process: subprocess.Popen[str] | None = None
 
-    def start(self, executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
+    def start(
+        self,
+        executable_path: str,
+        host: str,
+        port: int,
+        width: int,
+        height: int,
+        render_scaling: float,
+        window_mode: str,
+        supports_business: bool,
+        supports_frames: bool,
+        supports_input: bool,
+    ) -> subprocess.Popen[str]:
         args, cwd = build_command(
             executable_path,
             host,
@@ -84,7 +116,7 @@ class ProcessManager:
             process.kill()
             process.wait(timeout=3)
 
-    def poll_exit(self):
+    def poll_exit(self) -> ProcessExitReport | None:
         process = self.process
         if process is None:
             return None
