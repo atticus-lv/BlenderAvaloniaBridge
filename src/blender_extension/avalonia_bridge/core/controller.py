@@ -349,7 +349,10 @@ class BridgeController:
         self.tag_redraw()
 
     def _on_error(self, exc):
-        self._replace_state(last_error=str(exc))
+        message = str(exc)
+        if exc.__class__.__name__ == "ProtocolViolationError":
+            message = f"Protocol violation: {message}"
+        self._replace_state(last_error=message)
         self.tag_redraw()
 
     def _on_packet(self, header: Mapping[str, object], payload: bytes):

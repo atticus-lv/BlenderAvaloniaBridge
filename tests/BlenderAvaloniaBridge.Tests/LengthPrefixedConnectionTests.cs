@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text.Json;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Transport;
 using Xunit;
@@ -65,5 +66,88 @@ public sealed class LengthPrefixedConnectionTests
         Assert.Equal(2, actual.Header.Width);
         Assert.Equal(8, actual.Payload.Length);
         Assert.Equal(expected.Payload, actual.Payload);
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsOversizedHeaderLength()
+    {
+        await using var stream = new MemoryStream();
+        Span<byte> prefix = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt32LittleEndian(prefix[..4], (uint)(LengthPrefixedConnection.MaxHeaderBytes + 1));
+        BinaryPrimitives.WriteUInt32LittleEndian(prefix[4..], 0);
+        await stream.WriteAsync(prefix.ToArray());
+        stream.Position = 0;
+
+        var connection = new LengthPrefixedConnection(stream);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => connection.ReadAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsOversizedControlPayload()
+    {
+        var packetBytes = BuildPrefixAndHeaderOnly(
+            new ProtocolEnvelope
+            {
+                Type = "init",
+                Seq = 1,
+            },
+            (uint)(LengthPrefixedConnection.MaxControlPayloadBytes + 1));
+
+        await using var stream = new MemoryStream(packetBytes);
+        var connection = new LengthPrefixedConnection(stream);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => connection.ReadAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsFrameReadyPayload()
+    {
+        var packetBytes = BuildPrefixAndHeaderOnly(
+            new ProtocolEnvelope
+            {
+                Type = "frame_ready",
+                Seq = 1,
+                Width = 64,
+                Height = 64,
+                Stride = 256,
+            },
+            payloadLength: 4);
+
+        await using var stream = new MemoryStream(packetBytes);
+        var connection = new LengthPrefixedConnection(stream);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => connection.ReadAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReadAsync_RejectsFramePayloadStrideMismatch()
+    {
+        var packetBytes = BuildPrefixAndHeaderOnly(
+            new ProtocolEnvelope
+            {
+                Type = "frame",
+                Seq = 1,
+                Width = 2,
+                Height = 1,
+                PixelFormat = "bgra8",
+                Stride = 8,
+            },
+            payloadLength: 4);
+
+        await using var stream = new MemoryStream(packetBytes);
+        var connection = new LengthPrefixedConnection(stream);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => connection.ReadAsync(CancellationToken.None));
+    }
+
+    private static byte[] BuildPrefixAndHeaderOnly(ProtocolEnvelope header, uint payloadLength)
+    {
+        var headerBytes = JsonSerializer.SerializeToUtf8Bytes(header, ProtocolJsonContext.Default.ProtocolEnvelope);
+        var result = new byte[8 + headerBytes.Length];
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(0, 4), (uint)headerBytes.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(4, 4), payloadLength);
+        headerBytes.CopyTo(result.AsSpan(8));
+        return result;
     }
 }
