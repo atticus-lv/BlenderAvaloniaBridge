@@ -12,7 +12,7 @@ def default_executable_hint():
     return str(repo_root / "src" / "BlenderAvaloniaBridge.Sample" / "bin" / "Debug" / "net10.0" / "BlenderAvaloniaBridge.Sample.exe")
 
 
-class RenderBuilderAddonPreferences(bpy.types.AddonPreferences):
+class AvaloniaBridgeAddonPreferences(bpy.types.AddonPreferences):
     bl_idname = PACKAGE_NAME or PACKAGE_BASENAME
 
     avalonia_executable_path: bpy.props.StringProperty(
@@ -23,7 +23,7 @@ class RenderBuilderAddonPreferences(bpy.types.AddonPreferences):
     )
     show_diagnostics_json: bpy.props.BoolProperty(
         name="Show Diagnostics JSON",
-        description="Show the pretty JSON diagnostics block in the RenderBuilder panel",
+        description="Show the pretty JSON diagnostics block in the AvaloniaBridgeDemo panel",
         default=False,
     )
     show_overlay_debug: bpy.props.BoolProperty(
@@ -43,7 +43,7 @@ class RenderBuilderAddonPreferences(bpy.types.AddonPreferences):
 
 
 CLASSES = (
-    RenderBuilderAddonPreferences,
+    AvaloniaBridgeAddonPreferences,
 )
 
 

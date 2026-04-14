@@ -4,16 +4,16 @@ from .preferences import get_preferences
 from .runtime import get_runtime
 
 
-class VIEW3D_PT_renderbuilder_bridge(bpy.types.Panel):
-    bl_label = "RenderBuilder"
+class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
+    bl_label = "AvaloniaBridgeDemo"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "RenderBuilder"
+    bl_category = "AvaloniaBridgeDemo"
 
     def draw(self, context):
         layout = self.layout
         runtime = get_runtime()
-        state = context.window_manager.renderbuilder_bridge_state
+        state = context.window_manager.avalonia_bridge_state
         snapshot = runtime.state_snapshot(context)
         preferences = get_preferences(context)
 
@@ -73,12 +73,12 @@ class VIEW3D_PT_renderbuilder_bridge(bpy.types.Panel):
                 json_box.label(text=line)
 
         row = layout.row(align=True)
-        row.operator("renderbuilder.start_ui_bridge", text="Start UI Bridge")
-        row.operator("renderbuilder.stop_ui_bridge", text="Stop UI Bridge")
+        row.operator("avalonia_bridge.start_ui_bridge", text="Start UI Bridge")
+        row.operator("avalonia_bridge.stop_ui_bridge", text="Stop UI Bridge")
 
 
 CLASSES = (
-    VIEW3D_PT_renderbuilder_bridge,
+    VIEW3D_PT_avalonia_bridge,
 )
 
 

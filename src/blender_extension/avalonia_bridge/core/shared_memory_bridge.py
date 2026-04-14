@@ -26,7 +26,7 @@ class SharedMemoryBridge:
 
     def create(self, frame_size, slot_count=2):
         self.close()
-        mapping_name = f"RenderBuilderFrame_{os.getpid()}_{int(time.time() * 1000)}"
+        mapping_name = f"AvaloniaBridgeFrame_{os.getpid()}_{int(time.time() * 1000)}"
         mapping_size = frame_size * slot_count
         self._mapping = mmap.mmap(-1, mapping_size, tagname=mapping_name, access=mmap.ACCESS_WRITE)
         self._name = mapping_name

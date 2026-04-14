@@ -6,7 +6,7 @@ from time import perf_counter
 
 
 class ImageBridge:
-    IMAGE_NAME = "RenderBuilderAvaloniaBridge"
+    IMAGE_NAME = "AvaloniaBridgeAvaloniaBridge"
 
     def __init__(self):
         self._image = None

@@ -28,7 +28,7 @@ Then enable the `avalonia_bridge` extension from that repository.
 
 After enabling the extension:
 
-1. Open `View3D > Sidebar > RenderBuilder`
+1. Open `View3D > Sidebar > AvaloniaBridgeDemo`
 2. Set `Avalonia Executable` to the published AOT exe
 3. Click `Start UI Bridge`
 

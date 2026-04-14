@@ -36,7 +36,7 @@ def install_fake_blender_modules():
         scene=types.SimpleNamespace(name="Scene", objects=[]),
         screen=types.SimpleNamespace(areas=[]),
         view_layer=types.SimpleNamespace(objects=types.SimpleNamespace(active=None)),
-        window_manager=types.SimpleNamespace(windows=[], renderbuilder_bridge_state=None),
+        window_manager=types.SimpleNamespace(windows=[], avalonia_bridge_state=None),
         preferences=types.SimpleNamespace(
             addons={},
             system=types.SimpleNamespace(dpi=96),

@@ -45,7 +45,7 @@ class BridgeServer:
         self._server_socket.settimeout(0.2)
         self.port = self._server_socket.getsockname()[1]
         self._running = True
-        self._thread = threading.Thread(target=self._run, name="RenderBuilderBridgeServer", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="AvaloniaBridgeServer", daemon=True)
         self._thread.start()
 
     def stop(self):

@@ -105,7 +105,7 @@ class BridgeRuntime:
         bpy = __import__("bpy")
         active_context = context or getattr(bpy, "context", None)
         window_manager = getattr(active_context, "window_manager", None)
-        return getattr(window_manager, "renderbuilder_bridge_state", None)
+        return getattr(window_manager, "avalonia_bridge_state", None)
 
     def _resolve_preferences(self, context=None):
         if context is None:

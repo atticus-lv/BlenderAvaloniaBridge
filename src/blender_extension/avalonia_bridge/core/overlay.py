@@ -129,7 +129,7 @@ class OverlayDrawer:
         shader_info.vertex_in(0, "VEC2", "position")
         shader_info.vertex_in(1, "VEC2", "uv")
 
-        interface = gpu.types.GPUStageInterfaceInfo("renderbuilder_image_interface")
+        interface = gpu.types.GPUStageInterfaceInfo("AvaloniaBridge_image_interface")
         interface.smooth("VEC2", "uvInterp")
         interface.smooth("VEC2", "screenPosInterp")
         shader_info.vertex_out(interface)
@@ -177,7 +177,7 @@ class OverlayDrawer:
         shader_info.push_constant("VEC4", "shadowColor")
         shader_info.vertex_in(0, "VEC2", "position")
 
-        interface = gpu.types.GPUStageInterfaceInfo("renderbuilder_shadow_interface")
+        interface = gpu.types.GPUStageInterfaceInfo("AvaloniaBridge_shadow_interface")
         interface.smooth("VEC2", "screenPosInterp")
         shader_info.vertex_out(interface)
         shader_info.fragment_out(0, "VEC4", "FragColor")

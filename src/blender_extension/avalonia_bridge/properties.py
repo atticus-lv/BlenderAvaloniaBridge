@@ -1,7 +1,7 @@
 import bpy
 
 
-class RenderBuilderBridgeState(bpy.types.PropertyGroup):
+class AvaloniaBridgeState(bpy.types.PropertyGroup):
     process_running: bpy.props.BoolProperty(name="Process Running", default=False)
     connected: bpy.props.BoolProperty(name="Connected", default=False)
     capture_input: bpy.props.BoolProperty(name="Capture Input", default=False)
@@ -16,17 +16,17 @@ class RenderBuilderBridgeState(bpy.types.PropertyGroup):
 
 
 CLASSES = (
-    RenderBuilderBridgeState,
+    AvaloniaBridgeState,
 )
 
 
 def register():
     for cls in CLASSES:
         bpy.utils.register_class(cls)
-    bpy.types.WindowManager.renderbuilder_bridge_state = bpy.props.PointerProperty(type=RenderBuilderBridgeState)
+    bpy.types.WindowManager.avalonia_bridge_state = bpy.props.PointerProperty(type=AvaloniaBridgeState)
 
 
 def unregister():
-    del bpy.types.WindowManager.renderbuilder_bridge_state
+    del bpy.types.WindowManager.avalonia_bridge_state
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

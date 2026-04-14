@@ -28,7 +28,7 @@ src\blender_extension
 
 启用扩展后：
 
-1. 打开 `View3D > Sidebar > RenderBuilder`
+1. 打开 `View3D > Sidebar > AvaloniaBridgeDemo`
 2. 在 `Avalonia Executable` 中选择刚刚发布出来的 AOT exe
 3. 点击 `Start UI Bridge`
 
