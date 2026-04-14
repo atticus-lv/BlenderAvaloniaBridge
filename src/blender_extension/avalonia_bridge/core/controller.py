@@ -43,6 +43,7 @@ class BridgeController:
         self._business_lock = threading.Lock()
         self._diagnostics = self._create_diagnostics()
         self._drag_state = None
+        self._left_button_forwarded = False
         self._render_width = max(64, int(self._config.width))
         self._render_height = max(64, int(self._config.height))
         self._state = BridgeStateSnapshot(
@@ -96,6 +97,7 @@ class BridgeController:
         self.capture_input = False
         self._pending_pointer_move = None
         self._drag_state = None
+        self._left_button_forwarded = False
         with self._business_lock:
             self._pending_business_packets.clear()
         self._replace_state(
@@ -133,6 +135,7 @@ class BridgeController:
         with self._business_lock:
             self._pending_business_packets.clear()
         self._drag_state = None
+        self._left_button_forwarded = False
         self._render_width = max(64, int(self._config.width))
         self._render_height = max(64, int(self._config.height))
         self._replace_state(
@@ -210,20 +213,23 @@ class BridgeController:
             if inside:
                 px, py = input_mapper.to_avalonia_coords(rect, x, y)
                 self._flush_pointer_move()
-                self.send_message(
+                sent = self.send_message(
                     {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": "left", "modifiers": modifiers}
                 )
+                if sent:
+                    self._left_button_forwarded = True
                 self._replace_state(last_message=f"PointerDown {px},{py}")
                 self.tag_redraw()
                 return True
             return False
 
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.capture_input:
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and (self.capture_input or self._left_button_forwarded):
             px, py = input_mapper.to_avalonia_coords(rect, x, y)
             self._flush_pointer_move()
             self.send_message(
                 {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": "left", "modifiers": modifiers}
             )
+            self._left_button_forwarded = False
             self._replace_state(last_message=f"PointerUp {px},{py}")
             self.tag_redraw()
             return True
@@ -359,6 +365,7 @@ class BridgeController:
     def _on_disconnect(self):
         self.capture_input = False
         self._pending_pointer_move = None
+        self._left_button_forwarded = False
         self._replace_state(connected=False, capture_input=False, last_message="Avalonia disconnected")
         self.tag_redraw()
 

@@ -9,10 +9,12 @@ namespace BlenderAvaloniaBridge.Runtime;
 internal sealed class InputDispatcher
 {
     private readonly IBlenderBridgeStatusSink? _statusSink;
+    private readonly MouseInputInjector _mouseInputInjector;
 
     public InputDispatcher(IBlenderBridgeStatusSink? statusSink)
     {
         _statusSink = statusSink;
+        _mouseInputInjector = new MouseInputInjector(statusSink);
     }
 
     public Task DispatchAsync(Window window, ProtocolEnvelope envelope)
@@ -20,24 +22,13 @@ internal sealed class InputDispatcher
         var point = new Point(envelope.X ?? 0, envelope.Y ?? 0);
         var modifiers = ToModifiers(envelope.Modifiers);
 
+        if (_mouseInputInjector.TryDispatch(window, envelope, point, modifiers))
+        {
+            return Task.CompletedTask;
+        }
+
         switch (envelope.Type)
         {
-            case "pointer_move":
-                _statusSink?.SetBridgeStatus($"MouseMove {(int)point.X},{(int)point.Y}");
-                window.MouseMove(point, modifiers);
-                break;
-            case "pointer_down":
-                _statusSink?.SetBridgeStatus($"PointerDown {envelope.Button ?? "unknown"} {(int)point.X},{(int)point.Y}");
-                window.MouseDown(point, ToMouseButton(envelope.Button), modifiers);
-                break;
-            case "pointer_up":
-                _statusSink?.SetBridgeStatus($"PointerUp {envelope.Button ?? "unknown"} {(int)point.X},{(int)point.Y}");
-                window.MouseUp(point, ToMouseButton(envelope.Button), modifiers);
-                break;
-            case "wheel":
-                _statusSink?.SetBridgeStatus($"Wheel {envelope.DeltaX ?? 0:0.##},{envelope.DeltaY ?? 0:0.##}");
-                window.MouseWheel(point, new Vector(envelope.DeltaX ?? 0, envelope.DeltaY ?? 0), modifiers);
-                break;
             case "key_down":
                 {
                     var key = KeyMap.ToKey(envelope.Key);
@@ -68,9 +59,6 @@ internal sealed class InputDispatcher
 
         return Task.CompletedTask;
     }
-
-    private static MouseButton ToMouseButton(string? button) =>
-        string.Equals(button, "left", StringComparison.OrdinalIgnoreCase) ? MouseButton.Left : MouseButton.None;
 
     private static RawInputModifiers ToModifiers(IEnumerable<string>? modifierNames)
     {
