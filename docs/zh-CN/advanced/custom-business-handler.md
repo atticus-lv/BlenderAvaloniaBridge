@@ -65,4 +65,3 @@ controller = BridgeController(
 
 - 列出场景对象
 - 获取或设置对象属性
-- 调用 allowlist 内的 Blender operator

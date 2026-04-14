@@ -151,11 +151,6 @@ def _legacy_to_business_response(reply_to, legacy_response, *, business_version=
 
 
 class OperatorBridge:
-    ALLOWLIST = {
-        "mesh.primitive_cube_add",
-        "object.duplicate_move",
-        "view3d.view_selected",
-    }
 
     def execute(self, request):
         seq = int(request.get("seq", 0))
@@ -163,16 +158,6 @@ class OperatorBridge:
         execution_context = request.get("execution_context", "EXEC_DEFAULT") or "EXEC_DEFAULT"
         properties = request.get("properties") or {}
         target = request.get("target") or {}
-
-        if operator_name not in self.ALLOWLIST:
-            return {
-                "type": "operator_result",
-                "seq": seq,
-                "ok": False,
-                "message": f"Operator is not allowed: {operator_name}",
-                "operator": operator_name,
-                "result": ["CANCELLED"],
-            }
 
         try:
             operator = self._resolve_operator(operator_name)

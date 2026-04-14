@@ -65,4 +65,3 @@ Keep `DefaultBusinessEndpoint` if you still want the built-in support for:
 
 - listing scene objects
 - reading or writing object properties
-- calling allowlisted Blender operators
