@@ -41,5 +41,7 @@ Blender Avalonia Bridge 是一个让你能够在 Blender 中无缝使用 Avaloni
 ## 已知限制
 
 - 目前只支持 Windows 平台
-- 不支持avalonia的layout动画：如splitview的pane动画效果会被，改为直接切换状态
-- 不支持外部拖拽：blender会捕捉drop事件，导致无法把数据传输到avalonia
+- 内部绘制限制
+  - 不支持layout动画：如splitview的pane动画效果会被，改为直接切换状态
+  - 不支持transitions动画: 如item位移的位置变换，会卡顿并跳转到最终位置
+  - 不支持外部拖拽：blender会捕捉drop事件，导致无法把数据传输到avalonia

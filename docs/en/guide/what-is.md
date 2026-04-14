@@ -41,5 +41,7 @@ If you don't want to distribute the core business code directly as Python source
 ## Known Limitations
 
 - Currently only supported on the Windows platform
-- Avalonia's layout animation is not supported: for example, the pane animation effect of SplitView will be changed to a direct switching state
-- No external drag support: Blender will catch the drop event, making it impossible to transfer data to Avalonia
+- Internal drawing limits
+    - Layout animation is not supported: For example, the pane animation effect of SplitView will be changed to switch directly to the state
+    - Transitions animation is not supported: If the position of the item is displaced, it will freeze and jump to the final position
+    - No external drag support: Blender will catch the drop event, making it impossible to transfer data to Avalonia
