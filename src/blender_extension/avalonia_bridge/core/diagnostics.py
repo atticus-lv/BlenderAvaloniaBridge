@@ -1,12 +1,55 @@
 import time
 from collections import deque
+from typing import TYPE_CHECKING, Callable, TypedDict
 
 from .state import BridgeDiagnosticsSnapshot
 
+if TYPE_CHECKING:
+    from .controller import PacketHeader
+    from .image_bridge import ImageBridge
+    from .overlay import OverlayDrawer
+
+
+NowMs = Callable[[], float]
+
+
+class DiagnosticsData(TypedDict):
+    session_started_at_ms: float
+    pointer_move_received: int
+    pointer_move_sent: int
+    pointer_move_coalesced: int
+    events_sent: int
+    event_send_failures: int
+    frames_received: int
+    frame_ready_received: int
+    frames_displayed: int
+    frame_intervals_ms: deque[float]
+    last_frame_received_at_ms: float | None
+    last_frame_presented_at_ms: float | None
+    last_frame_seq: int
+    last_input_sent_at_ms: float | None
+    last_input_type: str
+    awaiting_input_frame: bool
+    last_input_to_frame_ms: float | None
+    last_input_to_apply_ms: float | None
+    last_frame_pipeline_ms: float | None
+    last_frame_transport_ms: float | None
+    capture_started_transport_ms: float | None
+    capture_started_to_recv_ms: float | None
+    shared_memory_read_ms: deque[float]
+    frame_stage_ms: deque[float]
+    ui_apply_ms: deque[float]
+    capture_frame_ms: deque[float]
+    copy_bgra_ms: deque[float]
+    linear_convert_ms: deque[float]
+    shared_write_ms: deque[float]
+    frame_send_ms: deque[float]
+
 
 class DiagnosticsRecorder:
-    def __init__(self, now_ms=None):
-        self._now_ms = now_ms or self._default_now_ms
+    def __init__(self, now_ms: NowMs | None = None):
+        self._now_ms: NowMs = now_ms or self._default_now_ms
+        self._data: DiagnosticsData
         self.reset()
 
     def reset(self):
@@ -43,7 +86,7 @@ class DiagnosticsRecorder:
             "frame_send_ms": deque(maxlen=60),
         }
 
-    def record_pointer_move_received(self, was_coalesced):
+    def record_pointer_move_received(self, was_coalesced: bool):
         self._data["pointer_move_received"] += 1
         if was_coalesced:
             self._data["pointer_move_coalesced"] += 1
@@ -52,7 +95,7 @@ class DiagnosticsRecorder:
         self._data["frames_displayed"] += 1
         self._data["last_frame_presented_at_ms"] = self._now_ms()
 
-    def record_outgoing_message(self, header, sent):
+    def record_outgoing_message(self, header: "PacketHeader", sent: bool):
         message_type = header.get("type", "")
         input_types = {"pointer_move", "pointer_down", "pointer_up", "wheel", "key_down", "key_up", "text"}
         if message_type == "pointer_move" and sent:
@@ -66,7 +109,7 @@ class DiagnosticsRecorder:
             else:
                 self._data["event_send_failures"] += 1
 
-    def record_frame_packet(self, header, now_ms):
+    def record_frame_packet(self, header: "PacketHeader", now_ms: float):
         packet_type = header.get("type", "")
         self._data["frames_received"] += 1
         if packet_type == "frame_ready":
@@ -105,18 +148,23 @@ class DiagnosticsRecorder:
             self._data["last_input_to_frame_ms"] = max(0.0, now_ms - self._data["last_input_sent_at_ms"])
             self._data["awaiting_input_frame"] = False
 
-    def record_timing(self, key, value_ms):
+    def record_timing(self, key: str, value_ms: float):
         bucket = self._data.get(key)
         if bucket is not None:
             bucket.append(value_ms)
 
-    def avg_timing(self, key):
+    def avg_timing(self, key: str) -> float | None:
         bucket = self._data.get(key)
         if not bucket:
             return None
         return sum(bucket) / len(bucket)
 
-    def build_snapshot(self, image_bridge, drawer, pending_pointer_move):
+    def build_snapshot(
+        self,
+        image_bridge: "ImageBridge",
+        drawer: "OverlayDrawer",
+        pending_pointer_move: bool,
+    ) -> BridgeDiagnosticsSnapshot:
         pointer_received = self._data["pointer_move_received"]
         pointer_coalesced = self._data["pointer_move_coalesced"]
         intervals = self._data["frame_intervals_ms"]
