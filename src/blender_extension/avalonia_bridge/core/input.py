@@ -177,9 +177,7 @@ class InputRouter:
 
         if event.type == "MOUSEMOVE" and controller.capture_input:
             px, py = to_avalonia_coords(rect, x, y)
-            controller._diagnostics["pointer_move_received"] += 1
-            if controller._pending_pointer_move is not None:
-                controller._diagnostics["pointer_move_coalesced"] += 1
+            controller._diagnostics.record_pointer_move_received(controller._pending_pointer_move is not None)
             controller._pending_pointer_move = {"type": "pointer_move", "seq": 6, "x": px, "y": py,
                                                 "modifiers": modifiers}
             return True
