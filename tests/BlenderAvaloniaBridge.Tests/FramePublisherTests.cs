@@ -44,7 +44,8 @@ public sealed class FramePublisherTests
             };
 
             window.Show();
-            var bitmap = window.CaptureRenderedFrame();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+            var bitmap = window.GetLastRenderedFrame();
             Assert.NotNull(bitmap);
             return FramePublisher.ExtractFrame(bitmap!, 11);
         });
@@ -73,7 +74,8 @@ public sealed class FramePublisherTests
             };
 
             window.Show();
-            var bitmap = window.CaptureRenderedFrame();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+            var bitmap = window.GetLastRenderedFrame();
             Assert.NotNull(bitmap);
             return FramePublisher.ExtractFrame(bitmap!, 21, 7.5);
         });

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using System.Diagnostics;
 using BlenderAvaloniaBridge.Protocol;
 
@@ -103,9 +104,23 @@ internal sealed class HeadlessUiHost
         return await _runtimeThread.InvokeAsync(() =>
         {
             var captureStopwatch = Stopwatch.StartNew();
-            var bitmap = _window!.CaptureRenderedFrame() ?? throw new InvalidOperationException("Headless renderer did not produce a frame.");
+            var window = _window ?? throw new InvalidOperationException("Headless window is not initialized.");
+            WriteableBitmap? bitmap = null;
+            for (var i = 0; i < 3 && bitmap is null; i++)
+            {
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+                bitmap = window.GetLastRenderedFrame();
+            }
+
+            // Headless runtime can occasionally report null for the very first frame.
+            // Fall back once to the synchronous capture API to avoid dropping the session.
+            if (bitmap is null)
+            {
+                bitmap = window.CaptureRenderedFrame();
+            }
+
             captureStopwatch.Stop();
-            return FramePublisher.ExtractFrame(bitmap, seq, captureStopwatch.Elapsed.TotalMilliseconds);
+            return FramePublisher.ExtractFrame(bitmap ?? throw new InvalidOperationException("Headless renderer did not produce a frame."), seq, captureStopwatch.Elapsed.TotalMilliseconds);
         });
     }
 

@@ -47,6 +47,9 @@ class ProcessManager:
             args,
             cwd=cwd,
             env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
             creationflags=creationflags,
         )
         return self.process
@@ -64,3 +67,22 @@ class ProcessManager:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=3)
+
+    def poll_exit(self):
+        process = self.process
+        if process is None:
+            return None
+        if process.poll() is None:
+            return None
+
+        self.process = None
+        stderr_text = ""
+        try:
+            _, stderr_text = process.communicate(timeout=0.2)
+        except Exception:
+            pass
+
+        return {
+            "returncode": process.returncode,
+            "stderr": (stderr_text or "").strip(),
+        }

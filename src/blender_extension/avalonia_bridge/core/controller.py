@@ -148,6 +148,7 @@ class BridgeController:
         self.tag_redraw()
 
     def tick_once(self):
+        self._check_process_health()
         self._flush_pointer_move()
         frame = self.frame_pipeline.pop_latest()
         frame_updated = False
@@ -567,6 +568,34 @@ class BridgeController:
         bucket = self._diagnostics.get(key)
         if bucket is not None:
             bucket.append(value_ms)
+
+    def _check_process_health(self):
+        poll_exit = getattr(self.process_manager, "poll_exit", None)
+        if poll_exit is None:
+            return
+        report = poll_exit()
+        if report is None:
+            return
+
+        return_code = report.get("returncode")
+        stderr_text = (report.get("stderr") or "").strip()
+        if stderr_text:
+            last_line = stderr_text.splitlines()[-1].strip()
+            message = f"Avalonia exited ({return_code}): {last_line[:300]}"
+        else:
+            message = f"Avalonia exited ({return_code})"
+        self.capture_input = False
+        self._pending_pointer_move = None
+        self._left_button_forwarded = False
+        self._replace_state(
+            process_running=False,
+            connected=False,
+            capture_input=False,
+            process_id=0,
+            last_error=message,
+            last_message="Process exited",
+        )
+        self.tag_redraw()
 
     def _avg_timing(self, key):
         bucket = self._diagnostics.get(key)

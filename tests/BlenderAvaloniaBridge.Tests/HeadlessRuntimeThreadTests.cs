@@ -29,7 +29,8 @@ public sealed class HeadlessRuntimeThreadTests
             };
 
             window.Show();
-            return window.CaptureRenderedFrame();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+            return window.GetLastRenderedFrame();
         });
 
         Assert.NotNull(bitmap);

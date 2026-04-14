@@ -2,7 +2,6 @@ import blf
 import gpu
 from collections import deque
 from gpu_extras.batch import batch_for_shader
-from mathutils import Matrix
 from math import cos, pi, sin
 from time import perf_counter
 
@@ -53,6 +52,12 @@ class OverlayDrawer:
         self._draw_window_background(rect, corner_radius)
 
         if texture is not None:
+            clip_rect = (
+                rect["content_x"],
+                rect["content_y"],
+                rect["content_width"],
+                rect["content_height"],
+            )
             batch = batch_for_shader(
                 self._texture_shader,
                 "TRI_FAN",
@@ -64,23 +69,14 @@ class OverlayDrawer:
                         (rect["content_x"], rect["content_y"] + rect["content_height"]),
                     ),
                     "uv": ((0, 1), (1, 1), (1, 0), (0, 0)),
+                    "clipRectAttr": (clip_rect, clip_rect, clip_rect, clip_rect),
+                    "cornerRadiusAttr": (corner_radius, corner_radius, corner_radius, corner_radius),
+                    "edgeSoftnessAttr": (1.5, 1.5, 1.5, 1.5),
                 },
             )
             self._texture_shader.bind()
             view_projection = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
             self._texture_shader.uniform_float("viewProjectionMatrix", view_projection)
-            self._texture_shader.uniform_float("modelMatrix", Matrix.Identity(4))
-            self._texture_shader.uniform_float(
-                "clipRect",
-                (
-                    rect["content_x"],
-                    rect["content_y"],
-                    rect["content_width"],
-                    rect["content_height"],
-                ),
-            )
-            self._texture_shader.uniform_float("cornerRadius", corner_radius)
-            self._texture_shader.uniform_float("edgeSoftness", 1.5)
             self._texture_shader.uniform_sampler("image", texture)
             batch.draw(self._texture_shader)
 
@@ -92,17 +88,18 @@ class OverlayDrawer:
             blf.draw(0, "Avalonia Bridge")
 
         if show_overlay_debug:
+            outline = self._rounded_outline_points(
+                rect["x"],
+                rect["y"],
+                rect["width"],
+                rect["height"],
+                corner_radius,
+            )
             border_batch = batch_for_shader(
                 self._color_shader,
-                "LINE_LOOP",
+                "LINE_STRIP",
                 {
-                    "pos": self._rounded_outline_points(
-                        rect["x"],
-                        rect["y"],
-                        rect["width"],
-                        rect["height"],
-                        corner_radius,
-                    )
+                    "pos": (*outline, outline[0]) if outline else ()
                 },
             )
             self._color_shader.bind()
@@ -121,17 +118,19 @@ class OverlayDrawer:
     def _create_texture_shader(self):
         shader_info = gpu.types.GPUShaderCreateInfo()
         shader_info.push_constant("MAT4", "viewProjectionMatrix")
-        shader_info.push_constant("MAT4", "modelMatrix")
-        shader_info.push_constant("VEC4", "clipRect")
-        shader_info.push_constant("FLOAT", "cornerRadius")
-        shader_info.push_constant("FLOAT", "edgeSoftness")
         shader_info.sampler(0, "FLOAT_2D", "image")
         shader_info.vertex_in(0, "VEC2", "position")
         shader_info.vertex_in(1, "VEC2", "uv")
+        shader_info.vertex_in(2, "VEC4", "clipRectAttr")
+        shader_info.vertex_in(3, "FLOAT", "cornerRadiusAttr")
+        shader_info.vertex_in(4, "FLOAT", "edgeSoftnessAttr")
 
         interface = gpu.types.GPUStageInterfaceInfo("AvaloniaBridge_image_interface")
         interface.smooth("VEC2", "uvInterp")
         interface.smooth("VEC2", "screenPosInterp")
+        interface.smooth("VEC4", "clipRectInterp")
+        interface.smooth("FLOAT", "cornerRadiusInterp")
+        interface.smooth("FLOAT", "edgeSoftnessInterp")
         shader_info.vertex_out(interface)
         shader_info.fragment_out(0, "VEC4", "FragColor")
 
@@ -141,7 +140,10 @@ class OverlayDrawer:
             {
                 uvInterp = uv;
                 screenPosInterp = position;
-                gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 0.0, 1.0);
+                clipRectInterp = clipRectAttr;
+                cornerRadiusInterp = cornerRadiusAttr;
+                edgeSoftnessInterp = edgeSoftnessAttr;
+                gl_Position = viewProjectionMatrix * vec4(position, 0.0, 1.0);
             }
             """
         )
@@ -155,10 +157,10 @@ class OverlayDrawer:
 
             void main()
             {
-                vec2 clipCenter = clipRect.xy + clipRect.zw * 0.5;
+                vec2 clipCenter = clipRectInterp.xy + clipRectInterp.zw * 0.5;
                 vec2 localPoint = screenPosInterp - clipCenter;
-                float distanceToEdge = roundedBoxSdf(localPoint, clipRect.zw * 0.5, cornerRadius);
-                float mask = 1.0 - smoothstep(0.0, edgeSoftness, distanceToEdge);
+                float distanceToEdge = roundedBoxSdf(localPoint, clipRectInterp.zw * 0.5, cornerRadiusInterp);
+                float mask = 1.0 - smoothstep(0.0, edgeSoftnessInterp, distanceToEdge);
                 vec4 texel = texture(image, uvInterp);
                 FragColor = vec4(texel.rgb, texel.a * mask);
             }
@@ -169,16 +171,20 @@ class OverlayDrawer:
     def _create_shadow_shader(self):
         shader_info = gpu.types.GPUShaderCreateInfo()
         shader_info.push_constant("MAT4", "viewProjectionMatrix")
-        shader_info.push_constant("MAT4", "modelMatrix")
-        shader_info.push_constant("VEC4", "shadowRect")
-        shader_info.push_constant("VEC2", "shadowOffset")
-        shader_info.push_constant("FLOAT", "cornerRadius")
-        shader_info.push_constant("FLOAT", "shadowSoftness")
-        shader_info.push_constant("VEC4", "shadowColor")
         shader_info.vertex_in(0, "VEC2", "position")
+        shader_info.vertex_in(1, "VEC4", "shadowRectAttr")
+        shader_info.vertex_in(2, "VEC2", "shadowOffsetAttr")
+        shader_info.vertex_in(3, "FLOAT", "cornerRadiusAttr")
+        shader_info.vertex_in(4, "FLOAT", "shadowSoftnessAttr")
+        shader_info.vertex_in(5, "VEC4", "shadowColorAttr")
 
         interface = gpu.types.GPUStageInterfaceInfo("AvaloniaBridge_shadow_interface")
         interface.smooth("VEC2", "screenPosInterp")
+        interface.smooth("VEC4", "shadowRectInterp")
+        interface.smooth("VEC2", "shadowOffsetInterp")
+        interface.smooth("FLOAT", "cornerRadiusInterp")
+        interface.smooth("FLOAT", "shadowSoftnessInterp")
+        interface.smooth("VEC4", "shadowColorInterp")
         shader_info.vertex_out(interface)
         shader_info.fragment_out(0, "VEC4", "FragColor")
 
@@ -187,7 +193,12 @@ class OverlayDrawer:
             void main()
             {
                 screenPosInterp = position;
-                gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 0.0, 1.0);
+                shadowRectInterp = shadowRectAttr;
+                shadowOffsetInterp = shadowOffsetAttr;
+                cornerRadiusInterp = cornerRadiusAttr;
+                shadowSoftnessInterp = shadowSoftnessAttr;
+                shadowColorInterp = shadowColorAttr;
+                gl_Position = viewProjectionMatrix * vec4(position, 0.0, 1.0);
             }
             """
         )
@@ -201,17 +212,17 @@ class OverlayDrawer:
 
             void main()
             {
-                vec2 rectCenter = shadowRect.xy + shadowRect.zw * 0.5 + shadowOffset;
+                vec2 rectCenter = shadowRectInterp.xy + shadowRectInterp.zw * 0.5 + shadowOffsetInterp;
                 vec2 localPoint = screenPosInterp - rectCenter;
-                float distanceToEdge = roundedBoxSdf(localPoint, shadowRect.zw * 0.5, cornerRadius);
+                float distanceToEdge = roundedBoxSdf(localPoint, shadowRectInterp.zw * 0.5, cornerRadiusInterp);
                 if (distanceToEdge <= 0.0)
                 {
                     FragColor = vec4(0.0);
                     return;
                 }
 
-                float alpha = 1.0 - smoothstep(0.0, shadowSoftness, distanceToEdge);
-                FragColor = vec4(shadowColor.rgb, shadowColor.a * alpha);
+                float alpha = 1.0 - smoothstep(0.0, shadowSoftnessInterp, distanceToEdge);
+                FragColor = vec4(shadowColorInterp.rgb, shadowColorInterp.a * alpha);
             }
             """
         )
@@ -259,6 +270,12 @@ class OverlayDrawer:
         y = rect["y"] - expand
         width = rect["width"] + expand * 2.0
         height = rect["height"] + expand * 2.0
+        shadow_rect = (
+            rect["x"],
+            rect["y"],
+            rect["width"],
+            rect["height"],
+        )
         batch = batch_for_shader(
             self._shadow_shader,
             "TRI_FAN",
@@ -268,36 +285,29 @@ class OverlayDrawer:
                     (x + width, y),
                     (x + width, y + height),
                     (x, y + height),
-                )
+                ),
+                "shadowRectAttr": (shadow_rect, shadow_rect, shadow_rect, shadow_rect),
+                "shadowOffsetAttr": (offset, offset, offset, offset),
+                "cornerRadiusAttr": (corner_radius, corner_radius, corner_radius, corner_radius),
+                "shadowSoftnessAttr": (softness, softness, softness, softness),
+                "shadowColorAttr": (color, color, color, color),
             },
         )
         self._shadow_shader.bind()
         view_projection = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
         self._shadow_shader.uniform_float("viewProjectionMatrix", view_projection)
-        self._shadow_shader.uniform_float("modelMatrix", Matrix.Identity(4))
-        self._shadow_shader.uniform_float(
-            "shadowRect",
-            (
-                rect["x"],
-                rect["y"],
-                rect["width"],
-                rect["height"],
-            ),
-        )
-        self._shadow_shader.uniform_float("shadowOffset", offset)
-        self._shadow_shader.uniform_float("cornerRadius", corner_radius)
-        self._shadow_shader.uniform_float("shadowSoftness", softness)
-        self._shadow_shader.uniform_float("shadowColor", color)
         batch.draw(self._shadow_shader)
 
     def _draw_rounded_fill(self, x, y, width, height, radius, color):
         points = self._rounded_outline_points(x, y, width, height, radius)
         center = (x + width * 0.5, y + height * 0.5)
+        # TRI_FAN does not implicitly close the ring, so append the first edge point.
+        fan_points = (center, *points, points[0]) if points else (center,)
         batch = batch_for_shader(
             self._color_shader,
             "TRI_FAN",
             {
-                "pos": (center, *points)
+                "pos": fan_points
             },
         )
         self._color_shader.bind()
