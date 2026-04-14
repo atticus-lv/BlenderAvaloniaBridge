@@ -6,12 +6,15 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 using BlenderAvaloniaBridge.Sample.ViewModels;
+using System.Collections.Generic;
 
 namespace BlenderAvaloniaBridge.Sample.Views.Pages;
 
 public sealed partial class SortableListDemoPageView : UserControl
 {
+    private const double SiblingShiftSmoothing = 0.35;
     private readonly ListBox? _sortableListBox;
+    private readonly Dictionary<ListBoxItem, double> _siblingShiftOffsets = new();
     private bool _captured;
     private bool _dragStarted;
     private Point _start;
@@ -58,6 +61,7 @@ public sealed partial class SortableListDemoPageView : UserControl
         _targetIndex = -1;
         _start = e.GetPosition(_sortableListBox);
         _dragStarted = false;
+        _siblingShiftOffsets.Clear();
         SetDraggingPseudoClasses(_draggedContainer, true);
         _draggedContainer.SetValue(Visual.ZIndexProperty, 1000);
         _capturedPointer = e.Pointer;
@@ -116,17 +120,17 @@ public sealed partial class SortableListDemoPageView : UserControl
 
             if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
             {
-                SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
+                SetAnimatedSiblingShift(targetContainer, -draggedBounds.Height);
                 _targetIndex = _targetIndex == -1 ? index : Math.Max(_targetIndex, index);
             }
             else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
             {
-                SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
+                SetAnimatedSiblingShift(targetContainer, draggedBounds.Height);
                 _targetIndex = _targetIndex == -1 ? index : Math.Min(_targetIndex, index);
             }
             else
             {
-                SetTranslateTransform(targetContainer, 0, 0);
+                SetAnimatedSiblingShift(targetContainer, 0);
             }
         }
     }
@@ -149,18 +153,24 @@ public sealed partial class SortableListDemoPageView : UserControl
     {
         try
         {
-            if (_dragStarted &&
+            var shouldMove =
+                _dragStarted &&
                 _sortableListBox is not null &&
-                DataContext is SortableListDemoPageViewModel viewModel &&
+                DataContext is SortableListDemoPageViewModel &&
                 _draggedItem is not null &&
                 _draggedIndex >= 0 &&
                 _targetIndex >= 0 &&
-                _draggedIndex != _targetIndex)
+                _draggedIndex != _targetIndex;
+
+            ResetTransforms();
+
+            if (shouldMove &&
+                _sortableListBox is not null &&
+                DataContext is SortableListDemoPageViewModel viewModel &&
+                _draggedItem is not null)
             {
                 viewModel.MoveItemToIndex(_draggedItem, _targetIndex);
             }
-
-            ResetTransforms();
         }
         finally
         {
@@ -205,6 +215,7 @@ public sealed partial class SortableListDemoPageView : UserControl
                 SetTranslateTransform(container, 0, 0);
             }
         }
+        _siblingShiftOffsets.Clear();
     }
 
     private void ReleasePointerCapture()
@@ -244,6 +255,19 @@ public sealed partial class SortableListDemoPageView : UserControl
         {
             ((IPseudoClasses)control.Classes).Remove(":dragging");
         }
+    }
+
+    private void SetAnimatedSiblingShift(ListBoxItem container, double targetY)
+    {
+        var currentY = _siblingShiftOffsets.TryGetValue(container, out var value) ? value : 0.0;
+        var nextY = currentY + ((targetY - currentY) * SiblingShiftSmoothing);
+        if (Math.Abs(targetY - nextY) < 0.5)
+        {
+            nextY = targetY;
+        }
+
+        _siblingShiftOffsets[container] = nextY;
+        SetTranslateTransform(container, 0, nextY);
     }
 
     private void InitializeComponent()

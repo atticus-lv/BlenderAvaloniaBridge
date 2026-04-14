@@ -1,6 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:animation="using:Avalonia.Animation"
              xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.SortableListDemoPageView"
              x:DataType="viewModels:SortableListDemoPageViewModel">
@@ -34,16 +33,6 @@
                 </Setter.Value>
               </Setter>
             </Style>
-            <Style Selector="ListBoxItem:not(:dragging)">
-              <Setter Property="Transitions">
-                <Setter.Value>
-                  <animation:Transitions>
-                    <animation:TransformOperationsTransition Property="RenderTransform"
-                                                             Duration="0:0:0.14" />
-                  </animation:Transitions>
-                </Setter.Value>
-              </Setter>
-            </Style>
             <Style Selector="ListBoxItem:dragging">
               <Setter Property="Opacity" Value="0.78" />
             </Style>
@@ -57,11 +46,6 @@
                       BorderThickness="1"
                       CornerRadius="12"
                       Opacity="1">
-                <Border.Transitions>
-                  <animation:Transitions>
-                    <animation:DoubleTransition Property="Opacity" Duration="0:0:0.16" />
-                  </animation:Transitions>
-                </Border.Transitions>
                 <Grid ColumnDefinitions="Auto,*"
                       ColumnSpacing="10">
                   <Border Width="28"
