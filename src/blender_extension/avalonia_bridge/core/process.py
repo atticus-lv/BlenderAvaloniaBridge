@@ -20,7 +20,7 @@ def validate_executable_path(path_text):
     return path
 
 
-def build_command(executable_path, host, port, width, height):
+def build_command(executable_path, host, port, width, height, render_scaling):
     path = validate_executable_path(executable_path)
     bridge_args = [
         "--blender-bridge", "true",
@@ -28,6 +28,7 @@ def build_command(executable_path, host, port, width, height):
         "--blender-bridge-port", str(port),
         "--blender-bridge-width", str(width),
         "--blender-bridge-height", str(height),
+        "--blender-bridge-render-scaling", str(render_scaling),
     ]
     args = [str(path), *bridge_args]
     if path.suffix.lower() == ".dll":
@@ -39,8 +40,8 @@ class ProcessManager:
     def __init__(self):
         self.process = None
 
-    def start(self, executable_path, host, port, width, height):
-        args, cwd = build_command(executable_path, host, port, width, height)
+    def start(self, executable_path, host, port, width, height, render_scaling):
+        args, cwd = build_command(executable_path, host, port, width, height, render_scaling)
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         env = os.environ.copy()
         self.process = subprocess.Popen(

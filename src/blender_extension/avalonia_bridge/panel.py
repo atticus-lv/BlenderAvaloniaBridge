@@ -30,10 +30,12 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
         row = size_box.row(align=True)
         row.prop(state, "overlay_width", text="W")
         row.prop(state, "overlay_height", text="H")
+        size_box.prop(state, "render_scaling", text="Render Scaling")
         size_box.label(text="The panel auto-fits and can be dragged by its title bar.")
-        size_box.label(text=f"Render size: {state.overlay_width} x {state.overlay_height}")
+        size_box.label(text=f"Display size: {state.overlay_width} x {state.overlay_height}")
+        size_box.label(text=f"Rendered at: {state.render_scaling:.2f}x")
         if state.process_running:
-            size_box.label(text="Restart the bridge after changing size.")
+            size_box.label(text="Restart the bridge after changing size or scaling.")
 
         status_box = layout.box()
         status_box.label(text=f"Process: {'Running' if snapshot.process_running else 'Stopped'}")

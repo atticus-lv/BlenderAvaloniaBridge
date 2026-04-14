@@ -90,6 +90,7 @@ class BridgeRuntime:
             executable_path=executable_path or "",
             width=max(64, int(getattr(state, "overlay_width", 1100))),
             height=max(64, int(getattr(state, "overlay_height", 760))),
+            render_scaling=float(getattr(state, "render_scaling", 1.25)),
             host="127.0.0.1",
             show_overlay_debug=bool(getattr(preferences, "show_overlay_debug", False)),
             overlay_offset_x=int(getattr(state, "overlay_offset_x", 0)),

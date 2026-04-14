@@ -44,8 +44,9 @@ class BridgeController:
         self._diagnostics = self._create_diagnostics()
         self._drag_state = None
         self._left_button_forwarded = False
-        self._render_width = max(64, int(self._config.width))
-        self._render_height = max(64, int(self._config.height))
+        self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
+        self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
+        self._render_height = self._scale_dimension(self._config.height, self._render_scaling)
         self._state = BridgeStateSnapshot(
             width=max(64, int(self._config.width)),
             height=max(64, int(self._config.height)),
@@ -60,8 +61,9 @@ class BridgeController:
 
     def set_config(self, config):
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
-        self._render_width = max(64, int(self._config.width))
-        self._render_height = max(64, int(self._config.height))
+        self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
+        self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
+        self._render_height = self._scale_dimension(self._config.height, self._render_scaling)
         if not self._state.process_running:
             self._replace_state(
                 width=max(64, int(self._config.width)),
@@ -76,9 +78,10 @@ class BridgeController:
         self._diagnostics = self._create_diagnostics()
         display_width = max(64, int(self._config.width))
         display_height = max(64, int(self._config.height))
-        self._render_width = display_width
-        self._render_height = display_height
-        self.frame_pipeline.create_shared_memory(display_width, display_height)
+        self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
+        self._render_width = self._scale_dimension(display_width, self._render_scaling)
+        self._render_height = self._scale_dimension(display_height, self._render_scaling)
+        self.frame_pipeline.create_shared_memory(self._render_width, self._render_height)
         self.server = self._server_factory(
             host=self._config.host,
             on_packet=self._on_packet,
@@ -93,6 +96,7 @@ class BridgeController:
             self.server.port,
             display_width,
             display_height,
+            self._render_scaling,
         )
         self.capture_input = False
         self._pending_pointer_move = None
@@ -136,8 +140,9 @@ class BridgeController:
             self._pending_business_packets.clear()
         self._drag_state = None
         self._left_button_forwarded = False
-        self._render_width = max(64, int(self._config.width))
-        self._render_height = max(64, int(self._config.height))
+        self._render_scaling = self._sanitize_render_scaling(getattr(self._config, "render_scaling", 1.25))
+        self._render_width = self._scale_dimension(self._config.width, self._render_scaling)
+        self._render_height = self._scale_dimension(self._config.height, self._render_scaling)
         self._replace_state(
             process_running=False,
             connected=False,
@@ -611,3 +616,15 @@ class BridgeController:
         for area in getattr(screen, "areas", []):
             if getattr(area, "type", "") == "VIEW_3D":
                 area.tag_redraw()
+
+    @staticmethod
+    def _sanitize_render_scaling(value):
+        try:
+            scaling = float(value)
+        except (TypeError, ValueError):
+            return 1.25
+        return scaling if scaling > 0.0 else 1.25
+
+    @staticmethod
+    def _scale_dimension(value, render_scaling):
+        return max(64, int(round(float(value) * float(render_scaling))))

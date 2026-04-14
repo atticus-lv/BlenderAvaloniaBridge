@@ -20,6 +20,7 @@ internal sealed class HeadlessUiHost
     private Window? _window;
     private int _width;
     private int _height;
+    private double _renderScaling;
     private DateTimeOffset _continuousFramesUntil = DateTimeOffset.MinValue;
     private bool _animationFrameQueued;
 
@@ -32,6 +33,7 @@ internal sealed class HeadlessUiHost
         _options = options.Clone();
         _width = _options.Width;
         _height = _options.Height;
+        _renderScaling = _options.RenderScaling;
     }
 
     public async Task InitializeAsync()
@@ -62,6 +64,7 @@ internal sealed class HeadlessUiHost
             _businessEndpointSink = ResolveBusinessEndpointSink(_window);
             _inputDispatcher = new InputDispatcher(_statusSink);
             _window.Show();
+            _window.SetRenderScaling(_renderScaling);
             ExtendContinuousFrames(_options.ContinuousFrameWindow);
             return true;
         });
@@ -131,10 +134,10 @@ internal sealed class HeadlessUiHost
             {
                 Type = "init",
                 Seq = seq,
-                Width = _width,
-                Height = _height,
+                Width = ScaleDimension(_width, _renderScaling),
+                Height = ScaleDimension(_height, _renderScaling),
                 PixelFormat = "bgra8",
-                Stride = _width * 4,
+                Stride = ScaleDimension(_width, _renderScaling) * 4,
                 Message = "headless-ready"
             });
     }
@@ -272,5 +275,10 @@ internal sealed class HeadlessUiHost
         }
 
         return null;
+    }
+
+    private static int ScaleDimension(int logicalSize, double renderScaling)
+    {
+        return Math.Max(1, (int)Math.Round(logicalSize * renderScaling, MidpointRounding.AwayFromZero));
     }
 }
