@@ -1,5 +1,7 @@
 import os
 import subprocess
+import threading
+from collections import deque
 from pathlib import Path
 from typing import TypedDict
 
@@ -63,6 +65,9 @@ def build_command(
 class ProcessManager:
     def __init__(self):
         self.process: subprocess.Popen[str] | None = None
+        self._stderr_lines: deque[str] = deque(maxlen=200)
+        self._stderr_lock = threading.Lock()
+        self._stderr_thread: threading.Thread | None = None
 
     def start(
         self,
@@ -91,6 +96,9 @@ class ProcessManager:
         )
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         env = os.environ.copy()
+        with self._stderr_lock:
+            self._stderr_lines.clear()
+        self._stderr_thread = None
         self.process = subprocess.Popen(
             args,
             cwd=cwd,
@@ -100,6 +108,7 @@ class ProcessManager:
             text=True,
             creationflags=creationflags,
         )
+        self._start_stderr_drain(self.process)
         return self.process
 
     def stop(self):
@@ -108,6 +117,7 @@ class ProcessManager:
         process = self.process
         self.process = None
         if process.poll() is not None:
+            self._finalize_stderr_drain(process)
             return
         process.terminate()
         try:
@@ -115,6 +125,8 @@ class ProcessManager:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=3)
+        finally:
+            self._finalize_stderr_drain(process)
 
     def poll_exit(self) -> ProcessExitReport | None:
         process = self.process
@@ -124,13 +136,51 @@ class ProcessManager:
             return None
 
         self.process = None
-        stderr_text = ""
-        try:
-            _, stderr_text = process.communicate(timeout=0.2)
-        except Exception:
-            pass
+        self._finalize_stderr_drain(process)
+        with self._stderr_lock:
+            stderr_text = "\n".join(self._stderr_lines).strip()
 
         return {
             "returncode": process.returncode,
             "stderr": (stderr_text or "").strip(),
         }
+
+    def _start_stderr_drain(self, process: subprocess.Popen[str]):
+        if process.stderr is None:
+            return
+
+        def _drain():
+            stderr = process.stderr
+            if stderr is None:
+                return
+            try:
+                for line in stderr:
+                    with self._stderr_lock:
+                        self._stderr_lines.append(line.rstrip())
+            except Exception:
+                pass
+
+        self._stderr_thread = threading.Thread(target=_drain, name="AvaloniaBridgeStderrDrain", daemon=True)
+        self._stderr_thread.start()
+
+    def _finalize_stderr_drain(self, process: subprocess.Popen[str]):
+        drain_thread = self._stderr_thread
+        if drain_thread is not None and drain_thread.is_alive():
+            drain_thread.join(timeout=0.3)
+        self._stderr_thread = None
+
+        try:
+            if process.stderr is not None and not process.stderr.closed:
+                remaining = process.stderr.read()
+                if remaining:
+                    with self._stderr_lock:
+                        for line in remaining.splitlines():
+                            self._stderr_lines.append(line.rstrip())
+        except Exception:
+            pass
+        finally:
+            try:
+                if process.stderr is not None and not process.stderr.closed:
+                    process.stderr.close()
+            except Exception:
+                pass
