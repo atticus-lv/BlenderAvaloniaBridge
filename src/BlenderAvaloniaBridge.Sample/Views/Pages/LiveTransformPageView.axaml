@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
-             xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.LiveTransformPageView"
              x:DataType="viewModels:LiveTransformPageViewModel"
@@ -20,11 +19,11 @@
           <TextBlock Classes="page-title"
                      Text="Live Transform" />
           <TextBlock Classes="page-subtitle"
-                     Text="Monitor object transform values and opt into a live watch stream." />
+                     Text="Refresh bpy.context.object and monitor its transform with an optional live watch stream." />
         </StackPanel>
 
         <Button Grid.Column="1"
-                Content="Refresh Objects"
+                Content="Refresh Context Object"
                 Padding="14,8"
                 Command="{Binding RefreshObjectsCommand}" />
       </Grid>
@@ -45,23 +44,11 @@
 
           <TextBlock Grid.Row="1"
                      Classes="field-label"
-                     Text="Object" />
-          <ComboBox Grid.Row="1"
-                    Grid.Column="1"
-                    ItemsSource="{Binding Objects}"
-                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="models:BlenderObjectListItem">
-                <Grid ColumnDefinitions="*,Auto"
-                      ColumnSpacing="10">
-                  <TextBlock Text="{Binding Label}" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding ObjectType}"
-                             Classes="body-subtle" />
-                </Grid>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+                     Text="Source" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="1"
+                     Text="bpy.context.object"
+                     Classes="reference-text" />
 
           <TextBlock Grid.Row="2"
                      Classes="field-label"

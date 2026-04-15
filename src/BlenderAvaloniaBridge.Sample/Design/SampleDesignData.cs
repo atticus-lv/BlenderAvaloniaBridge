@@ -112,12 +112,7 @@ public static class SampleDesignData
     {
         public DesignLiveTransformPageViewModel()
         {
-            var active = CreateObjectItem("Cube", "MESH", true, 301, "bpy.data.objects[\"Cube\"]");
-            Objects.Add(active);
-            Objects.Add(CreateObjectItem("Camera", "CAMERA", false, 302, "bpy.data.objects[\"Camera\"]"));
-            Objects.Add(CreateObjectItem("KeyLight", "LIGHT", false, 303, "bpy.data.objects[\"KeyLight\"]"));
-
-            SelectedObject = active;
+            CurrentObject = CreateRnaRef("Cube", "bpy.data.objects[\"Cube\"]", "Object", "OBJECT", 301);
             SelectedReferenceText = "Cube | bpy.data.objects[\"Cube\"]";
             IsLiveWatchEnabled = true;
             LocationX = "1.25";

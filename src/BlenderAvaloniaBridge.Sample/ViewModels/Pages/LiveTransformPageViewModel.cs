@@ -1,9 +1,7 @@
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.Helpers;
-using BlenderAvaloniaBridge.Sample.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -11,7 +9,6 @@ namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 {
-    private bool _isApplyingRemoteState;
     private bool _isChangingLiveWatch;
     private IAsyncDisposable? _watchSubscription;
     private string? _currentWatchPath;
@@ -21,17 +18,15 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     public LiveTransformPageViewModel()
         : base(
             "Desktop window mode. Start the bridge from Blender to inspect live transforms.",
-            "Select an object, then enable live watch.")
+            "Refresh the current Blender context object, then enable live watch.")
     {
     }
 
-    public ObservableCollection<BlenderObjectListItem> Objects { get; } = new();
+    [ObservableProperty]
+    private RnaItemRef? _currentObject;
 
     [ObservableProperty]
-    private BlenderObjectListItem? _selectedObject;
-
-    [ObservableProperty]
-    private string _selectedReferenceText = "No object selected";
+    private string _selectedReferenceText = "No active context object";
 
     [ObservableProperty]
     private bool _isLiveWatchEnabled;
@@ -63,7 +58,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     [ObservableProperty]
     private string _scaleZ = "1";
 
-    public bool CanEnableLiveWatch => BlenderDataApi is not null && SelectedObject is not null;
+    public bool CanEnableLiveWatch => BlenderDataApi is not null && CurrentObject is not null;
 
     protected override async Task OnActivatedAsync()
     {
@@ -75,9 +70,9 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 
         await RefreshObjectsAsync();
 
-        if (IsLiveWatchEnabled && SelectedObject?.RnaRef is not null)
+        if (IsLiveWatchEnabled && CurrentObject is not null)
         {
-            await StartWatchAsync(SelectedObject.RnaRef);
+            await StartWatchAsync(CurrentObject);
         }
     }
 
@@ -92,17 +87,10 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         OnPropertyChanged(nameof(CanEnableLiveWatch));
     }
 
-    partial void OnSelectedObjectChanged(BlenderObjectListItem? value)
+    partial void OnCurrentObjectChanged(RnaItemRef? value)
     {
         UpdateSelectedReferenceText();
         OnPropertyChanged(nameof(CanEnableLiveWatch));
-
-        if (_isApplyingRemoteState)
-        {
-            return;
-        }
-
-        _ = SelectionChangedAsync();
     }
 
     partial void OnIsLiveWatchEnabledChanged(bool value)
@@ -121,67 +109,37 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(RefreshObjectsCoreAsync);
     }
 
-    public Task SelectionChangedAsync()
-    {
-        return RunPageOperationAsync(SelectionChangedCoreAsync);
-    }
-
     private bool CanUseBridge() => BlenderDataApi is not null;
 
     private async Task RefreshObjectsCoreAsync()
     {
         var blender = RequireBlenderDataApi();
-        var previousSelection = SelectedObject?.RnaRef;
-        var objectItems = await BlenderSampleDataHelpers.LoadSceneObjectItemsAsync(blender);
+        RnaItemRef? currentObject;
 
-        Objects.Clear();
-        foreach (var item in objectItems)
+        try
         {
-            Objects.Add(item);
+            currentObject = await blender.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.CurrentObjectPath);
+        }
+        catch (InvalidOperationException)
+        {
+            currentObject = null;
         }
 
-        BlenderObjectListItem? nextSelection = null;
-        if (previousSelection is not null)
+        CurrentObject = currentObject;
+
+        if (CurrentObject is not null)
         {
-            nextSelection = Objects.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.RnaRef, previousSelection));
-        }
-
-        nextSelection ??= Objects.FirstOrDefault(item => item.IsActive);
-        nextSelection ??= Objects.FirstOrDefault();
-
-        _isApplyingRemoteState = true;
-        SelectedObject = nextSelection;
-        _isApplyingRemoteState = false;
-
-        if (SelectedObject?.RnaRef is not null)
-        {
-            await LoadTransformSnapshotAsync(SelectedObject.RnaRef);
+            await LoadTransformSnapshotAsync(CurrentObject);
             if (IsLiveWatchEnabled)
             {
-                await StartWatchAsync(SelectedObject.RnaRef);
+                await StartWatchAsync(CurrentObject);
             }
         }
         else
         {
             await StopWatchAsync();
             ClearTransformValues();
-        }
-    }
-
-    private async Task SelectionChangedCoreAsync()
-    {
-        if (SelectedObject?.RnaRef is not { } rnaRef)
-        {
-            await StopWatchAsync();
-            ClearTransformValues();
-            return;
-        }
-
-        await LoadTransformSnapshotAsync(rnaRef);
-
-        if (IsLiveWatchEnabled)
-        {
-            await StartWatchAsync(rnaRef);
+            SetConnectedIdleStatus("No active context object.");
         }
     }
 
@@ -194,12 +152,12 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        if (SelectedObject?.RnaRef is not { } rnaRef)
+        if (CurrentObject is not { } rnaRef)
         {
             _isChangingLiveWatch = true;
             IsLiveWatchEnabled = false;
             _isChangingLiveWatch = false;
-            StatusText = "Select an object before enabling live watch.";
+            StatusText = "Refresh until bpy.context.object resolves to an object.";
             return;
         }
 
@@ -290,7 +248,6 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 
         await RunOnUiThreadAsync(() =>
         {
-            _isApplyingRemoteState = true;
             LocationX = locationX;
             LocationY = locationY;
             LocationZ = locationZ;
@@ -300,7 +257,6 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
             ScaleX = scaleX;
             ScaleY = scaleY;
             ScaleZ = scaleZ;
-            _isApplyingRemoteState = false;
 
             UpdateSelectedReferenceText();
             SetConnectedIdleStatus($"Transform synced for {rnaRef.Name}.");
@@ -317,7 +273,6 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 
     private void ClearTransformValues()
     {
-        _isApplyingRemoteState = true;
         LocationX = "0";
         LocationY = "0";
         LocationZ = "0";
@@ -327,15 +282,14 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         ScaleX = "1";
         ScaleY = "1";
         ScaleZ = "1";
-        _isApplyingRemoteState = false;
-        SelectedReferenceText = "No object selected";
+        SelectedReferenceText = "No active context object";
     }
 
     private void UpdateSelectedReferenceText()
     {
-        if (SelectedObject?.RnaRef is not { } rnaRef)
+        if (CurrentObject is not { } rnaRef)
         {
-            SelectedReferenceText = "No object selected";
+            SelectedReferenceText = "No active context object";
             return;
         }
 

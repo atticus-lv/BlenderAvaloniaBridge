@@ -90,8 +90,8 @@ public sealed class BlenderSamplePageViewModelTests
         var viewModel = new LiveTransformPageViewModel();
         var api = new TestBlenderDataApi
         {
-            ListAsyncImpl = (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>([CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 3, isActive: true)]),
             GetAsyncImpl = (path, _) => Task.FromResult<object?>(
+                path == "bpy.context.object" ? CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 3, isActive: true) :
                 path.EndsWith(".scale", StringComparison.Ordinal) ? new[] { 1.0, 1.0, 1.0 } :
                 path.EndsWith(".rotation_euler", StringComparison.Ordinal) ? new[] { 0.1, 0.2, 0.3 } :
                 new[] { 4.0, 5.0, 6.0 }),
@@ -99,7 +99,7 @@ public sealed class BlenderSamplePageViewModelTests
 
         viewModel.AttachBlenderDataApi(api);
         await viewModel.ActivateAsync();
-        await WaitForAsync(() => viewModel.SelectedObject is not null);
+        await WaitForAsync(() => viewModel.CurrentObject is not null);
 
         Assert.Equal(0, api.WatchSubscribeCount);
 

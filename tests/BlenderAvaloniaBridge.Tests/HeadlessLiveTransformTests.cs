@@ -62,8 +62,7 @@ public sealed class HeadlessLiveTransformTests
         mainViewModel.ShowLiveTransformPageCommand.Execute(null);
         await WaitForAsync(() => mainViewModel.IsLiveTransformPageSelected);
 
-        await server.WaitForRequestsAsync("rna.list", 1, hostCts.Token);
-        await server.WaitForRequestsAsync("rna.get", 3, hostCts.Token);
+        await server.WaitForRequestsAsync("rna.get", 4, hostCts.Token);
 
         var liveViewModel = Assert.IsType<LiveTransformPageViewModel>(mainViewModel.CurrentPage);
         await WaitForAsync(() => liveViewModel.CanEnableLiveWatch);
@@ -152,8 +151,7 @@ public sealed class HeadlessLiveTransformTests
         mainViewModel.ShowLiveTransformPageCommand.Execute(null);
         await WaitForAsync(() => mainViewModel.IsLiveTransformPageSelected);
 
-        await server.WaitForRequestsAsync("rna.list", 1, hostCts.Token);
-        await server.WaitForRequestsAsync("rna.get", 3, hostCts.Token);
+        await server.WaitForRequestsAsync("rna.get", 4, hostCts.Token);
 
         var liveViewModel = Assert.IsType<LiveTransformPageViewModel>(mainViewModel.CurrentPage);
         await WaitForAsync(() => liveViewModel.CanEnableLiveWatch);
@@ -351,35 +349,29 @@ public sealed class HeadlessLiveTransformTests
             var payload = packet.Header.Payload ?? default;
             switch (packet.Header.Name)
             {
-                case "rna.list":
-                    await SendBusinessResponseAsync(
-                        packet.Header,
-                        """
-                        {
-                          "path": "bpy.context.scene.objects",
-                          "items": [
-                            {
-                              "kind": "rna",
-                              "path": "bpy.data.objects[\"Cube\"]",
-                              "name": "Cube",
-                              "label": "Cube",
-                              "rnaType": "Object",
-                              "idType": "OBJECT",
-                              "sessionUid": 3,
-                              "metadata": {
-                                "objectType": "MESH",
-                                "isActive": true
-                              }
-                            }
-                          ]
-                        }
-                        """);
-                    break;
                 case "rna.get":
                     var path = payload.GetProperty("path").GetString() ?? string.Empty;
                     var isUpdated = _useUpdatedTransformSnapshot;
                     var responseJson = path switch
                     {
+                        "bpy.context.object" =>
+                            """
+                            {
+                              "value": {
+                                "kind": "rna",
+                                "path": "bpy.data.objects[\"Cube\"]",
+                                "name": "Cube",
+                                "label": "Cube",
+                                "rnaType": "Object",
+                                "idType": "OBJECT",
+                                "sessionUid": 3,
+                                "metadata": {
+                                  "objectType": "MESH",
+                                  "isActive": true
+                                }
+                              }
+                            }
+                            """,
                         "bpy.data.objects[\"Cube\"].location" => isUpdated
                             ? """{ "value": [9.0, 8.0, 7.0] }"""
                             : """{ "value": [1.0, 2.0, 3.0] }""",

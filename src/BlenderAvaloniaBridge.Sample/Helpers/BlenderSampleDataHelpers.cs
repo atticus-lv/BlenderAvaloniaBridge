@@ -6,6 +6,7 @@ namespace BlenderAvaloniaBridge.Sample.Helpers;
 internal static class BlenderSampleDataHelpers
 {
     internal const string SceneObjectsPath = "bpy.context.scene.objects";
+    internal const string CurrentObjectPath = "bpy.context.object";
     internal const string ActiveObjectPath = "bpy.context.active_object";
     internal const string MaterialsPath = "bpy.data.materials";
     internal const string SceneCollectionPath = "bpy.context.scene.collection";
