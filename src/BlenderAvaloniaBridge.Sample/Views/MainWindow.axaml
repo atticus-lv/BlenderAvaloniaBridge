@@ -10,11 +10,14 @@
         MinWidth="960"
         MinHeight="680"
         Title="Blender Avalonia Bridge Demo"
+        RequestedThemeVariant="Dark"
         Background="#FF0F172A"
         d:DesignWidth="1180"
         d:DesignHeight="860"
         mc:Ignorable="d">
   <Design.PreviewWith>
-    <views:MainView DataContext="{x:Static design:SampleDesignData.MainView}" />
+    <ThemeVariantScope RequestedThemeVariant="Dark">
+      <views:MainView DataContext="{x:Static design:SampleDesignData.MainView}" />
+    </ThemeVariantScope>
   </Design.PreviewWith>
 </Window>
