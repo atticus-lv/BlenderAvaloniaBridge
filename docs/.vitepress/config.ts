@@ -80,6 +80,7 @@ export default withMermaid(defineConfig({
       : '/',
   title: 'Blender Avalonia Bridge',
   description: 'Bridge toolkit for embedding Avalonia UI inside Blender on Windows and macOS.',
+  appearance: 'dark',
   cleanUrls: true,
   lastUpdated: true,
   mermaid: {},

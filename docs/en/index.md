@@ -5,7 +5,7 @@ pageClass: home-hero-visual
 
 hero:
   name: Blender Avalonia Bridge
-  text: Avalonia UI inside Blender, with transport and business boundaries kept explicit
+  text: Build desktop-grade UI in Blender with Avalonia
   tagline: Bridge brings Avalonia into Blender, preserving almost the full Avalonia framework while delivering Blender-native rendering and interaction.
   actions:
     - theme: brand
