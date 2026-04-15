@@ -31,7 +31,7 @@ test('English locale entry renders a localized home page', () => {
     const index = readDoc('en/index.md');
 
     assert.match(index, /layout:\s*home/);
-    assert.match(index, /Avalonia UI inside Blender, with transport and business boundaries kept explicit/);
+    assert.match(index, /Build desktop-grade UI in Blender with Avalonia/);
     assert.match(index, /What Is Blender Avalonia Bridge/);
     assert.match(index, /\/en\/guide\/quick-start/);
 });
