@@ -124,21 +124,6 @@
     <Setter Property="Foreground" Value="#FFD7EAFE" />
   </Style>
 
-  <Style Selector="Border.tree-node-card">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="6,4" />
-  </Style>
-
-  <Style Selector="TreeViewItem:pointerover Border.tree-node-card">
-    <Setter Property="Background" Value="#14233A" />
-  </Style>
-
-  <Style Selector="TreeViewItem:selected Border.tree-node-card">
-    <Setter Property="Background" Value="#183154" />
-    <Setter Property="BoxShadow" Value="0 0 0 1 #5AB0FF" />
-  </Style>
-
   <Style Selector="PathIcon.tree-node-icon">
     <Setter Property="Foreground" Value="#8FB7DE" />
     <Setter Property="VerticalAlignment" Value="Center" />

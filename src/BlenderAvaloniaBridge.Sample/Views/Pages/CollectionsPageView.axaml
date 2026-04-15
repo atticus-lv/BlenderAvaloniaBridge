@@ -43,30 +43,29 @@
                      x:DataType="models:CollectionTreeItem">
                 <Setter Property="IsExpanded"
                         Value="{CompiledBinding IsExpanded, Mode=TwoWay}" />
+                <Setter Property="FocusAdorner"
+                        Value="{x:Null}" />
               </Style>
             </TreeView.Styles>
             <TreeView.DataTemplates>
               <TreeDataTemplate DataType="models:CollectionTreeItem"
                                 ItemsSource="{Binding Children}"
                                 x:DataType="models:CollectionTreeItem">
-                <Border Classes="tree-node-card">
-                  <Grid ColumnDefinitions="Auto,*"
-                        ColumnSpacing="10">
-                    <PathIcon Data="{Binding Icon}"
-                              Classes="tree-node-icon"
-                              Classes.collection="{Binding IsCollection}"
-                              Classes.object="{Binding IsObject}"
-                              Width="16"
-                              Height="16" />
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10"
+                      Margin="2,0">
+                  <PathIcon Data="{Binding Icon}"
+                            Classes="tree-node-icon"
+                            Classes.collection="{Binding IsCollection}"
+                            Classes.object="{Binding IsObject}"
+                            Width="16"
+                            Height="16" />
 
-                    <StackPanel Grid.Column="1"
-                                Spacing="0"
-                                VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Name}"
-                                 Classes="tree-node-title" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
+                  <TextBlock Grid.Column="1"
+                             VerticalAlignment="Center"
+                             Text="{Binding Name}"
+                             Classes="tree-node-title" />
+                </Grid>
               </TreeDataTemplate>
             </TreeView.DataTemplates>
           </TreeView>
