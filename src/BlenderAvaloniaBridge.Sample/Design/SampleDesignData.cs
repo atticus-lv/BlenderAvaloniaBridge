@@ -80,7 +80,7 @@ public static class SampleDesignData
     {
         public DesignSortableListDemoPageViewModel()
         {
-            StatusText = "Drag the left handle to reorder the preview list.";
+            StatusText = "Drag the right-side queue to prioritize the next four tasks.";
         }
     }
 

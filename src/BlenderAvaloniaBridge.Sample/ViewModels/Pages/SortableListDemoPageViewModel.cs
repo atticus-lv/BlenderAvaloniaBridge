@@ -6,7 +6,7 @@ namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class SortableListDemoPageViewModel : ObservableObject
 {
-    public ObservableCollection<SortableListItem> Items { get; } =
+    public ObservableCollection<SortableListItem> LibraryItems { get; } =
     [
         new("Bridge Launch", "Open the desktop shell and verify the renderer is connected."),
         new("Camera Review", "Inspect the preview framing before pushing the next action."),
@@ -22,8 +22,16 @@ public partial class SortableListDemoPageViewModel : ObservableObject
         new("Final Review", "Group the last pass tasks in the order the artist will likely use them."),
     ];
 
+    public ObservableCollection<SortableListItem> SortableItems { get; } =
+    [
+        new("Camera Review", "Inspect the preview framing before pushing the next action."),
+        new("Material Pass", "Check materials and update the bridge status notes."),
+        new("Lighting Sweep", "Walk the key lights through a quick balance check for the active scene."),
+        new("Final Review", "Group the last pass tasks in the order the artist will likely use them."),
+    ];
+
     [ObservableProperty]
-    private string _statusText = "Drag the handle on the left side of an item to reorder the list.";
+    private string _statusText = "Drag the handle on the right-side queue to reorder the next four tasks.";
 
     public void MoveItem(SortableListItem? source, SortableListItem? target)
     {
@@ -32,14 +40,14 @@ public partial class SortableListDemoPageViewModel : ObservableObject
             return;
         }
 
-        var sourceIndex = Items.IndexOf(source);
-        var targetIndex = Items.IndexOf(target);
+        var sourceIndex = SortableItems.IndexOf(source);
+        var targetIndex = SortableItems.IndexOf(target);
         if (sourceIndex < 0 || targetIndex < 0)
         {
             return;
         }
 
-        Items.Move(sourceIndex, targetIndex);
+        SortableItems.Move(sourceIndex, targetIndex);
         StatusText = $"Moved \"{source.Title}\" to position {targetIndex + 1}.";
     }
 
@@ -50,13 +58,13 @@ public partial class SortableListDemoPageViewModel : ObservableObject
             return;
         }
 
-        var sourceIndex = Items.IndexOf(source);
-        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= Items.Count || sourceIndex == targetIndex)
+        var sourceIndex = SortableItems.IndexOf(source);
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= SortableItems.Count || sourceIndex == targetIndex)
         {
             return;
         }
 
-        Items.Move(sourceIndex, targetIndex);
+        SortableItems.Move(sourceIndex, targetIndex);
         StatusText = $"Moved \"{source.Title}\" to position {targetIndex + 1}.";
     }
 }
