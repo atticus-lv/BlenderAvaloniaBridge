@@ -30,6 +30,55 @@ public sealed class BusinessError
 
     [JsonPropertyName("details")]
     public JsonElement? Details { get; set; }
+
+    internal BusinessError Clone()
+    {
+        return new BusinessError(Code, Message, Details);
+    }
+}
+
+public sealed class BlenderBusinessException : Exception
+{
+    public BlenderBusinessException(string requestName, BusinessResponse response)
+        : base(FormatMessage(requestName, response.Error))
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestName);
+        ArgumentNullException.ThrowIfNull(response);
+
+        RequestName = requestName;
+        ProtocolVersion = response.ProtocolVersion;
+        SchemaVersion = response.SchemaVersion;
+        MessageId = response.MessageId;
+        ReplyTo = response.ReplyTo;
+        Error = response.Error?.Clone();
+    }
+
+    public string RequestName { get; }
+
+    public int ProtocolVersion { get; }
+
+    public int SchemaVersion { get; }
+
+    public long MessageId { get; }
+
+    public long ReplyTo { get; }
+
+    public BusinessError? Error { get; }
+
+    private static string FormatMessage(string requestName, BusinessError? error)
+    {
+        if (!string.IsNullOrWhiteSpace(error?.Code) && !string.IsNullOrWhiteSpace(error.Message))
+        {
+            return $"Business request '{requestName}' failed with '{error.Code}': {error.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(error?.Message))
+        {
+            return $"Business request '{requestName}' failed: {error.Message}";
+        }
+
+        return $"Business request '{requestName}' failed.";
+    }
 }
 
 public sealed class BusinessRequest

@@ -349,7 +349,7 @@ class BridgeController:
                 if response_header.get("ok", False):
                     self._replace_state(last_error="", last_message=f"{response_type}: ok")
                 else:
-                    self._replace_state(last_error=response_header.get("message", f"{response_type} failed"))
+                    self._replace_state(last_error=self._business_error_message(response_header, response_type))
             return response
         if packet_type == "frame":
             self._diagnostics.record_frame_packet(header, now_ms)
@@ -430,6 +430,21 @@ class BridgeController:
     @staticmethod
     def _is_business_packet(header):
         return header.get("type") == "business_request"
+
+    @staticmethod
+    def _business_error_message(header: Mapping[str, object], response_type: str) -> str:
+        error = header.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()
+            code = error.get("code")
+            if isinstance(code, str) and code.strip():
+                return code.strip()
+        message = header.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        return f"{response_type} failed"
 
     def _configure_business_event_sender(self, sender):
         for candidate in (self.business_endpoint, getattr(self.business_handler, "endpoint", None)):

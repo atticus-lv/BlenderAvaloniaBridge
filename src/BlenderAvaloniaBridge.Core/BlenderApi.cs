@@ -518,7 +518,7 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
 
         if (!response.Ok)
         {
-            throw new InvalidOperationException(response.Error?.Message ?? $"Business request '{name}' failed.");
+            throw new BlenderBusinessException(name, response);
         }
 
         return response;

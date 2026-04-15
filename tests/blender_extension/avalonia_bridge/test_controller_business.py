@@ -360,6 +360,58 @@ class ControllerBusinessTests(unittest.TestCase):
         self.assertEqual("business_response", sent[0][0]["type"])
         self.assertEqual(b"\x01\x02\x03\x04", sent[0][1])
 
+    def test_controller_uses_nested_business_error_message_for_state(self):
+        core = import_module("avalonia_bridge.core")
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"))
+
+        controller._handle_packet(
+            {
+                "type": "business_request",
+                "protocolVersion": 1,
+                "schemaVersion": 1,
+                "message_id": 11,
+                "name": "rna.list",
+                "payload": {"path": "bpy.data.materials"},
+            },
+            b"",
+        )
+
+        snapshot = controller.state_snapshot()
+
+        self.assertEqual("business_response: ok", snapshot.last_message)
+        self.assertEqual("", snapshot.last_error)
+
+        controller.business_handler = types.SimpleNamespace(
+            handle_packet=lambda header, payload: (
+                {
+                    "type": "business_response",
+                    "reply_to": header["message_id"],
+                    "ok": False,
+                    "error": {
+                        "code": "unsupported_business_request",
+                        "message": "Not allowed in current context",
+                    },
+                },
+                b"",
+            )
+        )
+
+        controller._handle_packet(
+            {
+                "type": "business_request",
+                "protocolVersion": 1,
+                "schemaVersion": 1,
+                "message_id": 12,
+                "name": "rna.list",
+                "payload": {"path": "bpy.data.materials"},
+            },
+            b"",
+        )
+
+        snapshot = controller.state_snapshot()
+
+        self.assertEqual("Not allowed in current context", snapshot.last_error)
+
     def test_default_business_endpoint_rejects_unsupported_protocol_version(self):
         core = import_module("avalonia_bridge.core")
         endpoint = core.DefaultBusinessEndpoint()

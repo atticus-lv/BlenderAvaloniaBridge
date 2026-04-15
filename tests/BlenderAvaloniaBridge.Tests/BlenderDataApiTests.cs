@@ -164,6 +164,27 @@ public sealed partial class BlenderApiTests
     }
 
     [Fact]
+    public async Task Rna_GetAsync_WhenBusinessRequestFails_PreservesStructuredError()
+    {
+        var endpoint = new RecordingEndpoint(
+            _ => BusinessRequest.Response(
+                1,
+                ok: false,
+                error: new BusinessError(
+                    "unsupported_business_request",
+                    "Reading this path is not allowed.")));
+        var blenderApi = new BlenderApi(endpoint);
+
+        var exception = await Assert.ThrowsAsync<BlenderBusinessException>(
+            () => blenderApi.Rna.GetAsync<string>("bpy.data.objects[\"Cube\"].name"));
+
+        Assert.Equal("rna.get", exception.RequestName);
+        Assert.Equal("unsupported_business_request", exception.Error?.Code);
+        Assert.Equal("Reading this path is not allowed.", exception.Error?.Message);
+        Assert.Contains("unsupported_business_request", exception.Message);
+    }
+
+    [Fact]
     public async Task Rna_ReadArrayAsync_ReturnsMetadataAndRawBytes()
     {
         var endpoint = new RecordingEndpoint(
