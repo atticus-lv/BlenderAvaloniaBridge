@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.Helpers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 {
@@ -112,10 +113,10 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     {
         var blender = RequireBlenderDataApi();
         var previousSelection = SelectedMaterial;
-        var items = await blender.ListAsync(BlenderSampleViewModelHelpers.MaterialsPath);
+        var items = await blender.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
         var nextSelection = previousSelection is null
             ? items.FirstOrDefault()
-            : items.FirstOrDefault(item => BlenderSampleViewModelHelpers.ReferenceMatches(item, previousSelection))
+            : items.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, previousSelection))
               ?? items.FirstOrDefault(item => string.Equals(item.Name, previousSelection.Name, StringComparison.Ordinal))
               ?? items.FirstOrDefault();
 
@@ -163,14 +164,14 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     {
         var requestedName = string.IsNullOrWhiteSpace(NewMaterialName) ? "Material" : NewMaterialName.Trim();
         var created = await RequireBlenderDataApi().CallAsync<RnaItemRef>(
-            BlenderSampleViewModelHelpers.MaterialsPath,
+            BlenderSampleDataHelpers.MaterialsPath,
             "new",
             ("name", requestedName));
 
         NewMaterialName = requestedName;
         await RefreshMaterialsCoreAsync();
 
-        var matched = Materials.FirstOrDefault(item => BlenderSampleViewModelHelpers.ReferenceMatches(item, created))
+        var matched = Materials.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, created))
                       ?? Materials.FirstOrDefault(item => string.Equals(item.Name, created.Name, StringComparison.Ordinal));
         if (matched is not null)
         {
@@ -231,7 +232,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         _watchSubscription = await BlenderDataApi.WatchAsync(
             "materials-page",
             WatchSource.Depsgraph,
-            BlenderSampleViewModelHelpers.MaterialsPath,
+            BlenderSampleDataHelpers.MaterialsPath,
             async _ => await RefreshMaterialsAsync());
     }
 

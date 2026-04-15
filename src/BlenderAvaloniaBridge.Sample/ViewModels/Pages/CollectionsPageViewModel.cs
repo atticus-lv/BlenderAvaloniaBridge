@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.Helpers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
 {
@@ -68,7 +69,7 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
     {
         var blender = RequireBlenderDataApi();
         var previousSelection = SelectedCollection;
-        var items = await blender.ListAsync(BlenderSampleViewModelHelpers.CollectionsPath);
+        var items = await blender.ListAsync(BlenderSampleDataHelpers.CollectionsPath);
 
         Collections.Clear();
         foreach (var item in items)
@@ -78,7 +79,7 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
 
         var nextSelection = previousSelection is null
             ? Collections.FirstOrDefault()
-            : Collections.FirstOrDefault(item => BlenderSampleViewModelHelpers.ReferenceMatches(item, previousSelection))
+            : Collections.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, previousSelection))
               ?? Collections.FirstOrDefault(item => string.Equals(item.Name, previousSelection.Name, StringComparison.Ordinal))
               ?? Collections.FirstOrDefault();
 

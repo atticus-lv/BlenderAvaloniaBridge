@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using BlenderAvaloniaBridge;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.Models;
 
 public partial class BlenderObjectListItem : ObservableObject
 {

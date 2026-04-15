@@ -2,10 +2,12 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading;
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.Helpers;
+using BlenderAvaloniaBridge.Sample.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 {
@@ -130,7 +132,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     {
         var blender = RequireBlenderDataApi();
         var previousSelection = SelectedObject?.RnaRef;
-        var objectItems = await BlenderSampleViewModelHelpers.LoadSceneObjectItemsAsync(blender);
+        var objectItems = await BlenderSampleDataHelpers.LoadSceneObjectItemsAsync(blender);
 
         Objects.Clear();
         foreach (var item in objectItems)
@@ -141,7 +143,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         BlenderObjectListItem? nextSelection = null;
         if (previousSelection is not null)
         {
-            nextSelection = Objects.FirstOrDefault(item => BlenderSampleViewModelHelpers.ReferenceMatches(item.RnaRef, previousSelection));
+            nextSelection = Objects.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.RnaRef, previousSelection));
         }
 
         nextSelection ??= Objects.FirstOrDefault(item => item.IsActive);

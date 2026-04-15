@@ -1,8 +1,9 @@
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.Models;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.Helpers;
 
-internal static class BlenderSampleViewModelHelpers
+internal static class BlenderSampleDataHelpers
 {
     internal const string SceneObjectsPath = "bpy.context.scene.objects";
     internal const string ActiveObjectPath = "bpy.context.active_object";

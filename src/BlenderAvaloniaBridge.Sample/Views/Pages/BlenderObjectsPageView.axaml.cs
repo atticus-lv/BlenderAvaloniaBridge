@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using BlenderAvaloniaBridge.Sample.ViewModels;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 namespace BlenderAvaloniaBridge.Sample.Views.Pages;
 

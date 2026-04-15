@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
+             xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.OperatorsPageView"
              x:DataType="viewModels:OperatorsPageViewModel">
   <ScrollViewer>
@@ -46,7 +47,7 @@
                     ItemsSource="{Binding Objects}"
                     SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
             <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="viewModels:BlenderObjectListItem">
+              <DataTemplate x:DataType="models:BlenderObjectListItem">
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10">
                   <TextBlock Text="{Binding Label}"

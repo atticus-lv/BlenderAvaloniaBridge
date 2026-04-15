@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.ViewModels;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 using Xunit;
 
 namespace BlenderAvaloniaBridge.Tests;

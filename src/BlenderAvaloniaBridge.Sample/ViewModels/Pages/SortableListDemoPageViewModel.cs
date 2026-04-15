@@ -1,11 +1,12 @@
 using System.Collections.ObjectModel;
+using BlenderAvaloniaBridge.Sample.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class SortableListDemoPageViewModel : ObservableObject
 {
-    public ObservableCollection<SortableListItemViewModel> Items { get; } =
+    public ObservableCollection<SortableListItem> Items { get; } =
     [
         new("Bridge Launch", "Open the desktop shell and verify the renderer is connected."),
         new("Camera Review", "Inspect the preview framing before pushing the next action."),
@@ -24,7 +25,7 @@ public partial class SortableListDemoPageViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "Drag the handle on the left side of an item to reorder the list.";
 
-    public void MoveItem(SortableListItemViewModel? source, SortableListItemViewModel? target)
+    public void MoveItem(SortableListItem? source, SortableListItem? target)
     {
         if (source is null || target is null || ReferenceEquals(source, target))
         {
@@ -42,7 +43,7 @@ public partial class SortableListDemoPageViewModel : ObservableObject
         StatusText = $"Moved \"{source.Title}\" to position {targetIndex + 1}.";
     }
 
-    public void MoveItemToIndex(SortableListItemViewModel? source, int targetIndex)
+    public void MoveItemToIndex(SortableListItem? source, int targetIndex)
     {
         if (source is null)
         {

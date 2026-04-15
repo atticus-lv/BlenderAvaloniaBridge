@@ -1,6 +1,6 @@
 using BlenderAvaloniaBridge;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public interface IBlenderSamplePageViewModel : IBlenderDataApiSink, IBlenderBridgeStatusSink
 {

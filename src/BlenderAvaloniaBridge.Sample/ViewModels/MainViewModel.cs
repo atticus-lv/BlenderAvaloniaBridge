@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 

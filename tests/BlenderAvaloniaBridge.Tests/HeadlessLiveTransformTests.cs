@@ -4,6 +4,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Sample.ViewModels;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 using BlenderAvaloniaBridge.Sample.Views;
 using BlenderAvaloniaBridge.Transport;
 using Xunit;

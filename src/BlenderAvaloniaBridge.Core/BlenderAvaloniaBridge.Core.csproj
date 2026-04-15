@@ -18,4 +18,29 @@
     <PackageReference Include="Avalonia.Skia" Version="12.0.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaXaml Remove="avalonia\**" />
+    <AvaloniaXaml Remove="artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="avalonia\**" />
+    <Compile Remove="artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="avalonia\**" />
+    <EmbeddedResource Remove="artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Remove="avalonia\**" />
+    <AdditionalFiles Remove="artifacts\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="avalonia\**" />
+    <None Remove="artifacts\**" />
+  </ItemGroup>
 </Project>

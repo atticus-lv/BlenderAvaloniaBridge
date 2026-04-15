@@ -5,8 +5,9 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
-using BlenderAvaloniaBridge.Sample.ViewModels;
 using System.Collections.Generic;
+using BlenderAvaloniaBridge.Sample.Models;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 namespace BlenderAvaloniaBridge.Sample.Views.Pages;
 
@@ -21,7 +22,7 @@ public sealed partial class SortableListDemoPageView : UserControl
     private int _draggedIndex = -1;
     private int _targetIndex = -1;
     private IPointer? _capturedPointer;
-    private SortableListItemViewModel? _draggedItem;
+    private SortableListItem? _draggedItem;
     private ListBoxItem? _draggedContainer;
 
     public SortableListDemoPageView()
@@ -37,7 +38,7 @@ public sealed partial class SortableListDemoPageView : UserControl
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
             sender is not Control control ||
-            control.DataContext is not SortableListItemViewModel item ||
+            control.DataContext is not SortableListItem item ||
             _sortableListBox is null)
         {
             return;

@@ -2,7 +2,7 @@ using BlenderAvaloniaBridge;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace BlenderAvaloniaBridge.Sample.ViewModels;
+namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public abstract partial class BlenderBridgePageViewModelBase : ObservableObject, IBlenderSamplePageViewModel
 {

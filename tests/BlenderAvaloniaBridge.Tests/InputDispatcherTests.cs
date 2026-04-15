@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Runtime;
 using BlenderAvaloniaBridge.Sample.ViewModels;
+using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 using BlenderAvaloniaBridge.Sample.Views.Pages;
 using Xunit;
 

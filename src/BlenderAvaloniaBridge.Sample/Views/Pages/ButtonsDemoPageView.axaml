@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.ButtonsDemoPageView"
              x:DataType="viewModels:ButtonsDemoPageViewModel">
   <ScrollViewer>
