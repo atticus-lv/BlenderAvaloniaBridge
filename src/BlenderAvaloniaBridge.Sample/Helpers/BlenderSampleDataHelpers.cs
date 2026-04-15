@@ -8,7 +8,7 @@ internal static class BlenderSampleDataHelpers
     internal const string SceneObjectsPath = "bpy.context.scene.objects";
     internal const string ActiveObjectPath = "bpy.context.active_object";
     internal const string MaterialsPath = "bpy.data.materials";
-    internal const string CollectionsPath = "bpy.data.collections";
+    internal const string SceneCollectionPath = "bpy.context.scene.collection";
 
     internal static async Task<IReadOnlyList<BlenderObjectListItem>> LoadSceneObjectItemsAsync(
         IBlenderDataApi blenderDataApi,

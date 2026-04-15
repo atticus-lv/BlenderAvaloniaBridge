@@ -168,20 +168,29 @@ public sealed class BlenderSamplePageViewModelTests
         var viewModel = new CollectionsPageViewModel();
         var api = new TestBlenderDataApi
         {
-            ListAsyncImpl = (path, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(path switch
+            GetAsyncImpl = (path, _) => path switch
             {
-                "bpy.data.collections" =>
-                [
+                "bpy.context.scene.collection" => Task.FromResult<object?>(
                     new RnaItemRef
                     {
-                        Path = "bpy.data.collections[\"Root\"]",
+                        Path = "bpy.context.scene.collection",
                         Name = "Root",
                         Label = "Root",
                         RnaType = "Collection",
-                    },
-                ],
-                "bpy.data.collections[\"Root\"].children" =>
+                    }),
+                _ => Task.FromResult<object?>(null),
+            },
+            ListAsyncImpl = (path, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(path switch
+            {
+                "bpy.context.scene.collection.children" =>
                 [
+                    new RnaItemRef
+                    {
+                        Path = "bpy.data.collections[\"Zoo\"]",
+                        Name = "Zoo",
+                        Label = "Zoo",
+                        RnaType = "Collection",
+                    },
                     new RnaItemRef
                     {
                         Path = "bpy.data.collections[\"Child\"]",
@@ -190,20 +199,46 @@ public sealed class BlenderSamplePageViewModelTests
                         RnaType = "Collection",
                     },
                 ],
-                "bpy.data.collections[\"Root\"].objects" =>
+                "bpy.context.scene.collection.objects" =>
                 [
+                    CreateObject("Sphere", "bpy.data.objects[\"Sphere\"]", 11),
                     CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 9),
                 ],
+                "bpy.data.collections[\"Child\"].children" => [],
+                "bpy.data.collections[\"Child\"].objects" =>
+                [
+                    CreateObject("Torus", "bpy.data.objects[\"Torus\"]", 10),
+                ],
+                "bpy.data.collections[\"Zoo\"].children" => [],
+                "bpy.data.collections[\"Zoo\"].objects" => [],
                 _ => Array.Empty<RnaItemRef>(),
             }),
         };
 
         viewModel.AttachBlenderDataApi(api);
         await viewModel.ActivateAsync();
-        await WaitForAsync(() => viewModel.ChildCollections.Count == 1 && viewModel.CollectionObjects.Count == 1);
+        await WaitForAsync(() =>
+            viewModel.CollectionTreeRoots.Count == 1 &&
+            viewModel.SelectedCollectionNode is not null &&
+            viewModel.SelectedCollectionNode.Children.Count == 4 &&
+            viewModel.CollectionObjects.Count == 2);
 
-        Assert.Equal("Child", viewModel.ChildCollections[0].Name);
+        Assert.NotNull(viewModel.SelectedCollectionNode);
+        Assert.Equal("Root", viewModel.SelectedCollectionNode!.Item.Name);
+        Assert.True(viewModel.SelectedCollectionNode.Children[0].IsCollection);
+        Assert.Equal("Child", viewModel.SelectedCollectionNode.Children[0].Item.Name);
+        Assert.True(viewModel.SelectedCollectionNode.Children[1].IsCollection);
+        Assert.Equal("Zoo", viewModel.SelectedCollectionNode.Children[1].Item.Name);
+        Assert.True(viewModel.SelectedCollectionNode.Children[2].IsObject);
+        Assert.Equal("Cube", viewModel.SelectedCollectionNode.Children[2].Item.Name);
+        Assert.True(viewModel.SelectedCollectionNode.Children[3].IsObject);
+        Assert.Equal("Sphere", viewModel.SelectedCollectionNode.Children[3].Item.Name);
         Assert.Equal("Cube", viewModel.CollectionObjects[0].Name);
+        Assert.Equal("Sphere", viewModel.CollectionObjects[1].Name);
+
+        viewModel.SelectedCollectionNode = viewModel.SelectedCollectionNode.Children[0];
+        await WaitForAsync(() => viewModel.CollectionObjects.Count == 1 && viewModel.CollectionObjects[0].Name == "Torus");
+        Assert.Equal("Torus", viewModel.CollectionObjects[0].Name);
     }
 
     [Fact]

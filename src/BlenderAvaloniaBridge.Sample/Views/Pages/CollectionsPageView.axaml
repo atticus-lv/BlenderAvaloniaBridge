@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
-             xmlns:bridge="clr-namespace:BlenderAvaloniaBridge;assembly=BlenderAvaloniaBridge.Core"
+             xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.CollectionsPageView"
              x:DataType="viewModels:CollectionsPageViewModel"
@@ -29,59 +29,49 @@
                 Command="{Binding RefreshCollectionsCommand}" />
       </Grid>
 
-      <Border Classes="panel-card emphasis">
-        <Grid ColumnDefinitions="Auto,*"
-              ColumnSpacing="12">
-          <TextBlock Classes="field-label"
-                     Text="Collection" />
-          <ComboBox Grid.Column="1"
-                    ItemsSource="{Binding Collections}"
-                    SelectedItem="{Binding SelectedCollection, Mode=TwoWay}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="bridge:RnaItemRef">
-                <TextBlock Text="{Binding Name}"
-                           Foreground="#FFF8FAFC" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-        </Grid>
+      <Border Classes="panel-card surface">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="section-title"
+                     Text="Scene Tree" />
+          <TextBlock Classes="body-subtle"
+                     Text="Collections stay expandable, and linked objects appear directly under their owning collection." />
+          <TreeView ItemsSource="{Binding CollectionTreeRoots}"
+                    SelectedItem="{Binding SelectedCollectionNode, Mode=TwoWay}"
+                    Height="420">
+            <TreeView.Styles>
+              <Style Selector="TreeViewItem"
+                     x:DataType="models:CollectionTreeItem">
+                <Setter Property="IsExpanded"
+                        Value="{CompiledBinding IsExpanded, Mode=TwoWay}" />
+              </Style>
+            </TreeView.Styles>
+            <TreeView.DataTemplates>
+              <TreeDataTemplate DataType="models:CollectionTreeItem"
+                                ItemsSource="{Binding Children}"
+                                x:DataType="models:CollectionTreeItem">
+                <Border Classes="tree-node-card">
+                  <Grid ColumnDefinitions="Auto,*"
+                        ColumnSpacing="10">
+                    <PathIcon Data="{Binding Icon}"
+                              Classes="tree-node-icon"
+                              Classes.collection="{Binding IsCollection}"
+                              Classes.object="{Binding IsObject}"
+                              Width="16"
+                              Height="16" />
+
+                    <StackPanel Grid.Column="1"
+                                Spacing="0"
+                                VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}"
+                                 Classes="tree-node-title" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </TreeDataTemplate>
+            </TreeView.DataTemplates>
+          </TreeView>
+        </StackPanel>
       </Border>
-
-      <Grid ColumnDefinitions="*,*"
-            ColumnSpacing="12">
-        <Border Classes="panel-card surface">
-          <StackPanel Spacing="10">
-            <TextBlock Classes="section-title"
-                       Text="Child Collections" />
-            <ListBox ItemsSource="{Binding ChildCollections}"
-                     Height="260">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="bridge:RnaItemRef">
-                  <TextBlock Text="{Binding Name}"
-                             Classes="body-muted" />
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </StackPanel>
-        </Border>
-
-        <Border Grid.Column="1"
-                Classes="panel-card surface">
-          <StackPanel Spacing="10">
-            <TextBlock Classes="section-title"
-                       Text="Objects" />
-            <ListBox ItemsSource="{Binding CollectionObjects}"
-                     Height="260">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="bridge:RnaItemRef">
-                  <TextBlock Text="{Binding Name}"
-                             Classes="body-muted" />
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </StackPanel>
-        </Border>
-      </Grid>
 
       <Border Classes="panel-card status">
         <StackPanel Spacing="6">

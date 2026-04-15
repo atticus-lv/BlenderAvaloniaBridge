@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.Helpers;
+using BlenderAvaloniaBridge.Sample.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -17,14 +18,14 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
     {
     }
 
-    public ObservableCollection<RnaItemRef> Collections { get; } = new();
-
-    public ObservableCollection<RnaItemRef> ChildCollections { get; } = new();
+    public ObservableCollection<CollectionTreeItem> CollectionTreeRoots { get; } = new();
 
     public ObservableCollection<RnaItemRef> CollectionObjects { get; } = new();
 
     [ObservableProperty]
-    private RnaItemRef? _selectedCollection;
+    private CollectionTreeItem? _selectedCollectionNode;
+
+    public bool HasSelectedCollection => SelectedCollectionNode?.IsCollection == true;
 
     protected override Task OnActivatedAsync()
     {
@@ -42,8 +43,10 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
         RefreshCollectionsCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnSelectedCollectionChanged(RnaItemRef? value)
+    partial void OnSelectedCollectionNodeChanged(CollectionTreeItem? value)
     {
+        OnPropertyChanged(nameof(HasSelectedCollection));
+
         if (_isApplyingRemoteState)
         {
             return;
@@ -68,32 +71,35 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
     private async Task RefreshCollectionsCoreAsync()
     {
         var blender = RequireBlenderDataApi();
-        var previousSelection = SelectedCollection;
-        var items = await blender.ListAsync(BlenderSampleDataHelpers.CollectionsPath);
-
-        Collections.Clear();
-        foreach (var item in items)
+        var previousSelection = SelectedCollectionNode?.Item;
+        var sceneCollection = await blender.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.SceneCollectionPath);
+        var roots = await BuildCollectionTreeAsync(blender, sceneCollection);
+        foreach (var root in roots)
         {
-            Collections.Add(item);
+            root.IsExpanded = true;
+        }
+
+        CollectionTreeRoots.Clear();
+        foreach (var item in roots)
+        {
+            CollectionTreeRoots.Add(item);
         }
 
         var nextSelection = previousSelection is null
-            ? Collections.FirstOrDefault()
-            : Collections.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, previousSelection))
-              ?? Collections.FirstOrDefault(item => string.Equals(item.Name, previousSelection.Name, StringComparison.Ordinal))
-              ?? Collections.FirstOrDefault();
+            ? CollectionTreeRoots.FirstOrDefault()
+            : FindTreeItem(CollectionTreeRoots, previousSelection)
+              ?? CollectionTreeRoots.FirstOrDefault();
 
         _isApplyingRemoteState = true;
-        SelectedCollection = nextSelection;
+        SelectedCollectionNode = nextSelection;
         _isApplyingRemoteState = false;
 
-        if (SelectedCollection is not null)
+        if (SelectedCollectionNode is not null)
         {
-            await LoadSelectedCollectionAsync(SelectedCollection);
+            await LoadSelectedTreeNodeAsync(SelectedCollectionNode);
         }
         else
         {
-            ChildCollections.Clear();
             CollectionObjects.Clear();
             SetConnectedIdleStatus("No collections found.");
         }
@@ -101,27 +107,30 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task SelectionChangedCoreAsync()
     {
-        if (SelectedCollection is null)
+        if (SelectedCollectionNode is null)
         {
-            ChildCollections.Clear();
             CollectionObjects.Clear();
             return;
         }
 
-        await LoadSelectedCollectionAsync(SelectedCollection);
+        await LoadSelectedTreeNodeAsync(SelectedCollectionNode);
+    }
+
+    private async Task LoadSelectedTreeNodeAsync(CollectionTreeItem node)
+    {
+        if (node.IsObject)
+        {
+            SetConnectedIdleStatus($"Selected object {node.Name}.");
+            return;
+        }
+
+        await LoadSelectedCollectionAsync(node.Item);
     }
 
     private async Task LoadSelectedCollectionAsync(RnaItemRef collection)
     {
         var blender = RequireBlenderDataApi();
-        var children = await blender.ListAsync($"{collection.Path}.children");
         var objects = await blender.ListAsync($"{collection.Path}.objects");
-
-        ChildCollections.Clear();
-        foreach (var child in children)
-        {
-            ChildCollections.Add(child);
-        }
 
         CollectionObjects.Clear();
         foreach (var item in objects)
@@ -130,5 +139,52 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
         }
 
         SetConnectedIdleStatus($"Loaded collection {collection.Name}.");
+    }
+
+    private static CollectionTreeItem? FindTreeItem(IEnumerable<CollectionTreeItem> roots, RnaItemRef target)
+    {
+        foreach (var item in roots)
+        {
+            if (BlenderSampleDataHelpers.ReferenceMatches(item.Item, target))
+            {
+                return item;
+            }
+
+            var childMatch = FindTreeItem(item.Children, target);
+            if (childMatch is not null)
+            {
+                return childMatch;
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<IReadOnlyList<CollectionTreeItem>> BuildCollectionTreeAsync(
+        IBlenderDataApi blender,
+        RnaItemRef sceneCollection)
+    {
+        return new[] { await BuildTreeItemAsync(blender, sceneCollection) };
+    }
+
+    private static async Task<CollectionTreeItem> BuildTreeItemAsync(
+        IBlenderDataApi blender,
+        RnaItemRef collection)
+    {
+        var item = CollectionTreeItem.CreateCollection(collection);
+
+        var children = await blender.ListAsync($"{collection.Path}.children");
+        foreach (var child in children.OrderBy(static child => child.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            item.Children.Add(await BuildTreeItemAsync(blender, child));
+        }
+
+        var objects = await blender.ListAsync($"{collection.Path}.objects");
+        foreach (var obj in objects.OrderBy(static obj => obj.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            item.Children.Add(CollectionTreeItem.CreateObject(obj));
+        }
+
+        return item;
     }
 }

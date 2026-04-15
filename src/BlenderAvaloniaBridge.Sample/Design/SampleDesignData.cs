@@ -156,18 +156,28 @@ public static class SampleDesignData
     {
         public DesignCollectionsPageViewModel()
         {
-            var environment = CreateRnaRef("Environment", "bpy.data.collections[\"Environment\"]", "Collection", "COLLECTION", 501);
-            Collections.Add(environment);
-            Collections.Add(CreateRnaRef("Characters", "bpy.data.collections[\"Characters\"]", "Collection", "COLLECTION", 502));
-            Collections.Add(CreateRnaRef("Props", "bpy.data.collections[\"Props\"]", "Collection", "COLLECTION", 503));
+            var environment = CreateRnaRef("Environment", "bpy.context.scene.collection", "Collection", "COLLECTION", 501);
+            var environmentNode = CollectionTreeItem.CreateCollection(environment);
+            environmentNode.IsExpanded = true;
+            environmentNode.Children.Add(CollectionTreeItem.CreateCollection(CreateRnaRef("Lighting", "bpy.data.collections[\"Lighting\"]", "Collection", "COLLECTION", 504)));
+            environmentNode.Children.Add(CollectionTreeItem.CreateCollection(CreateRnaRef("Background", "bpy.data.collections[\"Background\"]", "Collection", "COLLECTION", 505)));
+            environmentNode.Children.Add(CollectionTreeItem.CreateObject(CreateRnaRef("GroundPlane", "bpy.data.objects[\"GroundPlane\"]", "Object", "OBJECT", 506)));
+            environmentNode.Children.Add(CollectionTreeItem.CreateObject(CreateRnaRef("SkyRig", "bpy.data.objects[\"SkyRig\"]", "Object", "OBJECT", 507)));
 
-            ChildCollections.Add(CreateRnaRef("Lighting", "bpy.data.collections[\"Lighting\"]", "Collection", "COLLECTION", 504));
-            ChildCollections.Add(CreateRnaRef("Background", "bpy.data.collections[\"Background\"]", "Collection", "COLLECTION", 505));
+            var charactersNode = CollectionTreeItem.CreateCollection(CreateRnaRef("Characters", "bpy.data.collections[\"Characters\"]", "Collection", "COLLECTION", 502));
+            var heroNode = CollectionTreeItem.CreateCollection(CreateRnaRef("Hero", "bpy.data.collections[\"Hero\"]", "Collection", "COLLECTION", 508));
+            heroNode.Children.Add(CollectionTreeItem.CreateCollection(CreateRnaRef("HeroProps", "bpy.data.collections[\"HeroProps\"]", "Collection", "COLLECTION", 509)));
+            heroNode.Children.Add(CollectionTreeItem.CreateObject(CreateRnaRef("HeroBody", "bpy.data.objects[\"HeroBody\"]", "Object", "OBJECT", 510)));
+            charactersNode.Children.Add(heroNode);
+
+            CollectionTreeRoots.Add(environmentNode);
+            CollectionTreeRoots.Add(charactersNode);
+            CollectionTreeRoots.Add(CollectionTreeItem.CreateCollection(CreateRnaRef("Props", "bpy.data.collections[\"Props\"]", "Collection", "COLLECTION", 503)));
 
             CollectionObjects.Add(CreateRnaRef("GroundPlane", "bpy.data.objects[\"GroundPlane\"]", "Object", "OBJECT", 506));
             CollectionObjects.Add(CreateRnaRef("SkyRig", "bpy.data.objects[\"SkyRig\"]", "Object", "OBJECT", 507));
 
-            SelectedCollection = environment;
+            SelectedCollectionNode = environmentNode;
             StatusText = "Loaded collection Environment.";
             BridgeStatusText = "Bridge connected (design preview)";
         }
