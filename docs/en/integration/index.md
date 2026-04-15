@@ -13,16 +13,23 @@ A real integration usually requires changes on both sides:
 
 In practice, integration work is usually done by wiring both sides together and then iterating in end-to-end testing.
 
-## Runtime modes
+## Shared configuration
 
-The bridge SDK currently supports two runtime modes:
+`window_mode` matches the bridge runtime mode:
 
-- `headless`: `frames + input + business`
-- `desktop-business`: `business` only, hosted by a real Avalonia desktop window
+- `headless`: the default mode, enabling `frames + input + business`
+- `desktop`: classic desktop window mode with `business` connection only
 
-Use `headless` if you want the UI to be drawn inside Blender.
+Sizing and density settings:
 
-Use `desktop-business` if you want to keep a real Avalonia desktop window and only exchange business data with Blender.
+- `width` and `height` control the logical Avalonia window size
+- `render_scaling` controls how densely the headless frame is rendered
+
+`render_scaling` only applies to headless mode and helps preserve desktop-like sharpness and layout on high-resolution displays.
+
+The mode is selected explicitly through CLI bridge arguments, and the final active capabilities are confirmed in the `init` / `init ack` handshake.
+
+Headless frame transport uses shared memory by default on Windows and macOS. The bridge keeps fields such as `shm_name`, `frame_size`, and `slot_count` inside the transport handshake, so addon UIs usually do not need a separate shared-memory toggle.
 
 ## 1. Build and reference the SDK
 
@@ -93,8 +100,6 @@ public static AppBuilder BuildAvaloniaApp()
 }
 ```
 
-The mode is selected explicitly through CLI bridge arguments, and the final active capabilities are confirmed in the `init` / `init ack` handshake.
-
 ## 3. Copy the Blender-side bridge core
 
 Copy this directory into your own Blender addon package:
@@ -103,31 +108,40 @@ Copy this directory into your own Blender addon package:
 src\blender_extension\avalonia_bridge\core\
 ```
 
-Then integrate `BridgeController` into your own operators or runtime adapter.
+Blender-side structure:
 
-Minimal integration example:
+- `BridgeController` owns the bridge core only: process lifecycle, transport, frame pipeline, business packets, state, and diagnostics
+- `View3DOverlayHost` is the optional `3D View` presentation adapter: overlay drawing, title-bar drag, hit-testing, input forwarding, and redraw
+
+Minimal assembly example:
 
 ```python
 from .core import (
     BridgeConfig,
     BridgeController,
     DefaultBusinessEndpoint,
+    View3DOverlayHost,
 )
 
 
+config = BridgeConfig(
+    executable_path="/path/to/YourAvaloniaApp",
+    width=1100,
+    height=760,
+    render_scaling=1.25,
+    window_mode="headless",
+    supports_business=True,
+    supports_frames=True,
+    supports_input=True,
+    host="127.0.0.1",
+    show_overlay_debug=False,
+)
+
+presentation_host = View3DOverlayHost() if config.supports_frames else None
+
 controller = BridgeController(
-    BridgeConfig(
-        executable_path="/path/to/YourAvaloniaApp.dll",
-        width=1100,
-        height=760,
-        render_scaling=1.25,
-        window_mode="headless",
-        supports_business=True,
-        supports_frames=True,
-        supports_input=True,
-        host="127.0.0.1",
-        show_overlay_debug=False,
-    ),
+    config,
+    host=presentation_host,
     business_endpoint=DefaultBusinessEndpoint(),
     state_callback=lambda snapshot: print(snapshot.last_message),
 )
@@ -135,35 +149,105 @@ controller = BridgeController(
 controller.start()
 ```
 
-## 4. Configure Blender-side runtime parameters
+- `headless`: `BridgeController(..., host=View3DOverlayHost(...))`
+- `desktop` / business-only: `BridgeController(..., host=None)`
 
-There are two `window_mode` values:
+## 4. Wire lifecycle and input forwarding
 
-- `headless`: the default mode. Avalonia frames are streamed into the Blender window, usually inside the `3D Viewport`, and mouse or keyboard input is captured inside that region
-- `desktop`: classic desktop window mode with business connection only
+On the Blender side, integration usually happens in two layers:
 
-Sizing and density settings:
+- runtime adapter: build `BridgeConfig` and assemble `BridgeController` with an optional `View3DOverlayHost`
+- modal operator: call `tick_once()` on `TIMER` and `handle_event(context, event)` inside the event pipeline
+- state sync: use `state_callback`, `state_snapshot()`, or `diagnostics_snapshot()` to feed your own UI
+- user-facing controls: expose `width`, `height`, and `render_scaling` together so users can tune layout size and sharpness independently in headless mode
 
-- `width` and `height` control the logical Avalonia window size
-- `render_scaling` controls how densely the headless frame is rendered
+Runtime assembly example:
 
-`render_scaling` helps preserve similar UI sharpness and layout feel on high-resolution displays. It only applies to headless mode.
+```python
+def create_controller(mode: str) -> BridgeController:
+    config = BridgeConfig(
+        executable_path="/path/to/YourAvaloniaApp",
+        width=1100,
+        height=760,
+        render_scaling=1.25,
+        window_mode=mode,
+        supports_business=True,
+        supports_frames=mode != "desktop",
+        supports_input=mode != "desktop",
+        host="127.0.0.1",
+        show_overlay_debug=False,
+    )
+    host = View3DOverlayHost() if config.supports_frames else None
+    return BridgeController(
+        config,
+        host=host,
+        business_endpoint=DefaultBusinessEndpoint(),
+    )
+```
 
-Headless frame transport uses shared memory by default on Windows and macOS. The bridge keeps fields such as `shm_name`, `frame_size`, and `slot_count` inside the transport handshake, so addon UIs usually do not need a separate shared-memory toggle.
+Minimal modal operator example:
 
-## 5. Wire lifecycle and input forwarding
+```python
+import bpy
 
-On the Blender side, you will usually connect these integration points:
 
-- Lifecycle: call `start()`, `stop()`, and `tick_once()` from your own operators or runtime adapter
-- Input forwarding: call `handle_event(context, event)` from your event pipeline when remote input is enabled
-- State sync: use `state_callback`, `state_snapshot()`, or `diagnostics_snapshot()` to feed your own UI
-- User-facing controls: expose `width`, `height`, and `render_scaling` together so users can tune layout size and sharpness independently in headless mode
-- Capability-aware UX: reflect whether the current session has business only, frame streaming, or input enabled
+class BRIDGE_OT_start(bpy.types.Operator):
+    bl_idname = "your_addon.bridge_start"
+    bl_label = "Start Bridge"
+
+    def execute(self, context):
+        controller = create_controller(mode="headless")
+        context.window_manager.your_bridge_controller = controller
+        controller.start()
+        bpy.ops.your_addon.bridge_modal("INVOKE_DEFAULT")
+        return {"FINISHED"}
+
+
+class BRIDGE_OT_modal(bpy.types.Operator):
+    bl_idname = "your_addon.bridge_modal"
+    bl_label = "Bridge Modal"
+    bl_options = {"BLOCKING"}
+
+    _timer = None
+
+    def invoke(self, context, _event):
+        self._timer = context.window_manager.event_timer_add(1.0 / 60.0, window=context.window)
+        context.window_manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def modal(self, context, event):
+        controller = getattr(context.window_manager, "your_bridge_controller", None)
+        if controller is None:
+            self.cancel(context)
+            return {"CANCELLED"}
+
+        if not controller.state_snapshot().process_running:
+            self.cancel(context)
+            return {"CANCELLED"}
+
+        if event.type == "TIMER":
+            controller.tick_once()
+            return {"RUNNING_MODAL"}
+
+        if context.area and context.area.type == "VIEW_3D":
+            if controller.handle_event(context, event):
+                return {"RUNNING_MODAL"}
+
+        return {"PASS_THROUGH"}
+
+    def cancel(self, context):
+        controller = getattr(context.window_manager, "your_bridge_controller", None)
+        if controller is not None:
+            controller.stop()
+            context.window_manager.your_bridge_controller = None
+        if self._timer is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+```
 
 See [Architecture](../advanced/architecture.md) for the shared session model and capability negotiation flow.
 
-## 6. C# business-side usage
+## 5. C# business-side usage
 
 Once the bridge is connected, your Avalonia app can use the built-in `BlenderApi` root for Blender data, operators, and watch subscriptions through `Rna`, `Ops`, and `Observe`.
 
