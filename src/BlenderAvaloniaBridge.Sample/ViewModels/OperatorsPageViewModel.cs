@@ -131,8 +131,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
     {
         var blender = RequireBlenderDataApi();
         var previousSelection = SelectedObject?.RnaRef;
-        var items = await blender.ListAsync(BlenderSampleViewModelHelpers.SceneObjectsPath);
-        var objectItems = BlenderSampleViewModelHelpers.CreateObjectItems(items);
+        var objectItems = await BlenderSampleViewModelHelpers.LoadSceneObjectItemsAsync(blender);
 
         Objects.Clear();
         foreach (var item in objectItems)

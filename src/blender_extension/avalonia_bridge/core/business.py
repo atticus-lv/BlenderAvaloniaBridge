@@ -447,7 +447,7 @@ def _id_type(value):
     return None
 
 
-def _to_item_ref(value, path, *, label=None, metadata=None):
+def _to_item_ref(value, path, *, label=None):
     return {
         "kind": "rna",
         "path": path,
@@ -456,19 +456,7 @@ def _to_item_ref(value, path, *, label=None, metadata=None):
         "rnaType": _rna_type(value),
         "idType": _id_type(value),
         "sessionUid": getattr(value, "session_uid", None),
-        "metadata": metadata or {},
     }
-
-
-def _metadata_for_item(value):
-    metadata = {}
-    object_type = getattr(value, "type", None)
-    if isinstance(object_type, str):
-        metadata["objectType"] = object_type
-    active = getattr(getattr(getattr(bpy.context, "view_layer", None), "objects", None), "active", None)
-    if active is value:
-        metadata["isActive"] = True
-    return metadata
 
 
 def _collection_item_path(base_path, key, value, index):
@@ -503,7 +491,6 @@ class RnaService:
                 _to_item_ref(
                     value,
                     item_path,
-                    metadata=_metadata_for_item(value),
                 )
             )
 

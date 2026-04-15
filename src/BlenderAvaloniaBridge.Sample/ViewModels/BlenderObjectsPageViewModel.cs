@@ -97,9 +97,8 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
         var blender = RequireBlenderDataApi();
         BridgeStatusText = "Refreshing scene objects...";
 
-        var items = await blender.ListAsync(BlenderSampleViewModelHelpers.SceneObjectsPath);
         var previousSelection = SelectedObject?.RnaRef;
-        var objectItems = BlenderSampleViewModelHelpers.CreateObjectItems(items);
+        var objectItems = await BlenderSampleViewModelHelpers.LoadSceneObjectItemsAsync(blender);
 
         Objects.Clear();
         foreach (var item in objectItems)

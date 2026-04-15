@@ -1,4 +1,3 @@
-using System.Text.Json;
 using BlenderAvaloniaBridge;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
@@ -6,34 +5,36 @@ namespace BlenderAvaloniaBridge.Sample.ViewModels;
 internal static class BlenderSampleViewModelHelpers
 {
     internal const string SceneObjectsPath = "bpy.context.scene.objects";
+    internal const string ActiveObjectPath = "bpy.context.active_object";
     internal const string MaterialsPath = "bpy.data.materials";
     internal const string CollectionsPath = "bpy.data.collections";
 
-    internal static IReadOnlyList<BlenderObjectListItem> CreateObjectItems(IReadOnlyList<RnaItemRef> items)
+    internal static async Task<IReadOnlyList<BlenderObjectListItem>> LoadSceneObjectItemsAsync(
+        IBlenderDataApi blenderDataApi,
+        CancellationToken cancellationToken = default)
     {
-        return items
-            .Select(
-                item => new BlenderObjectListItem(
-                    item,
-                    item.Label,
-                    GetObjectType(item.Metadata),
-                    IsActiveObject(item.Metadata)))
-            .ToList();
-    }
+        ArgumentNullException.ThrowIfNull(blenderDataApi);
 
-    internal static string GetObjectType(JsonElement? metadata)
-    {
-        return metadata.HasValue && metadata.Value.TryGetProperty("objectType", out var objectTypeElement)
-            ? objectTypeElement.GetString() ?? "?"
-            : "?";
-    }
+        var items = await blenderDataApi.ListAsync(SceneObjectsPath, cancellationToken);
+        RnaItemRef? activeObject = null;
 
-    internal static bool IsActiveObject(JsonElement? metadata)
-    {
-        return metadata.HasValue
-               && metadata.Value.TryGetProperty("isActive", out var isActiveElement)
-               && isActiveElement.ValueKind is JsonValueKind.True or JsonValueKind.False
-               && isActiveElement.GetBoolean();
+        try
+        {
+            activeObject = await blenderDataApi.GetAsync<RnaItemRef>(ActiveObjectPath, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            activeObject = null;
+        }
+
+        var loadTasks = items.Select(async item =>
+        {
+            var objectType = await blenderDataApi.GetAsync<string>($"{item.Path}.type", cancellationToken);
+            var isActiveObject = activeObject is not null && ReferenceMatches(item, activeObject);
+            return new BlenderObjectListItem(item, item.Label, objectType, isActiveObject);
+        });
+
+        return await Task.WhenAll(loadTasks);
     }
 
     internal static bool ReferenceMatches(RnaItemRef left, RnaItemRef right)
