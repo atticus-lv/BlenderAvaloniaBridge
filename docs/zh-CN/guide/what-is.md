@@ -2,6 +2,8 @@
 
 Blender Avalonia Bridge 是一个把 Avalonia UI 接入 Blender 的桥接工具套件。
 
+Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力的同时，提供 Blender 原生的绘制与交互体验。
+
 - Avalonia 侧负责真正的 UI、状态和业务逻辑
 - Blender 侧负责宿主与桥接
 

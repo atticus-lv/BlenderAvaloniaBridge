@@ -5,7 +5,7 @@ layout: home
 hero:
   name: Blender Avalonia Bridge
   text: Avalonia UI inside Blender, with transport and business boundaries kept explicit
-  tagline: English docs for integrating Blender hosting, headless frames, input forwarding, and the BlenderApi surface across Windows and macOS.
+  tagline: Bridge brings Avalonia into Blender, preserving almost the full Avalonia framework while delivering Blender-native rendering and interaction.
   actions:
     - theme: brand
       text: What Is Blender Avalonia Bridge
@@ -18,7 +18,7 @@ features:
   - title: Start Here
     details: Run the prepared sample application and try the interaction directly inside Blender.
   - title: Platform Support
-    details: Headless shared-memory transport currently supports Windows and macOS, with more platforms potentially added in the future.
+    details: Supports Windows and macOS, with more platforms potentially added in the future.
   - title: Blender Like API
     details: A C# API shaped around the Blender API, making it easier to pick up for developers already familiar with Blender addon development.
 ---

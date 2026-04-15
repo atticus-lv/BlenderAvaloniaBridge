@@ -2,6 +2,8 @@
 
 Blender Avalonia Bridge is a toolkit for bringing Avalonia UI into Blender.
 
+Bridge brings Avalonia into Blender, preserving almost the full Avalonia framework while delivering Blender-native rendering and interaction.
+
 - The Avalonia side owns the actual UI, state, and business logic
 - The Blender side owns hosting and bridging
 
