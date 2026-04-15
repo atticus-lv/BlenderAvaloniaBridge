@@ -327,6 +327,39 @@ internal sealed class HeadlessUiHost
 
     public void Dispose()
     {
+        try
+        {
+            _runtimeThread.InvokeAsync(() =>
+            {
+                if (_window is not null)
+                {
+                    _window.LayoutUpdated -= OnWindowLayoutUpdated;
+                    if (_window.IsVisible)
+                    {
+                        _window.Close();
+                    }
+
+                    _window = null;
+                }
+
+                _statusSink = null;
+                _messageHost = null;
+                _businessEndpointSink = null;
+                _blenderDataApiSink = null;
+                _inputDispatcher = null;
+                _animationFrameQueued = false;
+                _watchRenderingActive = false;
+                _continuousFramesUntil = DateTimeOffset.MinValue;
+                return true;
+            }).GetAwaiter().GetResult();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
         if (_ownsRuntimeThread)
         {
             _runtimeThread.Dispose();

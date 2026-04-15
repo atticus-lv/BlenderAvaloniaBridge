@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
@@ -81,5 +82,39 @@ public sealed class HeadlessRuntimeThreadTests
 
         Assert.Equal(40, frame.FramePacket.Header.Width);
         Assert.Equal(30, frame.FramePacket.Header.Height);
+    }
+
+    [Fact]
+    public async Task HeadlessUiHost_SharedRuntimeCanBeReusedSequentially()
+    {
+        static async Task<PixelSize> RenderWithSharedRuntimeAsync()
+        {
+            using var host = new HeadlessUiHost(
+                HeadlessRuntimeThread.Shared,
+                () => new Window
+                {
+                    Width = 24,
+                    Height = 18,
+                    Background = Brushes.MediumSeaGreen
+                },
+                new BlenderBridgeOptions
+                {
+                    Width = 24,
+                    Height = 18,
+                    RenderScaling = 1.0,
+                    UseSharedMemory = false,
+                });
+
+            var frame = await host.CaptureFrameAsync(1);
+            Assert.Equal(24, frame.FramePacket.Header.Width);
+            Assert.Equal(18, frame.FramePacket.Header.Height);
+            return new PixelSize(frame.FramePacket.Header.Width!.Value, frame.FramePacket.Header.Height!.Value);
+        }
+
+        var first = await RenderWithSharedRuntimeAsync();
+        var second = await RenderWithSharedRuntimeAsync();
+
+        Assert.Equal(new PixelSize(24, 18), first);
+        Assert.Equal(new PixelSize(24, 18), second);
     }
 }

@@ -85,6 +85,6 @@ public sealed class BlenderBridgeHost
     {
         return options.WindowMode == BridgeWindowMode.Desktop
             ? new DesktopWindowUiSession(windowFactory, options)
-            : new HeadlessUiHost(new HeadlessRuntimeThread(), windowFactory, options, ownsRuntimeThread: true);
+            : new HeadlessUiHost(HeadlessRuntimeThread.Shared, windowFactory, options);
     }
 }

@@ -12,6 +12,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     private bool _isApplyingRemoteState;
     private bool _isChangingLiveWatch;
     private IAsyncDisposable? _watchSubscription;
+    private string? _currentWatchPath;
     private readonly SemaphoreSlim _transformRefreshGate = new(1, 1);
     private int _pendingTransformRefresh;
 
@@ -214,18 +215,24 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         }
 
         var watchId = $"live-transform-{rnaRef.SessionUid?.ToString() ?? rnaRef.Name}";
+        Volatile.Write(ref _currentWatchPath, rnaRef.Path);
         _watchSubscription = await BlenderDataApi.WatchAsync(
             watchId,
             WatchSource.Depsgraph,
             rnaRef.Path,
             async _dirtyEvent =>
             {
+                if (!string.Equals(Volatile.Read(ref _currentWatchPath), rnaRef.Path, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
                 _ = RunOnUiThreadAsync(() =>
                 {
                     BridgeStatusText = "Live transform dirty event received";
                     return Task.CompletedTask;
                 });
-                await QueueTransformRefreshAsync();
+                await QueueTransformRefreshAsync(rnaRef);
             });
 
         SetConnectedIdleStatus($"Live watch enabled for {rnaRef.Name}.");
@@ -235,14 +242,16 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     {
         if (_watchSubscription is null)
         {
+            Volatile.Write(ref _currentWatchPath, null);
             return;
         }
 
         await _watchSubscription.DisposeAsync();
         _watchSubscription = null;
+        Volatile.Write(ref _currentWatchPath, null);
     }
 
-    private async Task QueueTransformRefreshAsync()
+    private async Task QueueTransformRefreshAsync(RnaItemRef rnaRef)
     {
         if (!await _transformRefreshGate.WaitAsync(0))
         {
@@ -255,7 +264,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
             do
             {
                 Interlocked.Exchange(ref _pendingTransformRefresh, 0);
-                if (SelectedObject?.RnaRef is { } rnaRef)
+                if (string.Equals(Volatile.Read(ref _currentWatchPath), rnaRef.Path, StringComparison.Ordinal))
                 {
                     await LoadTransformSnapshotAsync(rnaRef);
                 }

@@ -211,6 +211,7 @@ public sealed class HeadlessLiveTransformTests
     {
         private readonly TcpClient _client;
         private readonly LengthPrefixedConnection _connection;
+        private readonly SemaphoreSlim _writeLock = new(1, 1);
         private readonly List<ProtocolPacket> _received = [];
         private readonly object _gate = new();
         private readonly Task _readLoop;
@@ -231,7 +232,7 @@ public sealed class HeadlessLiveTransformTests
 
         public async Task SendAsync(ProtocolEnvelope envelope, CancellationToken cancellationToken)
         {
-            await _connection.WriteAsync(ProtocolPacket.CreateControl(envelope), cancellationToken);
+            await WritePacketAsync(ProtocolPacket.CreateControl(envelope), cancellationToken);
         }
 
         public int CountRequests(string name)
@@ -414,7 +415,8 @@ public sealed class HeadlessLiveTransformTests
 
         private async Task SendBusinessResponseAsync(ProtocolEnvelope request, string payloadJson)
         {
-            await SendAsync(
+            await WritePacketAsync(
+                ProtocolPacket.CreateControl(
                 new ProtocolEnvelope
                 {
                     Type = "business_response",
@@ -424,7 +426,7 @@ public sealed class HeadlessLiveTransformTests
                     ReplyTo = request.MessageId,
                     Ok = true,
                     Payload = JsonDocument.Parse(payloadJson).RootElement.Clone(),
-                },
+                }),
                 CancellationToken.None);
         }
 
@@ -480,6 +482,19 @@ public sealed class HeadlessLiveTransformTests
                 }
 
                 await Task.Delay(25, cancellationToken);
+            }
+        }
+
+        private async Task WritePacketAsync(ProtocolPacket packet, CancellationToken cancellationToken)
+        {
+            await _writeLock.WaitAsync(cancellationToken);
+            try
+            {
+                await _connection.WriteAsync(packet, cancellationToken);
+            }
+            finally
+            {
+                _writeLock.Release();
             }
         }
     }
