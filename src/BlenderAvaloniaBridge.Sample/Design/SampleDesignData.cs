@@ -72,6 +72,10 @@ public static class SampleDesignData
         {
             IsPrimaryOptionEnabled = true;
             IsSecondaryOptionEnabled = true;
+            IsAutomationEnabled = true;
+            SelectedQuality = "Final";
+            NotesText = "Preview mode now includes slider, text input, and common control samples.";
+            Intensity = 78;
             ActivityText = "Primary action fired at 14:36:12.";
         }
     }

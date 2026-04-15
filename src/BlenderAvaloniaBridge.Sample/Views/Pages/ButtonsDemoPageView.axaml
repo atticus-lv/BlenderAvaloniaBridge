@@ -47,6 +47,63 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="panel-card surface"
+              Padding="18"
+              CornerRadius="14">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="14"
+              RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              RowSpacing="14">
+          <TextBlock Grid.Row="0"
+                     Classes="field-label"
+                     Text="Notes" />
+          <TextBox Grid.Row="0"
+                   Grid.Column="1"
+                   Text="{Binding NotesText, Mode=TwoWay}"
+                   PlaceholderText="Write a short note..." />
+
+          <TextBlock Grid.Row="1"
+                     Classes="field-label"
+                     Text="Quality" />
+          <ComboBox Grid.Row="1"
+                    Grid.Column="1"
+                    ItemsSource="{Binding QualityOptions}"
+                    SelectedItem="{Binding SelectedQuality, Mode=TwoWay}" />
+
+          <TextBlock Grid.Row="2"
+                     Classes="field-label"
+                     Text="Automation" />
+          <ToggleSwitch Grid.Row="2"
+                        Grid.Column="1"
+                        HorizontalAlignment="Left"
+                        OffContent="Off"
+                        OnContent="On"
+                        IsChecked="{Binding IsAutomationEnabled, Mode=TwoWay}" />
+
+          <TextBlock Grid.Row="3"
+                     Classes="field-label"
+                     Text="Intensity" />
+          <StackPanel Grid.Row="3"
+                      Grid.Column="1"
+                      Spacing="8">
+            <Slider Minimum="0"
+                    Maximum="100"
+                    Value="{Binding Intensity, Mode=TwoWay}" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="{Binding Intensity}" />
+          </StackPanel>
+
+          <TextBlock Grid.Row="4"
+                     Classes="field-label"
+                     Text="Value" />
+          <TextBlock Grid.Row="4"
+                     Grid.Column="1"
+                     Text="{Binding Intensity, StringFormat='{}{0:0}%'}"
+                     Classes="body-muted" />
+        </Grid>
+      </Border>
+
       <Border Classes="panel-card soft"
               Padding="18"
               CornerRadius="14">
