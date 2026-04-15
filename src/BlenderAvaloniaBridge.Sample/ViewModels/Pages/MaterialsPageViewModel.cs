@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.Helpers;
+using BlenderAvaloniaBridge.Sample.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -18,21 +20,28 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     {
     }
 
-    public ObservableCollection<RnaItemRef> Materials { get; } = new();
+    public ObservableCollection<MaterialLibraryItem> Materials { get; } = new();
 
     [ObservableProperty]
-    private RnaItemRef? _selectedMaterial;
+    private MaterialLibraryItem? _selectedMaterial;
 
     [ObservableProperty]
     private string _materialName = string.Empty;
 
     [ObservableProperty]
-    private bool _useNodes;
+    private IImage? _selectedPreviewImage;
+
+    [ObservableProperty]
+    private string _selectedMaterialPath = string.Empty;
 
     [ObservableProperty]
     private string _newMaterialName = "Material";
 
     public bool HasSelectedMaterial => SelectedMaterial is not null;
+
+    public bool HasSelectedPreview => SelectedPreviewImage is not null;
+
+    public bool ShowSelectedPreviewPlaceholder => SelectedPreviewImage is null;
 
     protected override async Task OnActivatedAsync()
     {
@@ -55,29 +64,19 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     {
         RefreshMaterialsCommand.NotifyCanExecuteChanged();
         CreateMaterialCommand.NotifyCanExecuteChanged();
+        CommitMaterialNameCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(HasSelectedMaterial));
     }
 
-    partial void OnSelectedMaterialChanged(RnaItemRef? value)
+    partial void OnSelectedMaterialChanged(MaterialLibraryItem? value)
     {
         OnPropertyChanged(nameof(HasSelectedMaterial));
+        CommitMaterialNameCommand.NotifyCanExecuteChanged();
 
-        if (_isApplyingRemoteState)
+        if (!_isApplyingRemoteState)
         {
-            return;
+            _ = SelectionChangedAsync();
         }
-
-        _ = SelectionChangedAsync();
-    }
-
-    partial void OnUseNodesChanged(bool value)
-    {
-        if (_isApplyingRemoteState || SelectedMaterial is null || BlenderApi is null)
-        {
-            return;
-        }
-
-        _ = CommitUseNodesAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanUseBridge))]
@@ -97,33 +96,37 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(SelectionChangedCoreAsync);
     }
 
+    [RelayCommand(CanExecute = nameof(CanCommitMaterialName))]
     public Task CommitMaterialNameAsync()
     {
         return RunPageOperationAsync(CommitMaterialNameCoreAsync);
     }
 
-    public Task CommitUseNodesAsync()
-    {
-        return RunPageOperationAsync(CommitUseNodesCoreAsync);
-    }
-
     private bool CanUseBridge() => BlenderApi is not null;
+
+    private bool CanCommitMaterialName() => SelectedMaterial is not null && BlenderApi is not null;
 
     private async Task RefreshMaterialsCoreAsync()
     {
         var blender = RequireBlenderApi();
-        var previousSelection = SelectedMaterial;
-        var items = await blender.Rna.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
+        var previousSelection = SelectedMaterial?.MaterialRef;
+        var materialRefs = await blender.Rna.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
+        var materialCards = await Task.WhenAll(materialRefs.Select(item => CreateMaterialLibraryItemAsync(blender, item)));
         var nextSelection = previousSelection is null
-            ? items.FirstOrDefault()
-            : items.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, previousSelection))
-              ?? items.FirstOrDefault(item => string.Equals(item.Name, previousSelection.Name, StringComparison.Ordinal))
-              ?? items.FirstOrDefault();
+            ? materialCards.FirstOrDefault()
+            : materialCards.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.MaterialRef, previousSelection))
+              ?? materialCards.FirstOrDefault(item => string.Equals(item.DisplayName, previousSelection.Name, StringComparison.Ordinal))
+              ?? materialCards.FirstOrDefault();
 
         await RunOnUiThreadAsync(() =>
         {
+            foreach (var existing in Materials)
+            {
+                existing.Dispose();
+            }
+
             Materials.Clear();
-            foreach (var item in items)
+            foreach (var item in materialCards)
             {
                 Materials.Add(item);
             }
@@ -171,8 +174,8 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         NewMaterialName = requestedName;
         await RefreshMaterialsCoreAsync();
 
-        var matched = Materials.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, created))
-                      ?? Materials.FirstOrDefault(item => string.Equals(item.Name, created.Name, StringComparison.Ordinal));
+        var matched = Materials.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.MaterialRef, created))
+                      ?? Materials.FirstOrDefault(item => string.Equals(item.DisplayName, created.Name, StringComparison.Ordinal));
         if (matched is not null)
         {
             _isApplyingRemoteState = true;
@@ -189,32 +192,23 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        await RequireBlenderApi().Rna.SetAsync($"{SelectedMaterial.Path}.name", MaterialName);
+        await RequireBlenderApi().Rna.SetAsync($"{SelectedMaterial.MaterialRef.Path}.name", MaterialName);
         await RefreshMaterialsCoreAsync();
     }
 
-    private async Task CommitUseNodesCoreAsync()
-    {
-        if (_isApplyingRemoteState || SelectedMaterial is null)
-        {
-            return;
-        }
-
-        await RequireBlenderApi().Rna.SetAsync($"{SelectedMaterial.Path}.use_nodes", UseNodes);
-        SetConnectedIdleStatus($"Updated use_nodes for {SelectedMaterial.Name}.");
-    }
-
-    private async Task LoadSelectedMaterialAsync(RnaItemRef material)
+    private async Task LoadSelectedMaterialAsync(MaterialLibraryItem material)
     {
         var blender = RequireBlenderApi();
-        var materialName = await blender.Rna.GetAsync<string>($"{material.Path}.name");
-        var useNodes = await blender.Rna.GetAsync<bool>($"{material.Path}.use_nodes");
+        var materialName = await blender.Rna.GetAsync<string>($"{material.MaterialRef.Path}.name");
+        var selectedPreview = await LoadPreviewImageAsync(blender, material.MaterialRef.Path, useLargePreview: true)
+                              ?? await LoadPreviewImageAsync(blender, material.MaterialRef.Path, useLargePreview: false, ensureGeneratedIfMissing: false);
 
         await RunOnUiThreadAsync(() =>
         {
             _isApplyingRemoteState = true;
             MaterialName = materialName;
-            UseNodes = useNodes;
+            SelectedMaterialPath = material.MaterialRef.Path;
+            SelectedPreviewImage = selectedPreview;
             _isApplyingRemoteState = false;
 
             SetConnectedIdleStatus($"Loaded material {materialName}.");
@@ -251,7 +245,70 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     {
         _isApplyingRemoteState = true;
         MaterialName = string.Empty;
-        UseNodes = false;
+        SelectedMaterialPath = string.Empty;
+        SelectedPreviewImage = null;
         _isApplyingRemoteState = false;
+    }
+
+    partial void OnSelectedPreviewImageChanged(IImage? oldValue, IImage? newValue)
+    {
+        if (!ReferenceEquals(oldValue, newValue) && oldValue is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        OnPropertyChanged(nameof(HasSelectedPreview));
+        OnPropertyChanged(nameof(ShowSelectedPreviewPlaceholder));
+    }
+
+    private async Task<MaterialLibraryItem> CreateMaterialLibraryItemAsync(BlenderApi blender, RnaItemRef materialRef)
+    {
+        var displayName = await blender.Rna.GetAsync<string>($"{materialRef.Path}.name");
+        var thumbnail = await LoadPreviewImageAsync(blender, materialRef.Path, useLargePreview: false);
+        return new MaterialLibraryItem(materialRef, displayName, thumbnail);
+    }
+
+    private static async Task<IImage?> LoadPreviewImageAsync(
+        BlenderApi blender,
+        string materialPath,
+        bool useLargePreview,
+        bool ensureGeneratedIfMissing = true)
+    {
+        var preview = await TryLoadPreviewImageAsync(blender, materialPath, useLargePreview);
+        if (preview is not null || !ensureGeneratedIfMissing)
+        {
+            return preview;
+        }
+
+        await EnsurePreviewAsync(blender, materialPath);
+        return await TryLoadPreviewImageAsync(blender, materialPath, useLargePreview);
+    }
+
+    private static async Task EnsurePreviewAsync(BlenderApi blender, string materialPath)
+    {
+        try
+        {
+            _ = await blender.Rna.CallAsync<RnaItemRef>(materialPath, "preview_ensure");
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static async Task<IImage?> TryLoadPreviewImageAsync(BlenderApi blender, string materialPath, bool useLargePreview)
+    {
+        var sizeSegment = useLargePreview ? "image_size" : "icon_size";
+        var pixelsSegment = useLargePreview ? "image_pixels" : "icon_pixels";
+
+        try
+        {
+            var size = await blender.Rna.GetAsync<int[]>($"{materialPath}.preview.{sizeSegment}");
+            var pixels = await blender.Rna.ReadArrayAsync($"{materialPath}.preview.{pixelsSegment}");
+            return MaterialPreviewImageFactory.Create(size, pixels.RawBytes);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 }

@@ -142,21 +142,44 @@ public sealed class BlenderSamplePageViewModelTests
                     },
                 ]),
             GetAsyncImpl = (path, _) => Task.FromResult<object?>(
-                path.EndsWith(".use_nodes", StringComparison.Ordinal) ? true : "Mat_A"),
+                    path switch
+                {
+                    var value when value.EndsWith(".name", StringComparison.Ordinal) => "Mat_A",
+                    var value when value.EndsWith(".preview.icon_size", StringComparison.Ordinal) => new[] { 1, 1 },
+                    var value when value.EndsWith(".preview.icon_pixels", StringComparison.Ordinal) => new[] { 40, 120, 220, 255 },
+                    var value when value.EndsWith(".preview.image_size", StringComparison.Ordinal) => new[] { 2, 1 },
+                    var value when value.EndsWith(".preview.image_pixels", StringComparison.Ordinal) => new[] { 40, 120, 220, 255, 220, 240, 255, 255 },
+                    _ => null,
+                }),
             CallAsyncImpl = (path, method, kwargs, _) =>
             {
-                Assert.Equal("bpy.data.materials", path);
-                Assert.Equal("new", method);
-                Assert.Single(kwargs);
-                Assert.Equal("name", kwargs[0].Name);
-                return Task.FromResult<object?>(
-                    new RnaItemRef
-                    {
-                        Path = "bpy.data.materials[\"Mat_New\"]",
-                        Name = "Mat_New",
-                        Label = "Mat_New",
-                        RnaType = "Material",
-                    });
+                if (path == "bpy.data.materials" && method == "new")
+                {
+                    Assert.Single(kwargs);
+                    Assert.Equal("name", kwargs[0].Name);
+                    return Task.FromResult<object?>(
+                        new RnaItemRef
+                        {
+                            Path = "bpy.data.materials[\"Mat_New\"]",
+                            Name = "Mat_New",
+                            Label = "Mat_New",
+                            RnaType = "Material",
+                        });
+                }
+
+                if (path == "bpy.data.materials[\"Mat_A\"]" && method == "preview_ensure")
+                {
+                    return Task.FromResult<object?>(
+                        new RnaItemRef
+                        {
+                            Path = $"{path}.preview",
+                            Name = "preview",
+                            Label = "preview",
+                            RnaType = "ImagePreview",
+                        });
+                }
+
+                throw new InvalidOperationException($"Unexpected RNA call: {path}.{method}");
             },
         };
 
@@ -171,6 +194,149 @@ public sealed class BlenderSamplePageViewModelTests
         var listCallCount = blenderApi.ListedPaths.Count;
         await blenderApi.TriggerWatchDirtyAsync("materials-page");
         await WaitForAsync(() => blenderApi.ListedPaths.Count > listCallCount);
+    }
+
+    [Fact]
+    public async Task MaterialsPage_Activate_LoadsMaterialLibraryCardsAndPreviewImages()
+    {
+        var viewModel = new MaterialsPageViewModel();
+        var blenderApi = new TestBlenderApi
+        {
+            ListAsyncImpl = (path, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(
+                [
+                    new RnaItemRef
+                    {
+                        Path = "bpy.data.materials[\"Mat_A\"]",
+                        Name = "Mat_A",
+                        Label = "Mat_A",
+                        RnaType = "Material",
+                        IdType = "MATERIAL",
+                        SessionUid = 41,
+                    },
+                ]),
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
+                path switch
+                {
+                    var value when value.EndsWith(".name", StringComparison.Ordinal) => "Mat_A",
+                    var value when value.EndsWith(".preview.icon_size", StringComparison.Ordinal) => new[] { 2, 1 },
+                    var value when value.EndsWith(".preview.image_size", StringComparison.Ordinal) => new[] { 1, 2 },
+                    _ => null,
+                }),
+            ReadArrayAsyncImpl = (path, _) => Task.FromResult(
+                path switch
+                {
+                    var value when value.EndsWith(".preview.icon_pixels", StringComparison.Ordinal) => new BlenderArrayReadResult
+                    {
+                        Path = path,
+                        RnaType = "ImagePreview",
+                        ElementType = "uint8",
+                        Count = 8,
+                        Shape = [1, 2, 4],
+                        RawBytes = [255, 32, 64, 255, 32, 180, 255, 255],
+                    },
+                    var value when value.EndsWith(".preview.image_pixels", StringComparison.Ordinal) => new BlenderArrayReadResult
+                    {
+                        Path = path,
+                        RnaType = "ImagePreview",
+                        ElementType = "uint8",
+                        Count = 8,
+                        Shape = [2, 1, 4],
+                        RawBytes = [255, 220, 120, 255, 40, 60, 100, 255],
+                    },
+                    _ => throw new InvalidOperationException($"Unexpected array path: {path}"),
+                }),
+        };
+
+        viewModel.AttachBlenderApi(blenderApi);
+        await viewModel.ActivateAsync();
+        await WaitForAsync(() =>
+            viewModel.Materials.Count == 1 &&
+            viewModel.SelectedMaterial is not null);
+
+        Assert.Equal("Mat_A", viewModel.Materials[0].DisplayName);
+        Assert.Equal("bpy.data.materials[\"Mat_A\"]", viewModel.SelectedMaterialPath);
+        Assert.Equal("Loaded material Mat_A.", viewModel.StatusText);
+        Assert.DoesNotContain(
+            blenderApi.GetPaths,
+            path => path.EndsWith(".use_nodes", StringComparison.Ordinal));
+        Assert.Contains(
+            blenderApi.ReadArrayPaths,
+            path => path.EndsWith(".preview.icon_pixels", StringComparison.Ordinal));
+        Assert.Contains(
+            blenderApi.ReadArrayPaths,
+            path => path.EndsWith(".preview.image_pixels", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task MaterialsPage_MissingPreview_EnsuresPreviewBeforeRetrying()
+    {
+        var previewReady = false;
+        var previewEnsureCalls = 0;
+        var viewModel = new MaterialsPageViewModel();
+        var blenderApi = new TestBlenderApi
+        {
+            ListAsyncImpl = (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(
+                [
+                    new RnaItemRef
+                    {
+                        Path = "bpy.data.materials[\"Mat_A\"]",
+                        Name = "Mat_A",
+                        Label = "Mat_A",
+                        RnaType = "Material",
+                        IdType = "MATERIAL",
+                    },
+                ]),
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
+                path switch
+                {
+                    var value when value.EndsWith(".name", StringComparison.Ordinal) => "Mat_A",
+                    var value when value.EndsWith(".preview.icon_size", StringComparison.Ordinal) => previewReady ? new[] { 1, 1 } : null,
+                    var value when value.EndsWith(".preview.image_size", StringComparison.Ordinal) => previewReady ? new[] { 1, 1 } : null,
+                    _ => null,
+                }),
+            ReadArrayAsyncImpl = (path, _) =>
+            {
+                if (previewReady)
+                {
+                    return Task.FromResult(
+                        new BlenderArrayReadResult
+                        {
+                            Path = path,
+                            RnaType = "ImagePreview",
+                            ElementType = "uint8",
+                            Count = 4,
+                            Shape = [1, 1, 4],
+                            RawBytes = [90, 160, 255, 255],
+                        });
+                }
+
+                throw new InvalidOperationException("No value.");
+            },
+            CallAsyncImpl = (path, method, _, _) =>
+            {
+                if (path == "bpy.data.materials[\"Mat_A\"]" && method == "preview_ensure")
+                {
+                    previewEnsureCalls++;
+                    previewReady = true;
+                }
+
+                return Task.FromResult<object?>(
+                    new RnaItemRef
+                    {
+                        Path = $"{path}.preview",
+                        Name = "preview",
+                        Label = "preview",
+                        RnaType = "ImagePreview",
+                    });
+            },
+        };
+
+        viewModel.AttachBlenderApi(blenderApi);
+        await viewModel.ActivateAsync();
+        await WaitForAsync(() => viewModel.Materials.Count == 1 && viewModel.SelectedMaterial is not null);
+
+        Assert.True(previewEnsureCalls > 0, "Expected preview_ensure to be called when preview data is missing.");
+        Assert.Equal("Loaded material Mat_A.", viewModel.StatusText);
     }
 
     [Fact]
@@ -347,6 +513,8 @@ public sealed class BlenderSamplePageViewModelTests
 
         public Func<string, string, IReadOnlyList<BlenderNamedArg>, CancellationToken, Task<object?>>? CallAsyncImpl { get; init; }
 
+        public Func<string, CancellationToken, Task<BlenderArrayReadResult>>? ReadArrayAsyncImpl { get; init; }
+
         public Func<string, string, BlenderContextOverride?, CancellationToken, Task<OperatorPollResult>>? PollOperatorImpl { get; init; }
 
         public Func<string, BlenderOperatorCall, CancellationToken, Task<OperatorCallResult>>? CallOperatorImpl { get; init; }
@@ -354,6 +522,8 @@ public sealed class BlenderSamplePageViewModelTests
         public List<string> ListedPaths { get; } = new();
 
         public List<string> GetPaths { get; } = new();
+
+        public List<string> ReadArrayPaths { get; } = new();
 
         public List<(string path, object? value)> SetCalls { get; } = new();
 
@@ -419,6 +589,19 @@ public sealed class BlenderSamplePageViewModelTests
             {
                 _owner.SetCalls.Add((path, value));
                 return _owner.SetAsyncImpl?.Invoke(path, value, cancellationToken) ?? Task.CompletedTask;
+            }
+
+            public Task<BlenderArrayReadResult> ReadArrayAsync(string path, CancellationToken cancellationToken = default)
+            {
+                _owner.ReadArrayPaths.Add(path);
+                return _owner.ReadArrayAsyncImpl?.Invoke(path, cancellationToken)
+                       ?? Task.FromResult(
+                           new BlenderArrayReadResult
+                           {
+                               Path = path,
+                               Count = 0,
+                               RawBytes = Array.Empty<byte>(),
+                           });
             }
 
             public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();

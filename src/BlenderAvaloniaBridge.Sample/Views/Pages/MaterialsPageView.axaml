@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
-             xmlns:bridge="clr-namespace:BlenderAvaloniaBridge;assembly=BlenderAvaloniaBridge.Core"
+             xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.MaterialsPageView"
              x:DataType="viewModels:MaterialsPageViewModel"
@@ -20,7 +20,7 @@
           <TextBlock Classes="page-title"
                      Text="Materials" />
           <TextBlock Classes="page-subtitle"
-                     Text="Browse materials, create new ones, and observe list updates." />
+                     Text="Browse Blender materials as a visual library, preview each look, and rename the current selection." />
         </StackPanel>
 
         <Button Grid.Column="1"
@@ -43,44 +43,129 @@
         </Grid>
       </Border>
 
-      <Border Classes="panel-card surface">
-        <Grid ColumnDefinitions="Auto,*"
-              ColumnSpacing="12"
-              RowDefinitions="Auto,Auto,Auto"
-              RowSpacing="12">
-          <TextBlock Grid.Row="0"
-                     Classes="field-label"
-                     Text="Material" />
-          <ComboBox Grid.Row="0"
-                    Grid.Column="1"
-                    ItemsSource="{Binding Materials}"
-                    SelectedItem="{Binding SelectedMaterial, Mode=TwoWay}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="bridge:RnaItemRef">
-                <TextBlock Text="{Binding Name}"
-                           Foreground="#FFF8FAFC" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+      <Grid ColumnDefinitions="1.65*,1.05*"
+            ColumnSpacing="16">
+        <Border Classes="panel-card surface">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="14">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="10">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="section-title"
+                           Text="Material Library" />
+                <TextBlock Classes="body-subtle"
+                           Text="{Binding Materials.Count, StringFormat='{}{0} material cards loaded'}" />
+              </StackPanel>
 
-          <TextBlock Grid.Row="1"
-                     Classes="field-label"
-                     Text="Name" />
-          <TextBox Grid.Row="1"
-                   Grid.Column="1"
-                   Text="{Binding MaterialName, Mode=TwoWay}"
-                   LostFocus="OnNameLostFocus"
-                   KeyDown="OnNameKeyDown" />
+              <TextBlock Grid.Column="1"
+                         VerticalAlignment="Center"
+                         Classes="body-muted"
+                         Text="Select a card to inspect it" />
+            </Grid>
 
-          <TextBlock Grid.Row="2"
-                     Classes="field-label"
-                     Text="Use Nodes" />
-          <CheckBox Grid.Row="2"
-                    Grid.Column="1"
-                    Content="Enable node tree"
-                    IsChecked="{Binding UseNodes, Mode=TwoWay}" />
-        </Grid>
-      </Border>
+            <ListBox Grid.Row="1"
+                     Classes="material-library"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ItemsSource="{Binding Materials}"
+                     SelectedItem="{Binding SelectedMaterial, Mode=TwoWay}">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal"
+                             ItemWidth="188"
+                             ItemHeight="228" />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="models:MaterialLibraryItem">
+                  <Border Classes="material-tile">
+                    <Grid RowDefinitions="138,Auto,Auto"
+                          RowSpacing="10">
+                      <Border Classes="material-preview-frame">
+                        <Grid>
+                          <Image Source="{Binding Thumbnail}"
+                                 Stretch="UniformToFill"
+                                 IsVisible="{Binding HasThumbnail}" />
+
+                          <StackPanel IsVisible="{Binding ShowPlaceholder}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Spacing="6">
+                            <TextBlock Classes="material-placeholder-initials"
+                                       HorizontalAlignment="Center"
+                                       Text="{Binding DisplayInitials}" />
+                            <TextBlock Classes="body-subtle"
+                                       HorizontalAlignment="Center"
+                                       Text="Preview pending" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+
+                      <TextBlock Grid.Row="1"
+                                 Text="{Binding DisplayName}"
+                                 TextWrapping="Wrap"
+                                 Classes="material-tile-title" />
+
+                      <TextBlock Grid.Row="2"
+                                 Text="{Binding KindLabel}"
+                                 Classes="body-subtle" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="1"
+                Classes="panel-card emphasis">
+          <Grid RowDefinitions="Auto,*,Auto"
+                RowSpacing="14">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="section-title"
+                         Text="{Binding MaterialName, TargetNullValue='No material selected'}" />
+              <TextBlock Classes="body-subtle"
+                         Text="{Binding SelectedMaterialPath, TargetNullValue='Select a material to load its details.'}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Classes="material-hero-frame">
+              <Grid>
+                <Image Source="{Binding SelectedPreviewImage}"
+                       Stretch="UniformToFill"
+                       IsVisible="{Binding HasSelectedPreview}" />
+
+                <StackPanel IsVisible="{Binding ShowSelectedPreviewPlaceholder}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="6">
+                  <TextBlock Classes="material-placeholder-initials"
+                             HorizontalAlignment="Center"
+                             Text="MT" />
+                  <TextBlock Classes="body-subtle"
+                             HorizontalAlignment="Center"
+                             Text="No preview image available" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="2"
+                        Spacing="8"
+                        IsEnabled="{Binding HasSelectedMaterial}">
+              <TextBlock Classes="field-label"
+                         Text="Material Name" />
+              <TextBox Text="{Binding MaterialName, Mode=TwoWay}"
+                       PlaceholderText="Rename selected material"
+                       LostFocus="OnNameLostFocus"
+                       KeyDown="OnNameKeyDown" />
+              <TextBlock Classes="body-subtle"
+                         Text="Press Enter or move focus away to sync the new name back to Blender." />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
 
       <Border Classes="panel-card status">
         <StackPanel Spacing="6">

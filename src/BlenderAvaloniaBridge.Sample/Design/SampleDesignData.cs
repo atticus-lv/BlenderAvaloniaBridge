@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using BlenderAvaloniaBridge.Sample.Models;
+using BlenderAvaloniaBridge.Sample.Helpers;
 using BlenderAvaloniaBridge.Sample.ViewModels;
 using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
@@ -133,15 +134,33 @@ public static class SampleDesignData
     {
         public DesignMaterialsPageViewModel()
         {
-            var preview = CreateRnaRef("PreviewMat", "bpy.data.materials[\"PreviewMat\"]", "Material", "MATERIAL", 401);
-            Materials.Add(preview);
-            Materials.Add(CreateRnaRef("GlassAccent", "bpy.data.materials[\"GlassAccent\"]", "Material", "MATERIAL", 402));
-            Materials.Add(CreateRnaRef("Ground", "bpy.data.materials[\"Ground\"]", "Material", "MATERIAL", 403));
+            var preview = new MaterialLibraryItem(
+                CreateRnaRef("PreviewMat", "bpy.data.materials[\"PreviewMat\"]", "Material", "MATERIAL", 401),
+                "PreviewMat",
+                MaterialPreviewImageFactory.Create(
+                    [2, 2],
+                    [240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255]));
+            var glass = new MaterialLibraryItem(
+                CreateRnaRef("GlassAccent", "bpy.data.materials[\"GlassAccent\"]", "Material", "MATERIAL", 402),
+                "GlassAccent",
+                MaterialPreviewImageFactory.Create(
+                    [2, 2],
+                    [124, 208, 255, 255, 210, 246, 255, 255, 46, 89, 134, 255, 118, 166, 228, 255]));
+            var ground = new MaterialLibraryItem(
+                CreateRnaRef("Ground", "bpy.data.materials[\"Ground\"]", "Material", "MATERIAL", 403),
+                "Ground",
+                null);
 
+            Materials.Add(preview);
+            Materials.Add(glass);
+            Materials.Add(ground);
             SelectedMaterial = preview;
             MaterialName = "PreviewMat";
+            SelectedMaterialPath = "bpy.data.materials[\"PreviewMat\"]";
+            SelectedPreviewImage = MaterialPreviewImageFactory.Create(
+                [2, 2],
+                [240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255]);
             NewMaterialName = "Accent";
-            UseNodes = true;
             StatusText = "Loaded material PreviewMat.";
             BridgeStatusText = "Bridge connected (design preview)";
         }
