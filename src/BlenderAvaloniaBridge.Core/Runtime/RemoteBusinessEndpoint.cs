@@ -23,7 +23,8 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
         var envelope = new ProtocolEnvelope
         {
             Type = "business_request",
-            BusinessVersion = request.BusinessVersion,
+            ProtocolVersion = request.ProtocolVersion,
+            SchemaVersion = request.SchemaVersion,
             MessageId = messageId,
             Name = request.Name,
             Payload = request.Payload.Clone(),
@@ -73,7 +74,8 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
         completion.TrySetResult(
             new BusinessResponse
             {
-                BusinessVersion = envelope.BusinessVersion ?? 1,
+                ProtocolVersion = envelope.ProtocolVersion ?? BlenderBusinessProtocolVersions.ProtocolVersion,
+                SchemaVersion = envelope.SchemaVersion ?? BlenderBusinessProtocolVersions.SchemaVersion,
                 MessageId = envelope.MessageId ?? 0,
                 ReplyTo = replyTo,
                 Ok = envelope.Ok ?? false,

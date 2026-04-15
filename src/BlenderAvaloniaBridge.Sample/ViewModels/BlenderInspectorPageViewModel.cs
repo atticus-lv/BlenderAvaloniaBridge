@@ -1,9 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
-using System.Buffers;
 using BlenderAvaloniaBridge;
-using BlenderAvaloniaBridge.Protocol;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -11,9 +9,8 @@ namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
 public partial class BlenderInspectorPageViewModel : ObservableObject
 {
-    private const string SceneRnaType = "bpy.types.Scene";
-
-    private IBusinessEndpoint? _businessEndpoint;
+    private const string SceneObjectsPath = "bpy.context.scene.objects";
+    private IBlenderDataApi? _blenderDataApi;
     private bool _isApplyingRemoteState;
 
     public ObservableCollection<BlenderObjectListItem> Objects { get; } = new();
@@ -44,16 +41,16 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     public bool HasSelectedObject => SelectedObject is not null;
 
-    public void AttachBusinessEndpoint(IBusinessEndpoint? businessEndpoint)
+    public void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi)
     {
-        _businessEndpoint = businessEndpoint;
-        BridgeStatusText = businessEndpoint is null ? "Bridge disconnected" : "Bridge connected";
-        StatusText = businessEndpoint is null
+        _blenderDataApi = blenderDataApi;
+        BridgeStatusText = blenderDataApi is null ? "Bridge disconnected" : "Bridge connected";
+        StatusText = blenderDataApi is null
             ? "Desktop window mode. Start the bridge from Blender to inspect objects."
             : "Waiting for Blender actions.";
         UpdateCommandStates();
 
-        if (businessEndpoint is not null)
+        if (blenderDataApi is not null)
         {
             RefreshObjects();
         }
@@ -67,16 +64,59 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     private async Task RefreshObjectsCoreAsync()
     {
-        if (_businessEndpoint is null)
+        if (_blenderDataApi is null)
         {
             StatusText = "Bridge is not attached.";
             return;
         }
 
         BridgeStatusText = "Refreshing scene objects...";
-        var response = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest("scene.objects.list", CreateEmptyPayload()));
-        HandleCollectionResponse(response);
+        var items = await _blenderDataApi.ListAsync(SceneObjectsPath);
+        var previousSelection = SelectedObject?.RnaRef;
+
+        Objects.Clear();
+        foreach (var item in items)
+        {
+            var metadata = item.Metadata;
+            var objectType = metadata.HasValue && metadata.Value.TryGetProperty("objectType", out var objectTypeElement)
+                ? objectTypeElement.GetString() ?? "?"
+                : "?";
+            var isActive = metadata.HasValue
+                && metadata.Value.TryGetProperty("isActive", out var isActiveElement)
+                && isActiveElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                && isActiveElement.GetBoolean();
+
+            Objects.Add(new BlenderObjectListItem(item, item.Label, objectType, isActive));
+        }
+
+        BridgeStatusText = $"Loaded {Objects.Count} object(s)";
+
+        BlenderObjectListItem? nextSelection = null;
+        if (previousSelection is not null)
+        {
+            nextSelection = FindByReference(previousSelection);
+        }
+
+        nextSelection ??= Objects.FirstOrDefault(item => item.IsActive);
+        nextSelection ??= Objects.FirstOrDefault();
+
+        _isApplyingRemoteState = true;
+        SelectedObject = nextSelection;
+        _isApplyingRemoteState = false;
+
+        UpdateSelectedReferenceText();
+        UpdateCommandStates();
+        OnPropertyChanged(nameof(HasSelectedObject));
+
+        if (SelectedObject?.RnaRef is not null)
+        {
+            await LoadSelectedObjectPropertiesAsync(SelectedObject.RnaRef);
+        }
+        else
+        {
+            ClearPropertyEditors();
+            BridgeStatusText = "Scene contains no objects.";
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanUseBridge))]
@@ -87,19 +127,15 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     private async Task AddCubeCoreAsync()
     {
-        if (_businessEndpoint is null)
+        if (_blenderDataApi is null)
         {
             StatusText = "Bridge is not attached.";
             return;
         }
 
-        var response = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                "operator.call",
-                CreateOperatorCallPayload(
-                    "mesh.primitive_cube_add",
-                    executionContext: "EXEC_DEFAULT",
-                    properties: [new KeyValuePair<string, JsonElement>("size", JsonSerializer.SerializeToElement(2.0, ProtocolJsonContext.Default.Double))])));
+        var response = await _blenderDataApi.CallOperatorAsync(
+            "mesh.primitive_cube_add",
+            ("size", 2.0));
 
         HandleOperatorResponse(response);
     }
@@ -112,18 +148,17 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     private async Task DuplicateCoreAsync()
     {
-        if (_businessEndpoint is null || SelectedObject?.RnaRef is null)
+        if (_blenderDataApi is null || SelectedObject?.RnaRef is null)
         {
             return;
         }
 
-        var response = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                "operator.call",
-                CreateOperatorCallPayload(
-                    "object.duplicate_move",
-                    executionContext: "EXEC_DEFAULT",
-                    target: SelectedObject.RnaRef)));
+        var response = await _blenderDataApi.CallOperatorAsync(
+            "object.duplicate_move",
+            new BlenderOperatorCall
+            {
+                ContextOverride = BuildSelectionContextOverride(SelectedObject.RnaRef.Path),
+            });
 
         HandleOperatorResponse(response);
     }
@@ -136,18 +171,17 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     private async Task ViewSelectedCoreAsync()
     {
-        if (_businessEndpoint is null || SelectedObject?.RnaRef is null)
+        if (_blenderDataApi is null || SelectedObject?.RnaRef is null)
         {
             return;
         }
 
-        var response = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                "operator.call",
-                CreateOperatorCallPayload(
-                    "view3d.view_selected",
-                    executionContext: "EXEC_DEFAULT",
-                    target: SelectedObject.RnaRef)));
+        var response = await _blenderDataApi.CallOperatorAsync(
+            "view3d.view_selected",
+            new BlenderOperatorCall
+            {
+                ContextOverride = BuildSelectionContextOverride(SelectedObject.RnaRef.Path),
+            });
 
         HandleOperatorResponse(response);
     }
@@ -158,7 +192,7 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
         UpdateCommandStates();
         UpdateSelectedReferenceText();
 
-        if (_isApplyingRemoteState || _businessEndpoint is null || SelectedObject?.RnaRef is null)
+        if (_isApplyingRemoteState || _blenderDataApi is null || SelectedObject?.RnaRef is null)
         {
             return;
         }
@@ -168,25 +202,21 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
     public async Task CommitNameAsync()
     {
-        if (_isApplyingRemoteState || _businessEndpoint is null || SelectedObject?.RnaRef is null)
+        if (_isApplyingRemoteState || _blenderDataApi is null || SelectedObject?.RnaRef is null)
         {
             return;
         }
 
         await RunBusinessOperationAsync(async () =>
         {
-            var response = await _businessEndpoint.InvokeAsync(
-                new BusinessRequest(
-                    "object.property.set",
-                    CreatePropertySetPayload(SelectedObject.RnaRef, "name", writer => writer.WriteStringValue(ObjectName))));
-
-            HandlePropertyResponse(response);
+            await _blenderDataApi.SetAsync($"{SelectedObject.RnaRef.Path}.name", ObjectName);
+            await RefreshObjectsCoreAsync();
         });
     }
 
     public async Task CommitLocationAsync()
     {
-        if (_isApplyingRemoteState || _businessEndpoint is null || SelectedObject?.RnaRef is null)
+        if (_isApplyingRemoteState || _blenderDataApi is null || SelectedObject?.RnaRef is null)
         {
             return;
         }
@@ -201,12 +231,8 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
 
         await RunBusinessOperationAsync(async () =>
         {
-            var response = await _businessEndpoint.InvokeAsync(
-                new BusinessRequest(
-                    "object.property.set",
-                    CreateLocationSetPayload(SelectedObject.RnaRef, x, y, z)));
-
-            HandlePropertyResponse(response);
+            await _blenderDataApi.SetAsync($"{SelectedObject.RnaRef.Path}.location", new[] { x, y, z });
+            await LoadSelectedObjectPropertiesAsync(SelectedObject.RnaRef);
         });
     }
 
@@ -215,163 +241,39 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
         BridgeStatusText = status;
     }
 
-    private bool CanOperateOnSelection() => _businessEndpoint is not null && SelectedObject is not null;
+    private bool CanOperateOnSelection() => _blenderDataApi is not null && SelectedObject is not null;
 
-    private bool CanUseBridge() => _businessEndpoint is not null;
+    private bool CanUseBridge() => _blenderDataApi is not null;
 
-    private async Task LoadSelectedObjectPropertiesAsync(BlenderRnaRef rnaRef)
+    private async Task LoadSelectedObjectPropertiesAsync(RnaItemRef rnaRef)
     {
-        if (_businessEndpoint is null)
+        if (_blenderDataApi is null)
         {
             return;
         }
 
-        var nameResponse = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                "object.property.get",
-                CreatePropertyGetPayload(rnaRef, "name")));
-        HandlePropertyResponse(nameResponse);
+        var objectName = await _blenderDataApi.GetAsync<string>($"{rnaRef.Path}.name");
+        var location = await _blenderDataApi.GetAsync<double[]>($"{rnaRef.Path}.location");
 
-        var locationResponse = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                "object.property.get",
-                CreatePropertyGetPayload(rnaRef, "location")));
-        HandlePropertyResponse(locationResponse);
+        _isApplyingRemoteState = true;
+        ObjectName = objectName;
+        if (location.Length >= 3)
+        {
+            LocationX = location[0].ToString("0.###", CultureInfo.InvariantCulture);
+            LocationY = location[1].ToString("0.###", CultureInfo.InvariantCulture);
+            LocationZ = location[2].ToString("0.###", CultureInfo.InvariantCulture);
+        }
+        _isApplyingRemoteState = false;
 
+        UpdateSelectedReferenceText();
         BridgeStatusText = $"Loading properties for {rnaRef.Name}";
     }
 
-    private void HandleCollectionResponse(BusinessResponse response)
+    private void HandleOperatorResponse(OperatorCallResult response)
     {
-        if (!response.Ok)
-        {
-            StatusText = response.Error?.Message ?? "Failed to load scene objects.";
-            return;
-        }
-
-        if (!TryGetPayload(response, out var payload) || !payload.TryGetProperty("items", out var itemsElement))
-        {
-            StatusText = "Collection result payload is missing items.";
-            return;
-        }
-
-        var previousSelection = SelectedObject?.RnaRef;
-        Objects.Clear();
-        foreach (var item in EnumerateCollectionItems(itemsElement))
-        {
-            Objects.Add(
-                new BlenderObjectListItem(
-                    item.RnaRef,
-                    item.Label,
-                    item.ObjectType,
-                    item.IsActive));
-        }
-        BridgeStatusText = $"Loaded {Objects.Count} object(s)";
-
-        BlenderObjectListItem? nextSelection = null;
-        if (previousSelection is not null)
-        {
-            nextSelection = FindByReference(previousSelection);
-        }
-        nextSelection ??= Objects.FirstOrDefault(item => item.IsActive);
-        nextSelection ??= Objects.FirstOrDefault();
-
-        _isApplyingRemoteState = true;
-        SelectedObject = nextSelection;
-        _isApplyingRemoteState = false;
-
-        UpdateSelectedReferenceText();
-        UpdateCommandStates();
-        OnPropertyChanged(nameof(HasSelectedObject));
-
-        if (SelectedObject?.RnaRef is not null)
-        {
-            _ = LoadSelectedObjectPropertiesAsync(SelectedObject.RnaRef);
-        }
-        else
-        {
-            ClearPropertyEditors();
-            BridgeStatusText = "Scene contains no objects.";
-        }
-    }
-
-    private void HandlePropertyResponse(BusinessResponse response)
-    {
-        if (!response.Ok)
-        {
-            StatusText = response.Error?.Message ?? "Failed to read property.";
-            return;
-        }
-
-        if (!TryGetPayload(response, out var payload)
-            || !payload.TryGetProperty("target", out var targetElement)
-            || !payload.TryGetProperty("data_path", out var dataPathElement)
-            || dataPathElement.ValueKind != JsonValueKind.String)
-        {
-            StatusText = "Property result payload is incomplete.";
-            return;
-        }
-
-        if (!TryReadRnaRef(targetElement, out var target))
-        {
-            StatusText = "Property result target is invalid.";
-            return;
-        }
-
-        if (SelectedObject?.RnaRef is null || target is null || !ReferenceMatches(SelectedObject.RnaRef, target))
-        {
-            return;
-        }
-
-        var dataPath = dataPathElement.GetString() ?? string.Empty;
-        _isApplyingRemoteState = true;
-        if (dataPath == "name" && payload.TryGetProperty("value", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
-        {
-            ObjectName = nameElement.GetString() ?? string.Empty;
-            SelectedObject.Label = ObjectName;
-            SelectedObject.UpdateReference(target);
-        }
-        else if (dataPath == "location" && payload.TryGetProperty("value", out var locationElement) && locationElement.ValueKind == JsonValueKind.Array)
-        {
-            var components = locationElement.EnumerateArray()
-                .Select(value => value.GetDouble().ToString("0.###", CultureInfo.InvariantCulture))
-                .ToArray();
-            if (components.Length == 3)
-            {
-                LocationX = components[0];
-                LocationY = components[1];
-                LocationZ = components[2];
-            }
-        }
-        _isApplyingRemoteState = false;
-
-        UpdateSelectedReferenceText();
-        BridgeStatusText = $"Updated {dataPath}";
-    }
-
-    private void HandleOperatorResponse(BusinessResponse response)
-    {
-        if (!TryGetPayload(response, out var payload))
-        {
-            StatusText = response.Ok ? "operator.call: no result" : response.Error?.Message ?? "operator.call failed";
-            return;
-        }
-
-        var operatorName = payload.TryGetProperty("operator", out var operatorElement) && operatorElement.ValueKind == JsonValueKind.String
-            ? operatorElement.GetString() ?? "operator.call"
-            : "operator.call";
-        var result = payload.TryGetProperty("result", out var resultElement) && resultElement.ValueKind == JsonValueKind.Array
-            ? string.Join(", ", resultElement.EnumerateArray().Select(value => value.GetString() ?? string.Empty))
-            : "no result";
-
-        StatusText = response.Ok
-            ? $"{operatorName}: {result}"
-            : $"{operatorName}: {response.Error?.Message ?? "failed"}";
-
-        if (response.Ok)
-        {
-            RefreshObjects();
-        }
+        var result = response.Result.Count > 0 ? string.Join(", ", response.Result) : "no result";
+        StatusText = $"{response.OperatorName}: {result}";
+        RefreshObjects();
     }
 
     private async Task RunBusinessOperationAsync(Func<Task> operation)
@@ -392,173 +294,7 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
         }
     }
 
-    private static JsonElement CreateEmptyPayload()
-    {
-        return JsonDocument.Parse("{}").RootElement.Clone();
-    }
-
-    private static JsonElement CreatePropertyGetPayload(BlenderRnaRef target, string dataPath)
-    {
-        return WritePayload(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("target");
-            JsonSerializer.Serialize(writer, target, ProtocolJsonContext.Default.BlenderRnaRef);
-            writer.WriteString("data_path", dataPath);
-            writer.WriteEndObject();
-        });
-    }
-
-    private static JsonElement CreatePropertySetPayload(BlenderRnaRef target, string dataPath, Action<Utf8JsonWriter> writeValue)
-    {
-        return WritePayload(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("target");
-            JsonSerializer.Serialize(writer, target, ProtocolJsonContext.Default.BlenderRnaRef);
-            writer.WriteString("data_path", dataPath);
-            writer.WritePropertyName("value");
-            writeValue(writer);
-            writer.WriteEndObject();
-        });
-    }
-
-    private static JsonElement CreateLocationSetPayload(BlenderRnaRef target, double x, double y, double z)
-    {
-        return CreatePropertySetPayload(target, "location", writer =>
-        {
-            writer.WriteStartArray();
-            writer.WriteNumberValue(x);
-            writer.WriteNumberValue(y);
-            writer.WriteNumberValue(z);
-            writer.WriteEndArray();
-        });
-    }
-
-    private static JsonElement CreateOperatorCallPayload(
-        string operatorName,
-        string executionContext,
-        BlenderRnaRef? target = null,
-        IEnumerable<KeyValuePair<string, JsonElement>>? properties = null)
-    {
-        return WritePayload(writer =>
-        {
-            writer.WriteStartObject();
-            writer.WriteString("operator", operatorName);
-            writer.WriteString("execution_context", executionContext);
-
-            if (target is not null)
-            {
-                writer.WritePropertyName("target");
-                JsonSerializer.Serialize(writer, target, ProtocolJsonContext.Default.BlenderRnaRef);
-            }
-
-            if (properties is not null)
-            {
-                writer.WritePropertyName("properties");
-                writer.WriteStartObject();
-                foreach (var (name, value) in properties)
-                {
-                    writer.WritePropertyName(name);
-                    value.WriteTo(writer);
-                }
-                writer.WriteEndObject();
-            }
-
-            writer.WriteEndObject();
-        });
-    }
-
-    private static JsonElement WritePayload(Action<Utf8JsonWriter> write)
-    {
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            write(writer);
-        }
-
-        return JsonDocument.Parse(buffer.WrittenMemory).RootElement.Clone();
-    }
-
-    private static IEnumerable<ParsedCollectionItem> EnumerateCollectionItems(JsonElement itemsElement)
-    {
-        if (itemsElement.ValueKind != JsonValueKind.Array)
-        {
-            yield break;
-        }
-
-        foreach (var itemElement in itemsElement.EnumerateArray())
-        {
-            if (!itemElement.TryGetProperty("rna_ref", out var rnaRefElement)
-                || !TryReadRnaRef(rnaRefElement, out var rnaRef))
-            {
-                continue;
-            }
-
-            var label = itemElement.TryGetProperty("label", out var labelElement) && labelElement.ValueKind == JsonValueKind.String
-                ? labelElement.GetString() ?? string.Empty
-                : string.Empty;
-
-            var objectType = "?";
-            var isActive = false;
-            if (itemElement.TryGetProperty("meta", out var metaElement) && metaElement.ValueKind == JsonValueKind.Object)
-            {
-                if (metaElement.TryGetProperty("object_type", out var objectTypeElement) && objectTypeElement.ValueKind == JsonValueKind.String)
-                {
-                    objectType = objectTypeElement.GetString() ?? "?";
-                }
-
-                if (metaElement.TryGetProperty("is_active", out var isActiveElement)
-                    && (isActiveElement.ValueKind == JsonValueKind.True || isActiveElement.ValueKind == JsonValueKind.False))
-                {
-                    isActive = isActiveElement.GetBoolean();
-                }
-            }
-
-            yield return new ParsedCollectionItem(rnaRef, label, objectType, isActive);
-        }
-    }
-
-    private static bool TryReadRnaRef(JsonElement element, out BlenderRnaRef rnaRef)
-    {
-        if (element.ValueKind != JsonValueKind.Object)
-        {
-            rnaRef = null!;
-            return false;
-        }
-
-        if (!element.TryGetProperty("rna_type", out var rnaTypeElement) || rnaTypeElement.ValueKind != JsonValueKind.String)
-        {
-            rnaRef = null!;
-            return false;
-        }
-
-        rnaRef = new BlenderRnaRef
-        {
-            RnaType = rnaTypeElement.GetString() ?? string.Empty,
-            IdType = element.TryGetProperty("id_type", out var idTypeElement) && idTypeElement.ValueKind == JsonValueKind.String
-                ? idTypeElement.GetString()
-                : null,
-            Name = element.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String
-                ? nameElement.GetString()
-                : null,
-            SessionUid = TryReadInt64(element, "session_uid", out var sessionUid) ? sessionUid : null,
-        };
-        return true;
-    }
-
-    private static bool TryReadInt64(JsonElement element, string propertyName, out long value)
-    {
-        if (element.TryGetProperty(propertyName, out var propertyElement) && propertyElement.ValueKind == JsonValueKind.Number)
-        {
-            return propertyElement.TryGetInt64(out value);
-        }
-
-        value = 0;
-        return false;
-    }
-
-    private BlenderObjectListItem? FindByReference(BlenderRnaRef rnaRef)
+    private BlenderObjectListItem? FindByReference(RnaItemRef rnaRef)
     {
         return Objects.FirstOrDefault(item => ReferenceMatches(item.RnaRef, rnaRef));
     }
@@ -572,7 +308,7 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
         }
 
         SelectedReferenceText =
-            $"{rnaRef.RnaType} | {rnaRef.Name} | session_uid={rnaRef.SessionUid?.ToString() ?? "0"}";
+            $"{rnaRef.RnaType} | {rnaRef.Name} | session_uid={rnaRef.SessionUid?.ToString() ?? "0"} | {rnaRef.Path}";
     }
 
     private void ClearPropertyEditors()
@@ -593,28 +329,24 @@ public partial class BlenderInspectorPageViewModel : ObservableObject
         ViewSelectedCommand.NotifyCanExecuteChanged();
     }
 
-    private static bool ReferenceMatches(BlenderRnaRef left, BlenderRnaRef right)
+    private static bool ReferenceMatches(RnaItemRef left, RnaItemRef right)
     {
         if (left.SessionUid.HasValue && right.SessionUid.HasValue && left.SessionUid.Value != 0 && right.SessionUid.Value != 0)
         {
             return left.SessionUid.Value == right.SessionUid.Value;
         }
 
-        return string.Equals(left.Name, right.Name, StringComparison.Ordinal) &&
-               string.Equals(left.RnaType, right.RnaType, StringComparison.Ordinal);
+        return string.Equals(left.Path, right.Path, StringComparison.Ordinal)
+               || (string.Equals(left.Name, right.Name, StringComparison.Ordinal)
+                   && string.Equals(left.RnaType, right.RnaType, StringComparison.Ordinal));
     }
 
-    private static bool TryGetPayload(BusinessResponse response, out JsonElement payload)
+    private static BlenderContextOverride BuildSelectionContextOverride(string path)
     {
-        if (response.Payload is JsonElement payloadElement)
+        return new BlenderContextOverride
         {
-            payload = payloadElement;
-            return true;
-        }
-
-        payload = default;
-        return false;
+            ActiveObject = path,
+            SelectedObjects = new[] { path },
+        };
     }
-
-    private sealed record ParsedCollectionItem(BlenderRnaRef RnaRef, string Label, string ObjectType, bool IsActive);
 }

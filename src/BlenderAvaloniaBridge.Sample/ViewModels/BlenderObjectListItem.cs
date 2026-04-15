@@ -1,11 +1,11 @@
-using BlenderAvaloniaBridge.Protocol;
 using CommunityToolkit.Mvvm.ComponentModel;
+using BlenderAvaloniaBridge;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
 public partial class BlenderObjectListItem : ObservableObject
 {
-    public BlenderObjectListItem(BlenderRnaRef rnaRef, string label, string objectType, bool isActive)
+    public BlenderObjectListItem(RnaItemRef rnaRef, string label, string objectType, bool isActive)
     {
         RnaRef = rnaRef;
         _label = label;
@@ -13,7 +13,7 @@ public partial class BlenderObjectListItem : ObservableObject
         IsActive = isActive;
     }
 
-    public BlenderRnaRef RnaRef { get; private set; }
+    public RnaItemRef RnaRef { get; private set; }
 
     [ObservableProperty]
     private string _label;
@@ -22,7 +22,7 @@ public partial class BlenderObjectListItem : ObservableObject
 
     public bool IsActive { get; }
 
-    public void UpdateReference(BlenderRnaRef rnaRef)
+    public void UpdateReference(RnaItemRef rnaRef)
     {
         RnaRef = rnaRef;
         OnPropertyChanged(nameof(RnaRef));

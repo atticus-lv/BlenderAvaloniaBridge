@@ -1,15 +1,30 @@
 # Custom Business Endpoint
 
-By default, the Blender side uses `DefaultBusinessEndpoint` to process `business_request` and return `business_response`.
+By default, the Blender side uses `DefaultBusinessEndpoint` to process `business_request`, emit `business_event`, and return `business_response`.
 
 ## What the default endpoint supports
 
-The built-in endpoint currently handles these business names:
+The built-in endpoint is now the generic Blender data bridge. It handles these names:
 
-- `scene.objects.list`
-- `object.property.get`
-- `object.property.set`
-- `operator.call`
+- `rna.list`
+- `rna.get`
+- `rna.set`
+- `rna.describe`
+- `rna.call`
+- `ops.poll`
+- `ops.call`
+- `watch.subscribe`
+- `watch.unsubscribe`
+- `watch.read`
+
+Watch invalidation is delivered as the `business_event` named `watch.dirty`.
+
+Every `business_request`, `business_response`, and `business_event` now carries explicit version fields:
+
+- `protocolVersion`
+- `schemaVersion`
+
+Current defaults are `protocolVersion = 1` and `schemaVersion = 1`.
 
 ## Interface contract
 
@@ -22,6 +37,8 @@ class BusinessEndpoint:
 ```
 
 `request` is a `BusinessRequest`, and the return value is a `BusinessResponse`.
+
+`BusinessRequest.response(...)` fills the current protocol and schema versions automatically, so simple custom handlers do not need to repeat them manually.
 
 ## Minimal custom example
 
@@ -61,7 +78,11 @@ controller = BridgeController(
 
 ## When to keep the default implementation
 
-Keep `DefaultBusinessEndpoint` if you still want the built-in support for:
+Keep `DefaultBusinessEndpoint` if you want the built-in RNA, operator, and watch bridge and only need to add a few app-specific commands.
 
-- listing scene objects
-- reading or writing object properties
+This is usually the best split:
+
+- use `DefaultBusinessEndpoint` for standard Blender API traffic
+- add a custom endpoint only for private commands such as `ping`, app actions, or domain-specific workflows
+
+On the C# side, the default endpoint is surfaced through `IBlenderDataApi`, so most applications do not need any Python-side glue code at all.

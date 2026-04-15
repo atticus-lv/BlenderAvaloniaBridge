@@ -2,6 +2,7 @@ import importlib
 import pathlib
 import sys
 import types
+from contextlib import nullcontext
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -42,10 +43,13 @@ def install_fake_blender_modules():
             system=types.SimpleNamespace(dpi=96),
         ),
         region=types.SimpleNamespace(width=1920, height=1080),
+        temp_override=lambda **_kwargs: nullcontext(),
     )
     bpy.ops = types.SimpleNamespace()
     bpy.data = types.SimpleNamespace(
         objects={},
+        materials={},
+        collections={},
         images=types.SimpleNamespace(
             get=lambda _name: None,
             new=lambda **_kwargs: types.SimpleNamespace(
@@ -77,6 +81,16 @@ def install_fake_blender_modules():
     bpy.utils = types.SimpleNamespace(
         register_class=lambda _cls: None,
         unregister_class=lambda _cls: None,
+    )
+    bpy.app = types.SimpleNamespace(
+        handlers=types.SimpleNamespace(
+            depsgraph_update_post=[],
+            frame_change_post=[],
+            load_post=[],
+            undo_post=[],
+            redo_post=[],
+            persistent=lambda fn: fn,
+        )
     )
     sys.modules["bpy"] = bpy
 

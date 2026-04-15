@@ -1,43 +1,7 @@
-using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BlenderAvaloniaBridge.Protocol;
-
-public sealed class BlenderRnaRef
-{
-    [JsonPropertyName("rna_type")]
-    public string RnaType { get; set; } = string.Empty;
-
-    [JsonPropertyName("id_type")]
-    public string? IdType { get; set; }
-
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-
-    [JsonPropertyName("session_uid")]
-    public long? SessionUid { get; set; }
-}
-
-public sealed class BlenderCollectionItemMeta
-{
-    [JsonPropertyName("object_type")]
-    public string? ObjectType { get; set; }
-
-    [JsonPropertyName("is_active")]
-    public bool IsActive { get; set; }
-}
-
-public sealed class BlenderCollectionItem
-{
-    [JsonPropertyName("rna_ref")]
-    public BlenderRnaRef? RnaRef { get; set; }
-
-    [JsonPropertyName("label")]
-    public string Label { get; set; } = string.Empty;
-
-    [JsonPropertyName("meta")]
-    public BlenderCollectionItemMeta? Meta { get; set; }
-}
 
 public sealed class ProtocolEnvelope
 {
@@ -77,8 +41,11 @@ public sealed class ProtocolEnvelope
     [JsonPropertyName("supports_input")]
     public bool? SupportsInput { get; set; }
 
-    [JsonPropertyName("business_version")]
-    public int? BusinessVersion { get; set; }
+    [JsonPropertyName("protocolVersion")]
+    public int? ProtocolVersion { get; set; }
+
+    [JsonPropertyName("schemaVersion")]
+    public int? SchemaVersion { get; set; }
 
     [JsonPropertyName("message_id")]
     public long? MessageId { get; set; }
@@ -164,38 +131,8 @@ public sealed class ProtocolEnvelope
     [JsonPropertyName("frame_send_ms")]
     public double? FrameSendMs { get; set; }
 
-    [JsonPropertyName("operator")]
-    public string? Operator { get; set; }
-
-    [JsonPropertyName("execution_context")]
-    public string? ExecutionContext { get; set; }
-
-    [JsonPropertyName("properties")]
-    public Dictionary<string, JsonElement>? Properties { get; set; }
-
-    [JsonPropertyName("target")]
-    public BlenderRnaRef? Target { get; set; }
-
-    [JsonPropertyName("data_path")]
-    public string? DataPath { get; set; }
-
-    [JsonPropertyName("value")]
-    public JsonElement? Value { get; set; }
-
-    [JsonPropertyName("owner")]
-    public BlenderRnaRef? Owner { get; set; }
-
-    [JsonPropertyName("items")]
-    public List<BlenderCollectionItem>? Items { get; set; }
-
-    [JsonPropertyName("item_rna_type")]
-    public string? ItemRnaType { get; set; }
-
     [JsonPropertyName("ok")]
     public bool? Ok { get; set; }
-
-    [JsonPropertyName("result")]
-    public List<string>? Result { get; set; }
 }
 
 public sealed record ProtocolPacket(ProtocolEnvelope Header, byte[] Payload)

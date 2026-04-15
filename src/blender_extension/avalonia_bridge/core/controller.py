@@ -145,6 +145,7 @@ class BridgeController:
             on_error=self._on_error,
         )
         self.server.start()
+        self._configure_business_event_sender(self.send_message)
         process = self.process_manager.start(
             str(path),
             self._config.host,
@@ -190,6 +191,7 @@ class BridgeController:
 
     def stop(self):
         self.capture_input = False
+        self._configure_business_event_sender(None)
         if self.server is not None:
             self.server.stop()
             self.server = None
@@ -477,6 +479,12 @@ class BridgeController:
     @staticmethod
     def _is_business_packet(header):
         return header.get("type") == "business_request"
+
+    def _configure_business_event_sender(self, sender):
+        for candidate in (self.business_endpoint, getattr(self.business_handler, "endpoint", None)):
+            setter = getattr(candidate, "set_event_sender", None)
+            if callable(setter):
+                setter(sender)
 
     @staticmethod
     def _now_ms():

@@ -21,30 +21,26 @@ public sealed class BusinessEndpointTests
 
         var invokeTask = endpoint.InvokeAsync(
             new BusinessRequest(
-                "object.property.get",
-                ToJsonElement(
-                    new JsonObject
-                    {
-                        ["target"] = new JsonObject
-                        {
-                            ["rna_type"] = "bpy.types.Object",
-                            ["name"] = "Cube",
-                        },
-                        ["data_path"] = "name",
-                    }))).AsTask();
+                "rna.get",
+                ToJsonElement(new JsonObject
+                {
+                    ["path"] = "bpy.data.objects[\"Cube\"].name",
+                }))).AsTask();
 
         Assert.NotNull(sent);
         Assert.Equal("business_request", sent!.Type);
-        Assert.Equal(1, sent.BusinessVersion);
+        Assert.Equal(1, sent.ProtocolVersion);
+        Assert.Equal(1, sent.SchemaVersion);
         Assert.Equal(1L, sent.MessageId);
-        Assert.Equal("object.property.get", sent.Name);
-        Assert.Equal("name", sent.Payload?.GetProperty("data_path").GetString());
+        Assert.Equal("rna.get", sent.Name);
+        Assert.Equal("bpy.data.objects[\"Cube\"].name", sent.Payload?.GetProperty("path").GetString());
 
         endpoint.HandleResponse(
             new ProtocolEnvelope
             {
                 Type = "business_response",
-                BusinessVersion = 1,
+                ProtocolVersion = 1,
+                SchemaVersion = 1,
                 MessageId = 2,
                 ReplyTo = sent.MessageId,
                 Ok = true,
@@ -54,7 +50,8 @@ public sealed class BusinessEndpointTests
         var response = await invokeTask;
 
         Assert.True(response.Ok);
-        Assert.Equal(1, response.BusinessVersion);
+        Assert.Equal(1, response.ProtocolVersion);
+        Assert.Equal(1, response.SchemaVersion);
         Assert.Equal(2L, response.MessageId);
         Assert.Equal(1L, response.ReplyTo);
         Assert.Equal("Cube", response.Payload?.GetProperty("value").GetString());
@@ -71,9 +68,9 @@ public sealed class BusinessEndpointTests
         });
 
         var firstTask = endpoint.InvokeAsync(
-            new BusinessRequest("scene.objects.list", ToJsonElement(new JsonObject()))).AsTask();
+            new BusinessRequest("rna.list", ToJsonElement(new JsonObject { ["path"] = "bpy.data.materials" }))).AsTask();
         var secondTask = endpoint.InvokeAsync(
-            new BusinessRequest("operator.call", ToJsonElement(new JsonObject { ["op"] = "mesh.primitive_cube_add" }))).AsTask();
+            new BusinessRequest("ops.call", ToJsonElement(new JsonObject { ["operator"] = "mesh.primitive_cube_add" }))).AsTask();
 
         Assert.Equal(2, sent.Count);
         Assert.Equal(1L, sent[0].MessageId);
@@ -83,7 +80,8 @@ public sealed class BusinessEndpointTests
             new ProtocolEnvelope
             {
                 Type = "business_response",
-                BusinessVersion = 1,
+                ProtocolVersion = 1,
+                SchemaVersion = 1,
                 MessageId = 10,
                 ReplyTo = sent[1].MessageId,
                 Ok = false,
@@ -93,7 +91,8 @@ public sealed class BusinessEndpointTests
             new ProtocolEnvelope
             {
                 Type = "business_response",
-                BusinessVersion = 1,
+                ProtocolVersion = 1,
+                SchemaVersion = 1,
                 MessageId = 11,
                 ReplyTo = sent[0].MessageId,
                 Ok = true,

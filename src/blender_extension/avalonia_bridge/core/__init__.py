@@ -2,10 +2,13 @@ from .business import (
     BusinessBridgeHandler,
     BusinessEndpoint,
     BusinessError,
+    BusinessEvent,
     BusinessRequest,
     BusinessResponse,
     DefaultBusinessBridgeHandler,
     DefaultBusinessEndpoint,
+    PROTOCOL_VERSION,
+    SCHEMA_VERSION,
 )
 from .config import BridgeConfig
 from .controller import BridgeController
@@ -19,8 +22,11 @@ __all__ = [
     "BusinessRequest",
     "BusinessResponse",
     "BusinessError",
+    "BusinessEvent",
     "BusinessEndpoint",
     "DefaultBusinessEndpoint",
     "BusinessBridgeHandler",
     "DefaultBusinessBridgeHandler",
+    "PROTOCOL_VERSION",
+    "SCHEMA_VERSION",
 ]

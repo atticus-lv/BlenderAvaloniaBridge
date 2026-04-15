@@ -14,6 +14,7 @@ internal sealed class DesktopWindowUiSession : IBridgeUiSession
     private IBlenderBridgeStatusSink? _statusSink;
     private IBlenderBridgeMessageHost? _messageHost;
     private IBusinessEndpointSink? _businessEndpointSink;
+    private IBlenderDataApiSink? _blenderDataApiSink;
 
     public DesktopWindowUiSession(Func<Window> windowFactory, BlenderBridgeOptions options)
     {
@@ -55,6 +56,7 @@ internal sealed class DesktopWindowUiSession : IBridgeUiSession
             _statusSink = ResolveFromWindow<IBlenderBridgeStatusSink>(_window);
             _messageHost = ResolveFromWindow<IBlenderBridgeMessageHost>(_window);
             _businessEndpointSink = ResolveFromWindow<IBusinessEndpointSink>(_window);
+            _blenderDataApiSink = ResolveFromWindow<IBlenderDataApiSink>(_window);
 
             if (!_window.IsVisible)
             {
@@ -63,13 +65,14 @@ internal sealed class DesktopWindowUiSession : IBridgeUiSession
         });
     }
 
-    public async Task AttachBusinessEndpointAsync(IBusinessEndpoint businessEndpoint)
+    public async Task AttachBusinessApiAsync(IBusinessEndpoint businessEndpoint, IBlenderDataApi blenderDataApi)
     {
         await InitializeAsync();
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            _messageHost?.AttachBridgeClient(businessEndpoint as IBlenderBridgeClient);
+            _messageHost?.AttachBlenderDataApi(blenderDataApi);
             _businessEndpointSink?.AttachBusinessEndpoint(businessEndpoint);
+            _blenderDataApiSink?.AttachBlenderDataApi(blenderDataApi);
         });
     }
 

@@ -14,10 +14,13 @@ class CoreApiTests(unittest.TestCase):
         self.assertTrue(hasattr(core, "BusinessRequest"))
         self.assertTrue(hasattr(core, "BusinessResponse"))
         self.assertTrue(hasattr(core, "BusinessError"))
+        self.assertTrue(hasattr(core, "BusinessEvent"))
         self.assertTrue(hasattr(core, "BusinessEndpoint"))
         self.assertTrue(hasattr(core, "DefaultBusinessEndpoint"))
         self.assertTrue(hasattr(core, "BusinessBridgeHandler"))
         self.assertTrue(hasattr(core, "DefaultBusinessBridgeHandler"))
+        self.assertTrue(hasattr(core, "PROTOCOL_VERSION"))
+        self.assertTrue(hasattr(core, "SCHEMA_VERSION"))
 
 
 if __name__ == "__main__":

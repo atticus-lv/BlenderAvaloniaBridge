@@ -18,6 +18,7 @@ internal sealed class HeadlessUiHost
     private IBlenderBridgeStatusSink? _statusSink;
     private IBlenderBridgeMessageHost? _messageHost;
     private IBusinessEndpointSink? _businessEndpointSink;
+    private IBlenderDataApiSink? _blenderDataApiSink;
     private InputDispatcher? _inputDispatcher;
     private Window? _window;
     private int _width;
@@ -69,6 +70,7 @@ internal sealed class HeadlessUiHost
             _statusSink = ResolveStatusSink(_window);
             _messageHost = ResolveMessageHost(_window);
             _businessEndpointSink = ResolveBusinessEndpointSink(_window);
+            _blenderDataApiSink = ResolveBlenderDataApiSink(_window);
             _inputDispatcher = new InputDispatcher(_statusSink);
             _window.Show();
             _window.SetRenderScaling(_renderScaling);
@@ -168,12 +170,13 @@ internal sealed class HeadlessUiHost
         ExtendContinuousFrames(_options.ContinuousFrameWindow);
     }
 
-    public Task AttachBusinessEndpointAsync(IBusinessEndpoint businessEndpoint)
+    public Task AttachBusinessApiAsync(IBusinessEndpoint businessEndpoint, IBlenderDataApi blenderDataApi)
     {
         return _runtimeThread.InvokeAsync(() =>
         {
-            _messageHost?.AttachBridgeClient(businessEndpoint as IBlenderBridgeClient);
+            _messageHost?.AttachBlenderDataApi(blenderDataApi);
             _businessEndpointSink?.AttachBusinessEndpoint(businessEndpoint);
+            _blenderDataApiSink?.AttachBlenderDataApi(blenderDataApi);
             return true;
         });
     }
@@ -219,6 +222,11 @@ internal sealed class HeadlessUiHost
     private static IBusinessEndpointSink? ResolveBusinessEndpointSink(Window window)
     {
         return ResolveFromWindow<IBusinessEndpointSink>(window);
+    }
+
+    private static IBlenderDataApiSink? ResolveBlenderDataApiSink(Window window)
+    {
+        return ResolveFromWindow<IBlenderDataApiSink>(window);
     }
 
     private static IBlenderBridgeMessageHost? ResolveMessageHost(Window window)

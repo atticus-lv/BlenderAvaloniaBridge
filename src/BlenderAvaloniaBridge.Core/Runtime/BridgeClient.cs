@@ -14,6 +14,7 @@ internal sealed class BridgeClient
     private readonly ISharedFrameWriterFactory _sharedFrameWriterFactory;
     private readonly FrameDispatchScheduler _frameScheduler;
     private readonly RemoteBusinessEndpoint _businessEndpoint;
+    private readonly BlenderDataApi _blenderDataApi;
     private readonly SemaphoreSlim _frameSignal = new(0, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private ISharedFrameWriter? _sharedMemoryWriter;
@@ -37,6 +38,7 @@ internal sealed class BridgeClient
         _sharedFrameWriterFactory = sharedFrameWriterFactory ?? SharedFrameWriterFactory.Instance;
         _frameScheduler = new FrameDispatchScheduler(_options.ActiveFrameInterval, _options.IdleHeartbeatInterval);
         _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessEnvelopeAsync);
+        _blenderDataApi = new BlenderDataApi(_businessEndpoint, _options.DataApi);
         if (_uiSession.SupportsFrames)
         {
             _uiSession.FrameRequested += OnUiFrameRequested;
@@ -64,7 +66,7 @@ internal sealed class BridgeClient
             await WritePacketAsync(_uiSession.CreateInitAck(NextSequence()), cancellationToken);
             if (_options.SupportsBusiness)
             {
-                await _uiSession.AttachBusinessEndpointAsync(_businessEndpoint);
+                await _uiSession.AttachBusinessApiAsync(_businessEndpoint, _blenderDataApi);
             }
             if (canStreamFrames)
             {
@@ -174,6 +176,19 @@ internal sealed class BridgeClient
         if (IsBusinessResponse(envelope))
         {
             _businessEndpoint.HandleResponse(envelope);
+            return;
+        }
+
+        if (IsBusinessEvent(envelope))
+        {
+            await ((IBusinessEventSink)_blenderDataApi).HandleEventAsync(
+                new BusinessEvent
+                {
+                    ProtocolVersion = envelope.ProtocolVersion ?? BlenderBusinessProtocolVersions.ProtocolVersion,
+                    SchemaVersion = envelope.SchemaVersion ?? BlenderBusinessProtocolVersions.SchemaVersion,
+                    Name = envelope.Name ?? string.Empty,
+                    Payload = envelope.Payload?.Clone(),
+                });
             return;
         }
 
@@ -308,6 +323,11 @@ internal sealed class BridgeClient
     private static bool IsBusinessResponse(ProtocolEnvelope envelope)
     {
         return envelope.Type == "business_response";
+    }
+
+    private static bool IsBusinessEvent(ProtocolEnvelope envelope)
+    {
+        return envelope.Type == "business_event";
     }
 
     private async Task RunMessageLoopWithoutFramesAsync(CancellationToken cancellationToken)

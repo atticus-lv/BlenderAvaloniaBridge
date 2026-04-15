@@ -1,10 +1,10 @@
-using BlenderAvaloniaBridge;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using BlenderAvaloniaBridge;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
-public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink, IBusinessEndpointSink
+public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink, IBlenderDataApiSink
 {
     private readonly ButtonsDemoPageViewModel _buttonsPage = new();
     private readonly SortableListDemoPageViewModel _sortableListPage = new();
@@ -33,9 +33,9 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 
     public string SidebarToggleText => IsSidebarOpen ? "<" : ">";
 
-    public void AttachBusinessEndpoint(IBusinessEndpoint? businessEndpoint)
+    public void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi)
     {
-        _blenderPage.AttachBusinessEndpoint(businessEndpoint);
+        _blenderPage.AttachBlenderDataApi(blenderDataApi);
     }
 
     public void SetBridgeStatus(string status)

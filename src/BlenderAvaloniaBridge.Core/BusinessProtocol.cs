@@ -3,6 +3,12 @@ using System.Text.Json.Serialization;
 
 namespace BlenderAvaloniaBridge;
 
+public static class BlenderBusinessProtocolVersions
+{
+    public const int ProtocolVersion = 1;
+    public const int SchemaVersion = 1;
+}
+
 public sealed class BusinessError
 {
     public BusinessError()
@@ -35,16 +41,25 @@ public sealed class BusinessRequest
         Payload = EmptyPayload.Clone();
     }
 
-    public BusinessRequest(string name, JsonElement payload, int businessVersion = 1, long messageId = 0)
+    public BusinessRequest(
+        string name,
+        JsonElement payload,
+        int protocolVersion = BlenderBusinessProtocolVersions.ProtocolVersion,
+        int schemaVersion = BlenderBusinessProtocolVersions.SchemaVersion,
+        long messageId = 0)
     {
         Name = name;
         Payload = payload.Clone();
-        BusinessVersion = businessVersion;
+        ProtocolVersion = protocolVersion;
+        SchemaVersion = schemaVersion;
         MessageId = messageId;
     }
 
-    [JsonPropertyName("business_version")]
-    public int BusinessVersion { get; set; } = 1;
+    [JsonPropertyName("protocolVersion")]
+    public int ProtocolVersion { get; set; } = BlenderBusinessProtocolVersions.ProtocolVersion;
+
+    [JsonPropertyName("schemaVersion")]
+    public int SchemaVersion { get; set; } = BlenderBusinessProtocolVersions.SchemaVersion;
 
     [JsonPropertyName("message_id")]
     public long MessageId { get; set; }
@@ -60,12 +75,14 @@ public sealed class BusinessRequest
         JsonElement? payload = null,
         bool ok = true,
         BusinessError? error = null,
-        int businessVersion = 1,
+        int protocolVersion = BlenderBusinessProtocolVersions.ProtocolVersion,
+        int schemaVersion = BlenderBusinessProtocolVersions.SchemaVersion,
         long messageId = 0)
     {
         return new BusinessResponse
         {
-            BusinessVersion = businessVersion,
+            ProtocolVersion = protocolVersion,
+            SchemaVersion = schemaVersion,
             MessageId = messageId,
             ReplyTo = replyTo,
             Ok = ok,
@@ -77,8 +94,11 @@ public sealed class BusinessRequest
 
 public sealed class BusinessResponse
 {
-    [JsonPropertyName("business_version")]
-    public int BusinessVersion { get; set; } = 1;
+    [JsonPropertyName("protocolVersion")]
+    public int ProtocolVersion { get; set; } = BlenderBusinessProtocolVersions.ProtocolVersion;
+
+    [JsonPropertyName("schemaVersion")]
+    public int SchemaVersion { get; set; } = BlenderBusinessProtocolVersions.SchemaVersion;
 
     [JsonPropertyName("message_id")]
     public long MessageId { get; set; }
@@ -94,6 +114,21 @@ public sealed class BusinessResponse
 
     [JsonPropertyName("error")]
     public BusinessError? Error { get; set; }
+}
+
+public sealed class BusinessEvent
+{
+    [JsonPropertyName("protocolVersion")]
+    public int ProtocolVersion { get; set; } = BlenderBusinessProtocolVersions.ProtocolVersion;
+
+    [JsonPropertyName("schemaVersion")]
+    public int SchemaVersion { get; set; } = BlenderBusinessProtocolVersions.SchemaVersion;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("payload")]
+    public JsonElement? Payload { get; set; }
 }
 
 public interface IBusinessEndpoint

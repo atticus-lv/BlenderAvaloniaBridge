@@ -1,15 +1,30 @@
 # 自定义 Business Endpoint
 
-默认情况下，Blender 侧使用 `DefaultBusinessEndpoint` 处理 `business_request` 并返回 `business_response`。
+默认情况下，Blender 侧使用 `DefaultBusinessEndpoint` 处理 `business_request`、发出 `business_event`，并返回 `business_response`。
 
 ## 默认 endpoint 做了什么
 
-当前内置了这几类默认业务名：
+现在内置 endpoint 已经是通用 Blender 数据桥接层，默认支持这些业务名：
 
-- `scene.objects.list`
-- `object.property.get`
-- `object.property.set`
-- `operator.call`
+- `rna.list`
+- `rna.get`
+- `rna.set`
+- `rna.describe`
+- `rna.call`
+- `ops.poll`
+- `ops.call`
+- `watch.subscribe`
+- `watch.unsubscribe`
+- `watch.read`
+
+watch 失效通知会通过名为 `watch.dirty` 的 `business_event` 发出。
+
+所有 `business_request`、`business_response`、`business_event` 现在都显式带版本字段：
+
+- `protocolVersion`
+- `schemaVersion`
+
+当前默认值固定为 `protocolVersion = 1`、`schemaVersion = 1`。
 
 ## 接口约定
 
@@ -22,6 +37,8 @@ class BusinessEndpoint:
 ```
 
 其中 `request` 是 `BusinessRequest`，返回值是 `BusinessResponse`。
+
+`BusinessRequest.response(...)` 会自动填入当前协议版本和 schema 版本，所以简单自定义 handler 不需要重复写这些字段。
 
 ## 最小自定义示例
 
@@ -61,7 +78,11 @@ controller = BridgeController(
 
 ## 什么时候保留默认实现
 
-如果你还需要这些现成能力，优先继续用 `DefaultBusinessEndpoint`：
+如果你希望继续使用现成的 RNA、operator、watch 桥接能力，只额外补少量应用私有命令，优先继续用 `DefaultBusinessEndpoint`。
 
-- 列出场景对象
-- 获取或设置对象属性
+通常推荐这样拆分：
+
+- `DefaultBusinessEndpoint` 继续处理标准 Blender API 流量
+- 自定义 endpoint 只负责 `ping`、应用命令或领域专用流程
+
+在 C# 侧，默认 endpoint 会直接映射成 `IBlenderDataApi`，所以大多数场景其实不需要再写 Python glue code。

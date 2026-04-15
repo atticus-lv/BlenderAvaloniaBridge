@@ -13,7 +13,7 @@ internal interface IBridgeUiSession
 
     Task InitializeAsync();
 
-    Task AttachBusinessEndpointAsync(IBusinessEndpoint businessEndpoint);
+    Task AttachBusinessApiAsync(IBusinessEndpoint businessEndpoint, IBlenderDataApi blenderDataApi);
 
     Task DeliverBridgeMessageAsync(ProtocolEnvelope envelope);
 

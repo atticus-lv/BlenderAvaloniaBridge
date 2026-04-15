@@ -1,7 +1,6 @@
+using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using BlenderAvaloniaBridge;
-using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Sample.ViewModels;
 using Xunit;
 
@@ -10,20 +9,13 @@ namespace BlenderAvaloniaBridge.Tests;
 public sealed class BlenderInspectorPageViewModelTests
 {
     [Fact]
-    public async Task AttachBusinessEndpoint_WhenInitialRefreshFails_StoresErrorStatus()
+    public async Task AttachBlenderDataApi_WhenInitialRefreshFails_StoresErrorStatus()
     {
         var viewModel = new BlenderInspectorPageViewModel();
-        var endpoint = new DelegateBusinessEndpoint(request =>
-        {
-            if (request.Name == "scene.objects.list")
-            {
-                throw new InvalidOperationException("refresh failed");
-            }
+        var api = new DelegateBlenderDataApi(
+            listAsync: (_, _) => throw new InvalidOperationException("refresh failed"));
 
-            return new ValueTask<BusinessResponse>(BusinessRequest.Response(request.MessageId));
-        });
-
-        viewModel.AttachBusinessEndpoint(endpoint);
+        viewModel.AttachBlenderDataApi(api);
 
         await WaitForAsync(() => viewModel.StatusText == "refresh failed");
 
@@ -31,29 +23,22 @@ public sealed class BlenderInspectorPageViewModelTests
     }
 
     [Fact]
-    public async Task CommitNameAsync_WhenEndpointThrows_DoesNotPropagateAndStoresErrorStatus()
+    public async Task CommitNameAsync_WhenSetFails_DoesNotPropagateAndStoresErrorStatus()
     {
         var viewModel = new BlenderInspectorPageViewModel();
-        var endpoint = new DelegateBusinessEndpoint(request =>
-        {
-            return request.Name switch
-            {
-                "scene.objects.list" => new ValueTask<BusinessResponse>(
-                    BusinessRequest.Response(
-                        request.MessageId,
-                        ToJsonElement(new JsonObject { ["items"] = new JsonArray() }))),
-                "object.property.set" => ValueTask.FromException<BusinessResponse>(new InvalidOperationException("name set failed")),
-                _ => new ValueTask<BusinessResponse>(BusinessRequest.Response(request.MessageId))
-            };
-        });
+        var api = new DelegateBlenderDataApi(
+            listAsync: (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(Array.Empty<RnaItemRef>()),
+            setAsync: (_, _, _) => throw new InvalidOperationException("name set failed"));
 
-        viewModel.AttachBusinessEndpoint(endpoint);
+        viewModel.AttachBlenderDataApi(api);
         viewModel.SelectedObject = new BlenderObjectListItem(
-            new BlenderRnaRef
+            new RnaItemRef
             {
-                RnaType = "bpy.types.Object",
+                Path = "bpy.data.objects[\"Cube\"]",
                 Name = "Cube",
+                Label = "Cube",
                 SessionUid = 1,
+                RnaType = "Object",
             },
             "Cube",
             "MESH",
@@ -67,107 +52,68 @@ public sealed class BlenderInspectorPageViewModelTests
     }
 
     [Fact]
-    public async Task AttachBusinessEndpoint_WhenInitialRefreshSucceeds_PopulatesObjects()
+    public async Task AttachBlenderDataApi_WhenInitialRefreshSucceeds_PopulatesObjects()
     {
         var viewModel = new BlenderInspectorPageViewModel();
-        var endpoint = new DelegateBusinessEndpoint(request =>
-        {
-            return request.Name switch
-            {
-                "scene.objects.list" => new ValueTask<BusinessResponse>(
-                    BusinessRequest.Response(
-                        request.MessageId,
-                        ToJsonElement(
-                            new JsonObject
-                            {
-                                ["items"] = new JsonArray
-                                {
-                                    new JsonObject
-                                    {
-                                        ["rna_ref"] = new JsonObject
-                                        {
-                                            ["rna_type"] = "bpy.types.Object",
-                                            ["id_type"] = "OBJECT",
-                                            ["name"] = "Cube",
-                                            ["session_uid"] = 7,
-                                        },
-                                        ["label"] = "Cube",
-                                        ["meta"] = new JsonObject
-                                        {
-                                            ["object_type"] = "MESH",
-                                            ["is_active"] = true,
-                                        }
-                                    }
-                                }
-                            }))),
-                "object.property.get" => new ValueTask<BusinessResponse>(
-                    BusinessRequest.Response(
-                        request.MessageId,
-                        ToJsonElement(
-                            new JsonObject
-                            {
-                                ["target"] = new JsonObject
-                                {
-                                    ["rna_type"] = "bpy.types.Object",
-                                    ["id_type"] = "OBJECT",
-                                    ["name"] = "Cube",
-                                    ["session_uid"] = 7,
-                                },
-                                ["data_path"] = "name",
-                                ["value"] = "Cube",
-                            }))),
-                _ => new ValueTask<BusinessResponse>(BusinessRequest.Response(request.MessageId))
-            };
-        });
+        var api = new DelegateBlenderDataApi(
+            listAsync: (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(
+                new[]
+                {
+                    new RnaItemRef
+                    {
+                        Path = "bpy.data.objects[\"Cube\"]",
+                        Name = "Cube",
+                        Label = "Cube",
+                        RnaType = "Object",
+                        IdType = "OBJECT",
+                        SessionUid = 7,
+                        Metadata = JsonDocument.Parse("{\"objectType\":\"MESH\",\"isActive\":true}").RootElement.Clone()
+                    }
+                }),
+            getAsync: (path, _) => Task.FromResult<object?>(
+                path.EndsWith(".name", StringComparison.Ordinal) ? "Cube" : new[] { 0.0, 0.0, 0.0 }));
 
-        viewModel.AttachBusinessEndpoint(endpoint);
+        viewModel.AttachBlenderDataApi(api);
 
         await WaitForAsync(() => viewModel.Objects.Count == 1);
 
         Assert.Equal("Cube", viewModel.Objects[0].Label);
         Assert.Equal("MESH", viewModel.Objects[0].ObjectType);
-        Assert.Equal("bpy.types.Object", viewModel.SelectedObject?.RnaRef.RnaType);
+        Assert.Equal("Object", viewModel.SelectedObject?.RnaRef.RnaType);
     }
 
     [Fact]
-    public async Task CommitNameAsync_WhenPropertySetSucceeds_UpdatesSelectedObjectFromPayload()
+    public async Task CommitNameAsync_WhenPropertySetSucceeds_RefreshesSelectedObject()
     {
         var viewModel = new BlenderInspectorPageViewModel();
-        var endpoint = new DelegateBusinessEndpoint(request =>
+        var listedItems = new[]
         {
-            return request.Name switch
+            new RnaItemRef
             {
-                "scene.objects.list" => new ValueTask<BusinessResponse>(
-                    BusinessRequest.Response(
-                        request.MessageId,
-                        ToJsonElement(new JsonObject { ["items"] = new JsonArray() }))),
-                "object.property.set" => new ValueTask<BusinessResponse>(
-                    BusinessRequest.Response(
-                        request.MessageId,
-                        ToJsonElement(
-                            new JsonObject
-                            {
-                                ["target"] = new JsonObject
-                                {
-                                    ["rna_type"] = "bpy.types.Object",
-                                    ["id_type"] = "OBJECT",
-                                    ["name"] = "Cube.001",
-                                    ["session_uid"] = 9,
-                                },
-                                ["data_path"] = "name",
-                                ["value"] = "Cube.001",
-                            }))),
-                _ => new ValueTask<BusinessResponse>(BusinessRequest.Response(request.MessageId))
-            };
-        });
-
-        viewModel.AttachBusinessEndpoint(endpoint);
-        viewModel.SelectedObject = new BlenderObjectListItem(
-            new BlenderRnaRef
-            {
-                RnaType = "bpy.types.Object",
-                Name = "Cube",
+                Path = "bpy.data.objects[\"Cube.001\"]",
+                Name = "Cube.001",
+                Label = "Cube.001",
+                RnaType = "Object",
+                IdType = "OBJECT",
                 SessionUid = 9,
+                Metadata = JsonDocument.Parse("{\"objectType\":\"MESH\",\"isActive\":true}").RootElement.Clone()
+            }
+        };
+        var api = new DelegateBlenderDataApi(
+            listAsync: (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(listedItems),
+            getAsync: (path, _) => Task.FromResult<object?>(
+                path.EndsWith(".name", StringComparison.Ordinal) ? "Cube.001" : new[] { 0.0, 0.0, 0.0 }),
+            setAsync: (_, _, _) => Task.CompletedTask);
+
+        viewModel.AttachBlenderDataApi(api);
+        viewModel.SelectedObject = new BlenderObjectListItem(
+            new RnaItemRef
+            {
+                Path = "bpy.data.objects[\"Cube\"]",
+                Name = "Cube",
+                Label = "Cube",
+                SessionUid = 9,
+                RnaType = "Object",
             },
             "Cube",
             "MESH",
@@ -195,23 +141,59 @@ public sealed class BlenderInspectorPageViewModelTests
         }
     }
 
-    private sealed class DelegateBusinessEndpoint : IBusinessEndpoint
+    private sealed class DelegateBlenderDataApi : IBlenderDataApi
     {
-        private readonly Func<BusinessRequest, ValueTask<BusinessResponse>> _handler;
+        private readonly Func<string, CancellationToken, Task<IReadOnlyList<RnaItemRef>>> _listAsync;
+        private readonly Func<string, CancellationToken, Task<object?>> _getAsync;
+        private readonly Func<string, object?, CancellationToken, Task> _setAsync;
 
-        public DelegateBusinessEndpoint(Func<BusinessRequest, ValueTask<BusinessResponse>> handler)
+        public DelegateBlenderDataApi(
+            Func<string, CancellationToken, Task<IReadOnlyList<RnaItemRef>>>? listAsync = null,
+            Func<string, CancellationToken, Task<object?>>? getAsync = null,
+            Func<string, object?, CancellationToken, Task>? setAsync = null)
         {
-            _handler = handler;
+            _listAsync = listAsync ?? ((_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(Array.Empty<RnaItemRef>()));
+            _getAsync = getAsync ?? ((_, _) => Task.FromResult<object?>(null));
+            _setAsync = setAsync ?? ((_, _, _) => Task.CompletedTask);
         }
 
-        public ValueTask<BusinessResponse> InvokeAsync(BusinessRequest request, CancellationToken cancellationToken = default)
-        {
-            return _handler(request);
-        }
-    }
+        public Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default) => _listAsync(path, cancellationToken);
 
-    private static JsonElement ToJsonElement(JsonNode node)
-    {
-        return JsonDocument.Parse(node.ToJsonString()).RootElement.Clone();
+        public async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default)
+        {
+            return (T)(await _getAsync(path, cancellationToken) ?? throw new InvalidOperationException("No value."));
+        }
+
+        public Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default) => _setAsync(path, value, cancellationToken);
+
+        public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs) => throw new NotSupportedException();
+
+        public Task<T> CallAsync<T>(string path, string method, BlenderMethodCall call, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<OperatorPollResult> PollOperatorAsync(string operatorName, string operatorContext = "EXEC_DEFAULT", BlenderContextOverride? contextOverride = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<OperatorCallResult> CallOperatorAsync(string operatorName, params BlenderNamedArg[] properties)
+        {
+            return Task.FromResult(new OperatorCallResult
+            {
+                OperatorName = operatorName,
+                Result = new List<string> { "FINISHED" }
+            });
+        }
+
+        public Task<OperatorCallResult> CallOperatorAsync(string operatorName, BlenderOperatorCall call, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new OperatorCallResult
+            {
+                OperatorName = operatorName,
+                Result = new List<string> { "FINISHED" }
+            });
+        }
+
+        public Task<IAsyncDisposable> WatchAsync(string watchId, WatchSource source, string path, Func<WatchDirtyEvent, Task> onDirty, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<WatchSnapshot> ReadWatchAsync(string watchId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

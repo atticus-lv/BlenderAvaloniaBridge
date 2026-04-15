@@ -36,6 +36,8 @@ public sealed class BlenderBridgeOptions
 
     public bool EnableDiagnostics { get; set; } = true;
 
+    public BlenderDataApiOptions DataApi { get; set; } = new();
+
     internal TimeSpan ActiveFrameInterval =>
         TargetFps > 0 ? TimeSpan.FromMilliseconds(1000.0 / TargetFps) : TimeSpan.Zero;
 
@@ -63,6 +65,7 @@ public sealed class BlenderBridgeOptions
             ContinuousFrameWindowMs = ContinuousFrameWindowMs,
             UseSharedMemory = UseSharedMemory,
             EnableDiagnostics = EnableDiagnostics,
+            DataApi = DataApi.Clone(),
         };
     }
 
