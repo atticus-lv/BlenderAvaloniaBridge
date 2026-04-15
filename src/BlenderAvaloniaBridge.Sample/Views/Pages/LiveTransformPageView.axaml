@@ -17,13 +17,10 @@
       <Grid ColumnDefinitions="*,Auto"
             ColumnSpacing="12">
         <StackPanel Spacing="4">
-          <TextBlock Text="Live Transform"
-                     FontSize="26"
-                     FontWeight="Bold"
-                     Foreground="#FFF8FAFC" />
-          <TextBlock Text="Monitor object transform values and opt into a live watch stream."
-                     FontSize="12"
-                     Foreground="#FF94A3B8" />
+          <TextBlock Classes="page-title"
+                     Text="Live Transform" />
+          <TextBlock Classes="page-subtitle"
+                     Text="Monitor object transform values and opt into a live watch stream." />
         </StackPanel>
 
         <Button Grid.Column="1"
@@ -32,19 +29,14 @@
                 Command="{Binding RefreshObjectsCommand}" />
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF172033"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card emphasis">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               RowDefinitions="Auto,Auto,Auto"
               RowSpacing="10">
           <TextBlock Grid.Row="0"
-                     Text="Live Mode"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Live Mode" />
           <CheckBox Grid.Row="0"
                     Grid.Column="1"
                     Content="Enable live watch"
@@ -52,9 +44,8 @@
                     IsEnabled="{Binding CanEnableLiveWatch}" />
 
           <TextBlock Grid.Row="1"
-                     Text="Object"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Object" />
           <ComboBox Grid.Row="1"
                     Grid.Column="1"
                     ItemsSource="{Binding Objects}"
@@ -63,41 +54,33 @@
               <DataTemplate x:DataType="models:BlenderObjectListItem">
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10">
-                  <TextBlock Text="{Binding Label}"
-                             Foreground="#FFF8FAFC" />
+                  <TextBlock Text="{Binding Label}" />
                   <TextBlock Grid.Column="1"
                              Text="{Binding ObjectType}"
-                             Foreground="#FF94A3B8" />
+                             Classes="body-subtle" />
                 </Grid>
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
 
           <TextBlock Grid.Row="2"
-                     Text="Reference"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Reference" />
           <TextBlock Grid.Row="2"
                      Grid.Column="1"
                      Text="{Binding SelectedReferenceText}"
-                     TextWrapping="Wrap"
-                     Foreground="#FFFDE68A" />
+                     Classes="reference-text" />
         </Grid>
       </Border>
 
-      <Border Padding="14"
-              Background="#FF111B2D"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card surface">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               RowDefinitions="Auto,Auto,Auto"
               RowSpacing="12">
           <TextBlock Grid.Row="0"
-                     Text="Location"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Location" />
           <Grid Grid.Row="0"
                 Grid.Column="1"
                 ColumnDefinitions="*,*,*"
@@ -108,9 +91,8 @@
           </Grid>
 
           <TextBlock Grid.Row="1"
-                     Text="Rotation Euler"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Rotation Euler" />
           <Grid Grid.Row="1"
                 Grid.Column="1"
                 ColumnDefinitions="*,*,*"
@@ -121,9 +103,8 @@
           </Grid>
 
           <TextBlock Grid.Row="2"
-                     Text="Scale"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Scale" />
           <Grid Grid.Row="2"
                 Grid.Column="1"
                 ColumnDefinitions="*,*,*"
@@ -135,17 +116,12 @@
         </Grid>
       </Border>
 
-      <Border Padding="14"
-              Background="#FF1D2432"
-              BorderBrush="#253449"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card status">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding StatusText}"
-                     FontWeight="SemiBold"
-                     Foreground="#FFFDE68A" />
+                     Classes="status-highlight" />
           <TextBlock Text="{Binding BridgeStatusText}"
-                     Foreground="#FFCBD5E1" />
+                     Classes="body-muted" />
         </StackPanel>
       </Border>
     </StackPanel>

@@ -15,18 +15,13 @@
     <StackPanel Margin="22"
                 Spacing="18">
       <StackPanel Spacing="4">
-        <TextBlock Text="ListBox Drag Sort"
-                   FontSize="26"
-                   FontWeight="Bold"
-                   Foreground="#FFF8FAFC" />
-        <TextBlock Text="Drag the left handle of any item to reorder the demo list."
-                   Foreground="#FF94A3B8" />
+        <TextBlock Classes="page-title"
+                   Text="ListBox Drag Sort" />
+        <TextBlock Classes="page-subtitle"
+                   Text="Drag the left handle of any item to reorder the demo list." />
       </StackPanel>
 
-      <Border Padding="14"
-              Background="#FF162033"
-              BorderBrush="#223148"
-              BorderThickness="1"
+      <Border Classes="panel-card emphasis"
               CornerRadius="14">
         <ListBox x:Name="SortableListBox"
                  Height="380"
@@ -79,7 +74,7 @@
                     <TextBlock Text="{Binding Description}"
                                TextWrapping="Wrap"
                                FontSize="12"
-                               Foreground="#FFCBD5E1" />
+                               Classes="body-muted" />
                   </StackPanel>
                 </Grid>
               </Border>
@@ -88,14 +83,12 @@
         </ListBox>
       </Border>
 
-      <Border Padding="18"
-              Background="#FF101826"
-              BorderBrush="#223148"
-              BorderThickness="1"
+      <Border Classes="panel-card soft"
+              Padding="18"
               CornerRadius="14">
         <TextBlock Text="{Binding StatusText}"
                    TextWrapping="Wrap"
-                   Foreground="#FFE2E8F0" />
+                   Classes="body-muted" />
       </Border>
     </StackPanel>
   </ScrollViewer>

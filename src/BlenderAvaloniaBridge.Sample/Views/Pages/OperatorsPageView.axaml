@@ -17,13 +17,10 @@
       <Grid ColumnDefinitions="*,Auto,Auto"
             ColumnSpacing="12">
         <StackPanel Spacing="4">
-          <TextBlock Text="Operators"
-                     FontSize="26"
-                     FontWeight="Bold"
-                     Foreground="#FFF8FAFC" />
-          <TextBlock Text="Preview poll state and run a few common operator workflows."
-                     FontSize="12"
-                     Foreground="#FF94A3B8" />
+          <TextBlock Classes="page-title"
+                     Text="Operators" />
+          <TextBlock Classes="page-subtitle"
+                     Text="Preview poll state and run a few common operator workflows." />
         </StackPanel>
 
         <Button Grid.Column="1"
@@ -36,19 +33,14 @@
                 Command="{Binding RefreshPollCommand}" />
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF172033"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card emphasis">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               RowDefinitions="Auto,Auto"
               RowSpacing="10">
           <TextBlock Grid.Row="0"
-                     Text="Selection"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Selection" />
           <ComboBox Grid.Row="0"
                     Grid.Column="1"
                     ItemsSource="{Binding Objects}"
@@ -57,62 +49,47 @@
               <DataTemplate x:DataType="models:BlenderObjectListItem">
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10">
-                  <TextBlock Text="{Binding Label}"
-                             Foreground="#FFF8FAFC" />
+                  <TextBlock Text="{Binding Label}" />
                   <TextBlock Grid.Column="1"
                              Text="{Binding ObjectType}"
-                             Foreground="#FF94A3B8" />
+                             Classes="body-subtle" />
                 </Grid>
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
 
           <TextBlock Grid.Row="1"
-                     Text="Reference"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Reference" />
           <TextBlock Grid.Row="1"
                      Grid.Column="1"
                      Text="{Binding SelectedReferenceText}"
-                     TextWrapping="Wrap"
-                     Foreground="#FFFDE68A" />
+                     Classes="reference-text" />
         </Grid>
       </Border>
 
       <Grid ColumnDefinitions="*,*"
             ColumnSpacing="12">
-        <Border Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+        <Border Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="Add Cube"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="Add Cube" />
             <TextBlock Text="{Binding AddCubePollText}"
                        TextWrapping="Wrap"
-                       Foreground="#FFE2E8F0" />
+                       Classes="body-muted" />
             <Button Content="mesh.primitive_cube_add"
                     Command="{Binding AddCubeCommand}" />
           </StackPanel>
         </Border>
 
         <Border Grid.Column="1"
-                Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+                Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="Duplicate"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="Duplicate" />
             <TextBlock Text="{Binding DuplicatePollText}"
                        TextWrapping="Wrap"
-                       Foreground="#FFE2E8F0" />
+                       Classes="body-muted" />
             <Button Content="object.duplicate_move"
                     Command="{Binding DuplicateCommand}" />
           </StackPanel>
@@ -121,55 +98,38 @@
 
       <Grid ColumnDefinitions="*,*"
             ColumnSpacing="12">
-        <Border Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+        <Border Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="View Selected"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="View Selected" />
             <TextBlock Text="{Binding ViewSelectedPollText}"
                        TextWrapping="Wrap"
-                       Foreground="#FFE2E8F0" />
+                       Classes="body-muted" />
             <Button Content="view3d.view_selected"
                     Command="{Binding ViewSelectedCommand}" />
           </StackPanel>
         </Border>
 
         <Border Grid.Column="1"
-                Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+                Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="Delete Selected"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="Delete Selected" />
             <TextBlock Text="{Binding DeletePollText}"
                        TextWrapping="Wrap"
-                       Foreground="#FFE2E8F0" />
+                       Classes="body-muted" />
             <Button Content="object.delete"
                     Command="{Binding DeleteSelectedCommand}" />
           </StackPanel>
         </Border>
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF1D2432"
-              BorderBrush="#253449"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card status">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding StatusText}"
-                     FontWeight="SemiBold"
-                     Foreground="#FFFDE68A" />
+                     Classes="status-highlight" />
           <TextBlock Text="{Binding BridgeStatusText}"
-                     Foreground="#FFCBD5E1" />
+                     Classes="body-muted" />
         </StackPanel>
       </Border>
     </StackPanel>

@@ -17,13 +17,10 @@
       <Grid ColumnDefinitions="*,Auto"
             ColumnSpacing="12">
         <StackPanel Spacing="4">
-          <TextBlock Text="Blender Objects"
-                     FontSize="26"
-                     FontWeight="Bold"
-                     Foreground="#FFF8FAFC" />
-          <TextBlock Text="Browse scene objects and edit a few core RNA properties."
-                     FontSize="12"
-                     Foreground="#FF94A3B8" />
+          <TextBlock Classes="page-title"
+                     Text="Blender Objects" />
+          <TextBlock Classes="page-subtitle"
+                     Text="Browse scene objects and edit a few core RNA properties." />
         </StackPanel>
 
         <Button Grid.Column="1"
@@ -32,19 +29,14 @@
                 Command="{Binding RefreshObjectsCommand}" />
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF172033"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card emphasis">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               RowDefinitions="Auto,Auto"
               RowSpacing="10">
           <TextBlock Grid.Row="0"
-                     Text="Scene Objects"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Scene Objects" />
           <ComboBox Grid.Row="0"
                     Grid.Column="1"
                     ItemsSource="{Binding Objects}"
@@ -53,41 +45,33 @@
               <DataTemplate x:DataType="models:BlenderObjectListItem">
                 <Grid ColumnDefinitions="*,Auto"
                       ColumnSpacing="10">
-                  <TextBlock Text="{Binding Label}"
-                             Foreground="#FFF8FAFC" />
+                  <TextBlock Text="{Binding Label}" />
                   <TextBlock Grid.Column="1"
                              Text="{Binding ObjectType}"
-                             Foreground="#FF94A3B8" />
+                             Classes="body-subtle" />
                 </Grid>
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
 
           <TextBlock Grid.Row="1"
-                     Text="Reference"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Reference" />
           <TextBlock Grid.Row="1"
                      Grid.Column="1"
                      Text="{Binding SelectedReferenceText}"
-                     TextWrapping="Wrap"
-                     Foreground="#FFFDE68A" />
+                     Classes="reference-text" />
         </Grid>
       </Border>
 
-      <Border Padding="14"
-              Background="#FF111B2D"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card surface">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12"
               RowDefinitions="Auto,Auto"
               RowSpacing="12">
           <TextBlock Grid.Row="0"
-                     Text="Name"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Name" />
           <TextBox Grid.Row="0"
                    Grid.Column="1"
                    Text="{Binding ObjectName, Mode=TwoWay}"
@@ -95,9 +79,8 @@
                    KeyDown="OnNameKeyDown" />
 
           <TextBlock Grid.Row="1"
-                     Text="Location"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+                     Classes="field-label"
+                     Text="Location" />
           <Grid Grid.Row="1"
                 Grid.Column="1"
                 ColumnDefinitions="*,*,*"
@@ -118,17 +101,12 @@
         </Grid>
       </Border>
 
-      <Border Padding="14"
-              Background="#FF1D2432"
-              BorderBrush="#253449"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card status">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding StatusText}"
-                     FontWeight="SemiBold"
-                     Foreground="#FFFDE68A" />
+                     Classes="status-highlight" />
           <TextBlock Text="{Binding BridgeStatusText}"
-                     Foreground="#FFCBD5E1" />
+                     Classes="body-muted" />
         </StackPanel>
       </Border>
     </StackPanel>

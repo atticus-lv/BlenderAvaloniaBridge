@@ -17,13 +17,10 @@
       <Grid ColumnDefinitions="*,Auto"
             ColumnSpacing="12">
         <StackPanel Spacing="4">
-          <TextBlock Text="Collections"
-                     FontSize="26"
-                     FontWeight="Bold"
-                     Foreground="#FFF8FAFC" />
-          <TextBlock Text="Inspect collection hierarchies and linked object membership."
-                     FontSize="12"
-                     Foreground="#FF94A3B8" />
+          <TextBlock Classes="page-title"
+                     Text="Collections" />
+          <TextBlock Classes="page-subtitle"
+                     Text="Inspect collection hierarchies and linked object membership." />
         </StackPanel>
 
         <Button Grid.Column="1"
@@ -32,16 +29,11 @@
                 Command="{Binding RefreshCollectionsCommand}" />
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF172033"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card emphasis">
         <Grid ColumnDefinitions="Auto,*"
               ColumnSpacing="12">
-          <TextBlock Text="Collection"
-                     VerticalAlignment="Center"
-                     Foreground="#FFCBD5E1" />
+          <TextBlock Classes="field-label"
+                     Text="Collection" />
           <ComboBox Grid.Column="1"
                     ItemsSource="{Binding Collections}"
                     SelectedItem="{Binding SelectedCollection, Mode=TwoWay}">
@@ -57,22 +49,16 @@
 
       <Grid ColumnDefinitions="*,*"
             ColumnSpacing="12">
-        <Border Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+        <Border Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="Child Collections"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="Child Collections" />
             <ListBox ItemsSource="{Binding ChildCollections}"
                      Height="260">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="bridge:RnaItemRef">
                   <TextBlock Text="{Binding Name}"
-                             Foreground="#FFE2E8F0" />
+                             Classes="body-muted" />
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
@@ -80,22 +66,16 @@
         </Border>
 
         <Border Grid.Column="1"
-                Padding="14"
-                Background="#FF111B2D"
-                BorderBrush="#223148"
-                BorderThickness="1"
-                CornerRadius="12">
+                Classes="panel-card surface">
           <StackPanel Spacing="10">
-            <TextBlock Text="Objects"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#FFF8FAFC" />
+            <TextBlock Classes="section-title"
+                       Text="Objects" />
             <ListBox ItemsSource="{Binding CollectionObjects}"
                      Height="260">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="bridge:RnaItemRef">
                   <TextBlock Text="{Binding Name}"
-                             Foreground="#FFE2E8F0" />
+                             Classes="body-muted" />
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
@@ -103,17 +83,12 @@
         </Border>
       </Grid>
 
-      <Border Padding="14"
-              Background="#FF1D2432"
-              BorderBrush="#253449"
-              BorderThickness="1"
-              CornerRadius="12">
+      <Border Classes="panel-card status">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding StatusText}"
-                     FontWeight="SemiBold"
-                     Foreground="#FFFDE68A" />
+                     Classes="status-highlight" />
           <TextBlock Text="{Binding BridgeStatusText}"
-                     Foreground="#FFCBD5E1" />
+                     Classes="body-muted" />
         </StackPanel>
       </Border>
     </StackPanel>

@@ -1,0 +1,83 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Button.nav-button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Button.sidebar-toggle">
+    <Setter Property="Background" Value="#13243B" />
+    <Setter Property="Foreground" Value="#FFF8FAFC" />
+    <Setter Property="BorderBrush" Value="#28415F" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <Style Selector="Button.sidebar-toggle:pointerover">
+    <Setter Property="Background" Value="#1A3150" />
+    <Setter Property="BorderBrush" Value="#4C7AA8" />
+  </Style>
+
+  <Style Selector="Button.sidebar-toggle:pressed">
+    <Setter Property="Background" Value="#102038" />
+    <Setter Property="BorderBrush" Value="#5AB0FF" />
+  </Style>
+
+  <Style Selector="Border.nav-card">
+    <Setter Property="Background" Value="#101826" />
+    <Setter Property="BorderBrush" Value="#101826" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.nav-badge">
+    <Setter Property="Background" Value="#1E3A5F" />
+  </Style>
+
+  <Style Selector="TextBlock.nav-title">
+    <Setter Property="Foreground" Value="#FFF8FAFC" />
+  </Style>
+
+  <Style Selector="Button.nav-button:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#0F1D33" />
+  </Style>
+
+  <Style Selector="Button.nav-button:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="#1D2D48" />
+  </Style>
+
+  <Style Selector="Button.nav-button:pointerover Border.nav-card">
+    <Setter Property="Background" Value="#14243C" />
+    <Setter Property="BorderBrush" Value="#2A4364" />
+  </Style>
+
+  <Style Selector="Button.nav-button:pointerover Border.nav-badge">
+    <Setter Property="Background" Value="#2C7FB8" />
+  </Style>
+
+  <Style Selector="Button.nav-button:pointerover TextBlock.nav-title">
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <Style Selector="Button.nav-button.selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="#10203A" />
+  </Style>
+
+  <Style Selector="Button.nav-button.selected Border.nav-card">
+    <Setter Property="Background" Value="#183154" />
+    <Setter Property="BorderBrush" Value="#5AB0FF" />
+    <Setter Property="BoxShadow" Value="0 0 0 1 #0B1220, 0 10 24 0 #220A1A33" />
+  </Style>
+
+  <Style Selector="Button.nav-button.selected Border.nav-badge">
+    <Setter Property="Background" Value="#0EA5E9" />
+  </Style>
+
+  <Style Selector="Button.nav-button.selected TextBlock.nav-title">
+    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+</Styles>

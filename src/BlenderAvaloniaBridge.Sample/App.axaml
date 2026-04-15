@@ -4,5 +4,6 @@
              RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://BlenderAvaloniaBridge.Sample/Styles/PageStyles.axaml" />
   </Application.Styles>
 </Application>
