@@ -3,20 +3,25 @@ from __future__ import annotations
 import json
 import threading
 import weakref
+from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
+from typing import Any
 
 import bpy
 
 PROTOCOL_VERSION = 1
 SCHEMA_VERSION = 1
 
+JsonObject = dict[str, Any]
+JsonArray = list[Any]
 
-def _json_string(value):
+
+def _json_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=True)
 
 
-def _result_list(operator_result):
+def _result_list(operator_result: Any) -> list[str]:
     if isinstance(operator_result, set):
         return sorted(str(item) for item in operator_result)
     if isinstance(operator_result, (list, tuple)):
@@ -26,7 +31,7 @@ def _result_list(operator_result):
     return [str(operator_result)]
 
 
-def _schema_error(code, message, *, details=None):
+def _schema_error(code: str, message: str, *, details: object | None = None) -> BusinessError:
     return BusinessError(code=code, message=message, details=details)
 
 
@@ -44,7 +49,7 @@ class BusinessError:
     message: str
     details: object | None = None
 
-    def to_dict(self):
+    def to_dict(self) -> JsonObject:
         payload = {
             "code": self.code,
             "message": self.message,
@@ -64,7 +69,7 @@ class BusinessResponse:
     payload: object | None = None
     error: BusinessError | None = None
 
-    def to_header(self):
+    def to_header(self) -> JsonObject:
         payload = {
             "type": "business_response",
             "protocolVersion": int(self.protocol_version),
@@ -87,7 +92,7 @@ class BusinessEvent:
     name: str
     payload: object | None = None
 
-    def to_header(self):
+    def to_header(self) -> JsonObject:
         header = {
             "type": "business_event",
             "protocolVersion": int(self.protocol_version),
@@ -110,14 +115,14 @@ class BusinessRequest:
     @classmethod
     def response(
         cls,
-        reply_to,
-        payload=None,
-        ok=True,
-        error=None,
-        protocol_version=PROTOCOL_VERSION,
-        schema_version=SCHEMA_VERSION,
-        message_id=0,
-    ):
+        reply_to: int,
+        payload: object | None = None,
+        ok: bool = True,
+        error: BusinessError | None = None,
+        protocol_version: int = PROTOCOL_VERSION,
+        schema_version: int = SCHEMA_VERSION,
+        message_id: int = 0,
+    ) -> BusinessResponse:
         return BusinessResponse(
             protocol_version=protocol_version,
             schema_version=schema_version,
@@ -129,7 +134,7 @@ class BusinessRequest:
         )
 
     @classmethod
-    def from_header(cls, header):
+    def from_header(cls, header: JsonObject) -> BusinessRequest:
         return cls(
             protocol_version=int(header.get("protocolVersion", 0)),
             schema_version=int(header.get("schemaVersion", 0)),
@@ -140,11 +145,18 @@ class BusinessRequest:
 
 
 class BusinessEndpoint:
-    def invoke(self, request):
+    def invoke(self, request: BusinessRequest) -> BusinessResponse:
         raise NotImplementedError
 
 
-def _success_response(reply_to, payload=None, *, protocol_version=PROTOCOL_VERSION, schema_version=SCHEMA_VERSION, message_id=0):
+def _success_response(
+    reply_to: int,
+    payload: object | None = None,
+    *,
+    protocol_version: int = PROTOCOL_VERSION,
+    schema_version: int = SCHEMA_VERSION,
+    message_id: int = 0,
+) -> BusinessResponse:
     return BusinessResponse(
         protocol_version=protocol_version,
         schema_version=schema_version,
@@ -155,7 +167,16 @@ def _success_response(reply_to, payload=None, *, protocol_version=PROTOCOL_VERSI
     )
 
 
-def _error_response(code, message, reply_to, *, details=None, protocol_version=PROTOCOL_VERSION, schema_version=SCHEMA_VERSION, message_id=0):
+def _error_response(
+    code: str,
+    message: str,
+    reply_to: int,
+    *,
+    details: object | None = None,
+    protocol_version: int = PROTOCOL_VERSION,
+    schema_version: int = SCHEMA_VERSION,
+    message_id: int = 0,
+) -> BusinessResponse:
     return BusinessResponse(
         protocol_version=protocol_version,
         schema_version=schema_version,
@@ -175,7 +196,7 @@ class _ResolvedPath:
 
 
 class PathResolver:
-    def resolve(self, path):
+    def resolve(self, path: str) -> _ResolvedPath:
         if not isinstance(path, str) or not path.startswith("bpy."):
             raise ValueError("Path must start with 'bpy.'.")
 
@@ -221,7 +242,7 @@ class PathResolver:
         return _ResolvedPath(path=path, value=current, parent=parent, segment=segment)
 
 
-def _is_collection_value(value):
+def _is_collection_value(value: object) -> bool:
     if isinstance(value, dict):
         return True
     if isinstance(value, (str, bytes, bytearray)):
@@ -231,7 +252,7 @@ def _is_collection_value(value):
     return hasattr(value, "__iter__") and hasattr(value, "__getitem__")
 
 
-def _sequence_items(value):
+def _sequence_items(value: object) -> list[Any] | None:
     if isinstance(value, (str, bytes, bytearray, dict)):
         return None
     if isinstance(value, (list, tuple)):
@@ -244,7 +265,7 @@ def _sequence_items(value):
         return None
 
 
-def _flatten_scalar_sequence(value):
+def _flatten_scalar_sequence(value: object) -> list[bool | int | float] | None:
     if isinstance(value, bool):
         return [value]
     if isinstance(value, (int, float)):
@@ -262,7 +283,7 @@ def _flatten_scalar_sequence(value):
     return flattened
 
 
-def _property_definition(resolved):
+def _property_definition(resolved: _ResolvedPath) -> object | None:
     if resolved.parent is None or not isinstance(resolved.segment, str):
         return None
     bl_rna = getattr(resolved.parent, "bl_rna", None)
@@ -275,7 +296,7 @@ def _property_definition(resolved):
         return None
 
 
-def _enum_items(property_definition):
+def _enum_items(property_definition: object | None) -> list[str] | None:
     if getattr(property_definition, "type", None) != "ENUM":
         return None
     items = getattr(property_definition, "enum_items", None)
@@ -284,14 +305,14 @@ def _enum_items(property_definition):
     return [getattr(item, "identifier", str(item)) for item in items]
 
 
-def _fixed_type(property_definition):
+def _fixed_type(property_definition: object | None) -> str | None:
     fixed_type = getattr(property_definition, "fixed_type", None)
     if fixed_type is None:
         return None
     return getattr(fixed_type, "identifier", None)
 
 
-def _value_type_from_property(property_definition):
+def _value_type_from_property(property_definition: object | None) -> str | None:
     property_type = getattr(property_definition, "type", None)
     is_array = bool(getattr(property_definition, "is_array", False))
     is_enum_flag = bool(getattr(property_definition, "is_enum_flag", False))
@@ -312,7 +333,7 @@ def _value_type_from_property(property_definition):
     return None
 
 
-def _serialize_value(value, path="", property_definition=None):
+def _serialize_value(value: object, path: str = "", property_definition: object | None = None) -> object | None:
     if value is None:
         return None
     if isinstance(value, (str, int, float, bool)):
@@ -345,7 +366,7 @@ def _serialize_value(value, path="", property_definition=None):
     return value
 
 
-def _value_type(value, property_definition=None):
+def _value_type(value: object, property_definition: object | None = None) -> str:
     if property_definition is not None:
         explicit_value_type = _value_type_from_property(property_definition)
         if explicit_value_type is not None:
@@ -372,38 +393,38 @@ def _value_type(value, property_definition=None):
     return type(value).__name__
 
 
-def _readonly(property_definition, value):
+def _readonly(property_definition: object | None, value: object) -> bool:
     if property_definition is not None:
         return bool(getattr(property_definition, "is_readonly", False))
     return _is_collection_value(value)
 
 
-def _array_length(property_definition, value):
+def _array_length(property_definition: object | None, value: object) -> int | None:
     if property_definition is not None and bool(getattr(property_definition, "is_array", False)):
         return int(getattr(property_definition, "array_length", 0)) or None
     sequence_items = _sequence_items(value)
     return len(sequence_items) if sequence_items is not None else None
 
 
-def _subtype(property_definition):
+def _subtype(property_definition: object | None) -> str | None:
     subtype = getattr(property_definition, "subtype", None)
     return str(subtype) if subtype not in (None, "", "NONE") else None
 
 
-def _unit(property_definition):
+def _unit(property_definition: object | None) -> str | None:
     unit = getattr(property_definition, "unit", None)
     return str(unit) if unit not in (None, "", "NONE") else None
 
 
-def _animatable(property_definition):
+def _animatable(property_definition: object | None) -> bool:
     return bool(getattr(property_definition, "is_animatable", False))
 
 
-def _is_enum_flag(property_definition):
+def _is_enum_flag(property_definition: object | None) -> bool:
     return bool(getattr(property_definition, "is_enum_flag", False))
 
 
-def _coerce_supported_value(value, *, allow_mappings=False):
+def _coerce_supported_value(value: object, *, allow_mappings: bool = False) -> object:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, list):
@@ -420,7 +441,7 @@ def _coerce_supported_value(value, *, allow_mappings=False):
     raise UnsupportedValueTypeError(f"Unsupported payload value type: {type(value).__name__}")
 
 
-def _resolve_path_reference(value, resolver):
+def _resolve_path_reference(value: object, resolver: PathResolver) -> object:
     if isinstance(value, str) and value.startswith("bpy."):
         return resolver.resolve(value).value
     if isinstance(value, list):
@@ -433,21 +454,21 @@ def _resolve_path_reference(value, resolver):
     return value
 
 
-def _rna_type(value):
+def _rna_type(value: object) -> str:
     bl_rna = getattr(value, "bl_rna", None)
     if bl_rna is None:
         return type(value).__name__
     return getattr(bl_rna, "identifier", type(value).__name__)
 
 
-def _id_type(value):
+def _id_type(value: object) -> str | None:
     id_type = getattr(value, "id_type", None)
     if isinstance(id_type, str):
         return id_type
     return None
 
 
-def _to_item_ref(value, path, *, label=None):
+def _to_item_ref(value: object, path: str, *, label: str | None = None) -> JsonObject:
     return {
         "kind": "rna",
         "path": path,
@@ -459,7 +480,7 @@ def _to_item_ref(value, path, *, label=None):
     }
 
 
-def _collection_item_path(base_path, key, value, index):
+def _collection_item_path(base_path: str, key: object, value: object, index: int) -> str:
     name = getattr(value, "name", None)
     if isinstance(name, str) and name:
         return f"{base_path}[{_json_string(name)}]"
@@ -469,10 +490,10 @@ def _collection_item_path(base_path, key, value, index):
 
 
 class RnaService:
-    def __init__(self, resolver):
+    def __init__(self, resolver: PathResolver) -> None:
         self._resolver = resolver
 
-    def list(self, path):
+    def list(self, path: str) -> JsonObject:
         resolved = self._resolver.resolve(path)
         collection = resolved.value
         items = []
@@ -501,7 +522,7 @@ class RnaService:
             "items": items,
         }
 
-    def get(self, path):
+    def get(self, path: str) -> JsonObject:
         resolved = self._resolver.resolve(path)
         property_definition = _property_definition(resolved)
         return {
@@ -513,7 +534,7 @@ class RnaService:
             "arrayLength": _array_length(property_definition, resolved.value),
         }
 
-    def set(self, path, value):
+    def set(self, path: str, value: object) -> JsonObject:
         resolved = self._resolver.resolve(path)
         parent = resolved.parent
         segment = resolved.segment
@@ -540,7 +561,7 @@ class RnaService:
 
         return self.get(path)
 
-    def describe(self, path):
+    def describe(self, path: str) -> JsonObject:
         resolved = self._resolver.resolve(path)
         value = resolved.value
         property_definition = _property_definition(resolved)
@@ -559,7 +580,13 @@ class RnaService:
             "properties": None,
         }
 
-    def call(self, path, method, args=None, kwargs=None):
+    def call(
+        self,
+        path: str,
+        method: str,
+        args: list[object] | None = None,
+        kwargs: dict[str, object] | None = None,
+    ) -> JsonObject:
         resolved = self._resolver.resolve(path)
         target = resolved.value
         member = getattr(target, method)
@@ -578,10 +605,15 @@ class RnaService:
 
 
 class OpsService:
-    def __init__(self, resolver):
+    def __init__(self, resolver: PathResolver) -> None:
         self._resolver = resolver
 
-    def poll(self, operator_name, operator_context="EXEC_DEFAULT", context_override=None):
+    def poll(
+        self,
+        operator_name: str,
+        operator_context: str = "EXEC_DEFAULT",
+        context_override: dict[str, object] | None = None,
+    ) -> JsonObject:
         operator = self._resolve_operator(operator_name)
         with self._override_context(_coerce_supported_value(context_override or {}, allow_mappings=True)):
             poll = getattr(operator, "poll", None)
@@ -592,7 +624,13 @@ class OpsService:
             "failureReason": None if can_execute else "Operator poll() returned false.",
         }
 
-    def call(self, operator_name, properties=None, operator_context="EXEC_DEFAULT", context_override=None):
+    def call(
+        self,
+        operator_name: str,
+        properties: dict[str, object] | None = None,
+        operator_context: str = "EXEC_DEFAULT",
+        context_override: dict[str, object] | None = None,
+    ) -> JsonObject:
         operator = self._resolve_operator(operator_name)
         coerced_properties = {
             key: _resolve_path_reference(_coerce_supported_value(value), self._resolver)
@@ -605,13 +643,13 @@ class OpsService:
             "result": _result_list(result),
         }
 
-    def _resolve_operator(self, operator_name):
+    def _resolve_operator(self, operator_name: str) -> object:
         current = bpy.ops
         for part in operator_name.split("."):
             current = getattr(current, part)
         return current
 
-    def _override_context(self, context_override):
+    def _override_context(self, context_override: dict[str, object]) -> Any:
         if not context_override:
             return nullcontext()
 
@@ -621,7 +659,7 @@ class OpsService:
 
         return temp_override(**self._resolve_override(context_override))
 
-    def _resolve_override(self, value):
+    def _resolve_override(self, value: object) -> object:
         if isinstance(value, str) and value.startswith("bpy."):
             return self._resolver.resolve(value).value
         if isinstance(value, dict):
@@ -646,18 +684,18 @@ class WatchService:
     _handlers_registered = False
     _handlers_lock = threading.Lock()
 
-    def __init__(self, rna_service):
+    def __init__(self, rna_service: RnaService) -> None:
         self._rna_service = rna_service
-        self._sender = None
+        self._sender: Callable[[JsonObject], None] | None = None
         self._lock = threading.Lock()
-        self._watches = {}
+        self._watches: dict[str, _WatchRecord] = {}
         WatchService._instances.add(self)
         self._ensure_handlers()
 
-    def set_event_sender(self, sender):
+    def set_event_sender(self, sender: Callable[[JsonObject], None] | None) -> None:
         self._sender = sender
 
-    def subscribe(self, watch_id, source, path):
+    def subscribe(self, watch_id: str, source: str, path: str) -> JsonObject:
         if source not in {"depsgraph", "frame", "lifecycle"}:
             raise ValueError(f"Unsupported watch source: {source}")
         with self._lock:
@@ -669,14 +707,14 @@ class WatchService:
             "source": watch.source,
         }
 
-    def unsubscribe(self, watch_id):
+    def unsubscribe(self, watch_id: str) -> JsonObject:
         with self._lock:
             self._watches.pop(watch_id, None)
         return {
             "watchId": watch_id,
         }
 
-    def read(self, watch_id):
+    def read(self, watch_id: str) -> JsonObject:
         with self._lock:
             watch = self._watches.get(watch_id)
         if watch is None:
@@ -689,8 +727,8 @@ class WatchService:
             "payload": payload,
         }
 
-    def mark_dirty(self, source, dirty_refs=None):
-        dirty_events = []
+    def mark_dirty(self, source: str, dirty_refs: list[JsonObject] | None = None) -> None:
+        dirty_events: list[JsonObject] = []
         with self._lock:
             for watch in self._watches.values():
                 if watch.source != source:
@@ -719,14 +757,14 @@ class WatchService:
                 ).to_header()
             )
 
-    def _snapshot_payload(self, path):
+    def _snapshot_payload(self, path: str) -> JsonObject:
         resolved = self._rna_service._resolver.resolve(path)
         if _is_collection_value(resolved.value):
             return self._rna_service.list(path)
         return self._rna_service.get(path)
 
     @classmethod
-    def _ensure_handlers(cls):
+    def _ensure_handlers(cls) -> None:
         with cls._handlers_lock:
             if cls._handlers_registered:
                 return
@@ -772,22 +810,22 @@ class WatchService:
             cls._handlers_registered = True
 
     @classmethod
-    def _notify_instances(cls, source):
+    def _notify_instances(cls, source: str) -> None:
         for instance in list(cls._instances):
             instance.mark_dirty(source)
 
 
 class BusinessDispatcher(BusinessEndpoint):
-    def __init__(self):
+    def __init__(self) -> None:
         self._resolver = PathResolver()
         self._rna = RnaService(self._resolver)
         self._ops = OpsService(self._resolver)
         self._watch = WatchService(self._rna)
 
-    def set_event_sender(self, sender):
+    def set_event_sender(self, sender: Callable[[JsonObject], None] | None) -> None:
         self._watch.set_event_sender(sender)
 
-    def invoke(self, request):
+    def invoke(self, request: BusinessRequest) -> BusinessResponse:
         if int(request.protocol_version) != PROTOCOL_VERSION:
             return _error_response(
                 "unsupported_protocol_version",
@@ -850,7 +888,7 @@ class BusinessDispatcher(BusinessEndpoint):
             schema_version=request.schema_version,
         )
 
-    def _dispatch(self, name, payload):
+    def _dispatch(self, name: str, payload: JsonObject) -> JsonObject:
         if name == "rna.list":
             return self._rna.list(_require_str(payload, "path"))
         if name == "rna.get":
@@ -894,7 +932,7 @@ class BusinessDispatcher(BusinessEndpoint):
         raise UnsupportedBusinessRequestError(f"Unsupported business request: {name}")
 
 
-def _require_str(payload, key):
+def _require_str(payload: JsonObject, key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise ValueError(f"{key} expects a non-empty string.")
@@ -906,27 +944,27 @@ class DefaultBusinessEndpoint(BusinessDispatcher):
 
 
 class BusinessBridgeHandler:
-    def handle_packet(self, header, payload):
+    def handle_packet(self, header: JsonObject, payload: object) -> JsonObject:
         raise NotImplementedError
 
 
 class EndpointBusinessBridgeHandler(BusinessBridgeHandler):
-    def __init__(self, endpoint=None):
+    def __init__(self, endpoint: BusinessEndpoint | None = None) -> None:
         self.endpoint = endpoint or DefaultBusinessEndpoint()
 
-    def handle_packet(self, header, payload):
+    def handle_packet(self, header: JsonObject, payload: object) -> JsonObject:
         request = BusinessRequest.from_header(header)
         response = self.endpoint.invoke(request)
         return response.to_header()
 
 
 class DefaultBusinessBridgeHandler(EndpointBusinessBridgeHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(DefaultBusinessEndpoint())
 
 
 class BlenderBusinessBridge(DefaultBusinessEndpoint):
-    def handle(self, request):
+    def handle(self, request: BusinessRequest) -> BusinessResponse:
         return self.invoke(request)
 
 
