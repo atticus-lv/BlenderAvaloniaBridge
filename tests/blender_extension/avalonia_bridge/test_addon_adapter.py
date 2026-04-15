@@ -56,6 +56,79 @@ class AddonAdapterTests(unittest.TestCase):
         self.assertEqual(12, state.overlay_offset_x)
         self.assertEqual(34, state.overlay_offset_y)
 
+    def test_runtime_assembles_view3d_host_for_headless_mode(self):
+        runtime = import_module("avalonia_bridge.runtime")
+
+        bridge_runtime = runtime.BridgeRuntime()
+        state = SimpleNamespace(
+            overlay_width=1100,
+            overlay_height=760,
+            render_scaling=1.25,
+            overlay_offset_x=0,
+            overlay_offset_y=0,
+        )
+        preferences = SimpleNamespace(
+            avalonia_executable_path="C:/bridge.exe",
+            bridge_transport_mode="headless",
+            show_overlay_debug=False,
+        )
+        bridge_runtime._resolve_state = lambda context=None: state
+        bridge_runtime._resolve_preferences = lambda context=None: preferences
+
+        controller = bridge_runtime._ensure_controller(context=SimpleNamespace(window_manager=SimpleNamespace(avalonia_bridge_state=state)))
+
+        self.assertIsInstance(controller.host, runtime.View3DOverlayHost)
+
+    def test_runtime_does_not_assemble_host_for_desktop_mode(self):
+        runtime = import_module("avalonia_bridge.runtime")
+
+        bridge_runtime = runtime.BridgeRuntime()
+        state = SimpleNamespace(
+            overlay_width=1100,
+            overlay_height=760,
+            render_scaling=1.25,
+            overlay_offset_x=0,
+            overlay_offset_y=0,
+        )
+        preferences = SimpleNamespace(
+            avalonia_executable_path="C:/bridge.exe",
+            bridge_transport_mode="desktop",
+            show_overlay_debug=False,
+        )
+        bridge_runtime._resolve_state = lambda context=None: state
+        bridge_runtime._resolve_preferences = lambda context=None: preferences
+
+        controller = bridge_runtime._ensure_controller(context=SimpleNamespace(window_manager=SimpleNamespace(avalonia_bridge_state=state)))
+
+        self.assertIsNone(controller.host)
+
+    def test_runtime_reuses_existing_view3d_host_when_mode_is_unchanged(self):
+        runtime = import_module("avalonia_bridge.runtime")
+
+        bridge_runtime = runtime.BridgeRuntime()
+        state = SimpleNamespace(
+            overlay_width=1100,
+            overlay_height=760,
+            render_scaling=1.25,
+            overlay_offset_x=0,
+            overlay_offset_y=0,
+        )
+        preferences = SimpleNamespace(
+            avalonia_executable_path="C:/bridge.exe",
+            bridge_transport_mode="headless",
+            show_overlay_debug=False,
+        )
+        context = SimpleNamespace(window_manager=SimpleNamespace(avalonia_bridge_state=state))
+        bridge_runtime._resolve_state = lambda current_context=None: state
+        bridge_runtime._resolve_preferences = lambda current_context=None: preferences
+
+        controller = bridge_runtime._ensure_controller(context=context)
+        first_host = controller.host
+
+        controller = bridge_runtime._ensure_controller(context=context)
+
+        self.assertIs(first_host, controller.host)
+
 
 if __name__ == "__main__":
     unittest.main()

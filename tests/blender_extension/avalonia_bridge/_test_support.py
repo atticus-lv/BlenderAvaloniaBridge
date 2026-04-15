@@ -33,9 +33,17 @@ def reset_modules():
 
 def install_fake_blender_modules():
     bpy = types.ModuleType("bpy")
+    draw_handler_add_calls = []
+    draw_handler_remove_calls = []
+    redraw_calls = []
     bpy.context = types.SimpleNamespace(
         scene=types.SimpleNamespace(name="Scene", objects=[]),
-        screen=types.SimpleNamespace(areas=[]),
+        screen=types.SimpleNamespace(
+            areas=[
+                types.SimpleNamespace(type="VIEW_3D", tag_redraw=lambda: redraw_calls.append("VIEW_3D")),
+                types.SimpleNamespace(type="IMAGE_EDITOR", tag_redraw=lambda: redraw_calls.append("IMAGE_EDITOR")),
+            ]
+        ),
         view_layer=types.SimpleNamespace(objects=types.SimpleNamespace(active=None)),
         window_manager=types.SimpleNamespace(windows=[], avalonia_bridge_state=None),
         preferences=types.SimpleNamespace(
@@ -66,8 +74,8 @@ def install_fake_blender_modules():
     )
     bpy.types = types.SimpleNamespace(
         SpaceView3D=types.SimpleNamespace(
-            draw_handler_add=lambda *args, **kwargs: ("draw-handle", args, kwargs),
-            draw_handler_remove=lambda *_args, **_kwargs: None,
+            draw_handler_add=lambda *args, **kwargs: draw_handler_add_calls.append((args, kwargs)) or ("draw-handle", args, kwargs),
+            draw_handler_remove=lambda *args, **kwargs: draw_handler_remove_calls.append((args, kwargs)) or None,
         ),
         WindowManager=types.SimpleNamespace(),
     )
@@ -92,6 +100,9 @@ def install_fake_blender_modules():
             persistent=lambda fn: fn,
         )
     )
+    bpy._draw_handler_add_calls = draw_handler_add_calls
+    bpy._draw_handler_remove_calls = draw_handler_remove_calls
+    bpy._redraw_calls = redraw_calls
     sys.modules["bpy"] = bpy
 
     blf = types.ModuleType("blf")
@@ -103,6 +114,36 @@ def install_fake_blender_modules():
     gpu = types.ModuleType("gpu")
     gpu._buffer_calls = []
     gpu._texture_calls = []
+
+    class _GPUShaderCreateInfo:
+        def push_constant(self, *_args, **_kwargs):
+            return None
+
+        def sampler(self, *_args, **_kwargs):
+            return None
+
+        def vertex_in(self, *_args, **_kwargs):
+            return None
+
+        def vertex_out(self, *_args, **_kwargs):
+            return None
+
+        def fragment_out(self, *_args, **_kwargs):
+            return None
+
+        def vertex_source(self, *_args, **_kwargs):
+            return None
+
+        def fragment_source(self, *_args, **_kwargs):
+            return None
+
+    class _GPUStageInterfaceInfo:
+        def __init__(self, _name):
+            pass
+
+        def smooth(self, *_args, **_kwargs):
+            return None
+
     gpu.shader = types.SimpleNamespace(
         from_builtin=lambda _name: object(),
         create_from_info=lambda _info: object(),
@@ -114,8 +155,8 @@ def install_fake_blender_modules():
     )
     gpu.texture = types.SimpleNamespace(from_image=lambda _image: object())
     gpu.types = types.SimpleNamespace(
-        GPUShaderCreateInfo=type("GPUShaderCreateInfo", (), {}),
-        GPUStageInterfaceInfo=type("GPUStageInterfaceInfo", (), {}),
+        GPUShaderCreateInfo=_GPUShaderCreateInfo,
+        GPUStageInterfaceInfo=_GPUStageInterfaceInfo,
         Buffer=lambda component_type, dimensions, data: gpu._buffer_calls.append(
             {
                 "component_type": component_type,

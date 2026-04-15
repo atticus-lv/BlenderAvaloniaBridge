@@ -9,7 +9,7 @@ from .state import BridgeDiagnosticsSnapshot
 if TYPE_CHECKING:
     from .controller import PacketHeader
     from .image_bridge import ImageBridge
-    from .overlay import OverlayDrawer
+    from .view3d_overlay_host import BridgePresentationHost
 
 
 NowMs = Callable[[], float]
@@ -164,7 +164,7 @@ class DiagnosticsRecorder:
     def build_snapshot(
         self,
         image_bridge: "ImageBridge",
-        drawer: "OverlayDrawer",
+        presentation_host: "BridgePresentationHost | None",
         pending_pointer_move: bool,
     ) -> BridgeDiagnosticsSnapshot:
         pointer_received = self._data["pointer_move_received"]
@@ -174,7 +174,7 @@ class DiagnosticsRecorder:
         fps = (1000.0 / frame_cadence_ms) if frame_cadence_ms and frame_cadence_ms > 0.0 else None
         uptime_s = max(0.0, (self._now_ms() - self._data["session_started_at_ms"]) / 1000.0)
         image_diag = image_bridge.diagnostics_snapshot()
-        draw_diag = drawer.diagnostics_snapshot()
+        draw_diag = presentation_host.diagnostics_snapshot() if presentation_host is not None else {"draw_avg_ms": None}
         convert_ms = self.avg_timing("linear_convert_ms")
         if convert_ms is None:
             convert_ms = self.avg_timing("copy_bgra_ms")

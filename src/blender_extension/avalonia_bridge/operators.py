@@ -68,11 +68,15 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
         state = context.window_manager.avalonia_bridge_state
         capture_sensitive_events = {
             "MOUSEMOVE",
+            "INBETWEEN_MOUSEMOVE",
             "LEFTMOUSE",
             "RIGHTMOUSE",
             "MIDDLEMOUSE",
             "WHEELUPMOUSE",
             "WHEELDOWNMOUSE",
+            "EVT_TWEAK_L",
+            "EVT_TWEAK_M",
+            "EVT_TWEAK_R",
         }
         if not state.process_running:
             self.cancel(context)

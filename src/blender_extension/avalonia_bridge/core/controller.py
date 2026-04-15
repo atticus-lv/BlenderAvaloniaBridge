@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import bpy
 import subprocess
 import threading
 import time
 from collections import deque
 from dataclasses import replace
-from typing import Callable, Mapping, TypedDict
+from typing import Callable, Mapping
 
-from . import input as input_mapper
 from .business import (
     BusinessBridgeHandler,
     BusinessEndpoint,
@@ -18,40 +16,15 @@ from .business import (
 from .config import BridgeConfig
 from .diagnostics import DiagnosticsRecorder
 from .frame_pipeline import FramePipeline
-from .overlay import OverlayDrawer
 from .process import ProcessManager, validate_executable_path
 from .state import BridgeDiagnosticsSnapshot, BridgeStateSnapshot
 from .transport import BridgeServer
+from .view3d_overlay_host import BridgePresentationHost
 
 
 PacketHeader = dict[str, object]
 StateCallback = Callable[[BridgeStateSnapshot], None]
 ServerFactory = Callable[..., BridgeServer]
-
-
-class DragState(TypedDict):
-    mouse_x: int
-    mouse_y: int
-    offset_x: int
-    offset_y: int
-
-
-class OverlayRect(TypedDict):
-    x: int
-    y: int
-    width: int
-    height: int
-    content_x: int
-    content_y: int
-    content_width: int
-    content_height: int
-    title_bar_height: int
-    title_bar_y: int
-    source_width: int
-    source_height: int
-    display_scale: float
-    fit_scale: float
-    scale: float
 
 
 class BridgeController:
@@ -63,6 +36,7 @@ class BridgeController:
         state_callback: StateCallback | None = None,
         process_manager: ProcessManager | None = None,
         server_factory: ServerFactory = BridgeServer,
+        host: BridgePresentationHost | None = None,
     ) -> None:
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
         self._state_callback: StateCallback | None = state_callback
@@ -75,15 +49,13 @@ class BridgeController:
         self.frame_store = self.frame_pipeline.frame_store
         self.image_bridge = self.frame_pipeline.image_bridge
         self.shared_memory_bridge = self.frame_pipeline.shared_memory_bridge
-        self.input_router = input_mapper.InputRouter(self)
-        self.drawer = OverlayDrawer(self)
-        self.capture_input = False
+        self.host = host
+        if self.host is not None:
+            self.host.attach(self)
         self._pending_pointer_move: PacketHeader | None = None
         self._pending_business_packets: deque[tuple[PacketHeader, bytes]] = deque()
         self._business_lock = threading.Lock()
         self._diagnostics: DiagnosticsRecorder = DiagnosticsRecorder(now_ms=self._now_ms)
-        self._drag_state: DragState | None = None
-        self._forwarded_buttons: set[str] = set()
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
@@ -106,6 +78,32 @@ class BridgeController:
     @property
     def show_overlay_debug(self):
         return bool(self._config.show_overlay_debug)
+
+    @property
+    def capture_input(self) -> bool:
+        return self._state.capture_input
+
+    @property
+    def remote_supports_input(self) -> bool:
+        return self._remote_supports_input
+
+    @property
+    def has_pending_pointer_move(self) -> bool:
+        return self._pending_pointer_move is not None
+
+    def set_host(self, host: BridgePresentationHost | None) -> None:
+        if self.host is host:
+            return
+        if self.host is not None:
+            try:
+                self.host.stop()
+            except Exception:
+                pass
+        self.host = host
+        if self.host is not None:
+            self.host.attach(self)
+            if self._state.process_running and self._config.supports_frames:
+                self.host.start()
 
     def set_config(self, config: BridgeConfig | Mapping[str, object]):
         self._config = config if isinstance(config, BridgeConfig) else BridgeConfig(**dict(config))
@@ -158,10 +156,7 @@ class BridgeController:
             self._config.supports_frames,
             self._config.supports_input,
         )
-        self.capture_input = False
         self._pending_pointer_move = None
-        self._drag_state = None
-        self._forwarded_buttons.clear()
         with self._business_lock:
             self._pending_business_packets.clear()
         self._replace_state(
@@ -181,31 +176,30 @@ class BridgeController:
             overlay_offset_x=int(self._config.overlay_offset_x),
             overlay_offset_y=int(self._config.overlay_offset_y),
         )
-        if self._config.supports_frames:
+        if self.host is not None and self._config.supports_frames:
             try:
-                self.drawer.ensure_handler()
+                self.host.start()
             except Exception as exc:
                 self._replace_state(last_error=str(exc))
-        self.tag_redraw()
+        self._request_redraw()
         return process
 
     def stop(self):
-        self.capture_input = False
+        self.release_capture_input(last_message="")
         self._configure_business_event_sender(None)
         if self.server is not None:
             self.server.stop()
             self.server = None
         self.process_manager.stop()
         try:
-            self.drawer.remove_handler()
+            if self.host is not None:
+                self.host.stop()
         except Exception:
             pass
         self.frame_pipeline.clear()
         self._pending_pointer_move = None
         with self._business_lock:
             self._pending_business_packets.clear()
-        self._drag_state = None
-        self._forwarded_buttons.clear()
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
@@ -224,11 +218,11 @@ class BridgeController:
             remote_supports_frames=self._remote_supports_frames,
             remote_supports_input=self._remote_supports_input,
         )
-        self.tag_redraw()
+        self._request_redraw()
 
     def tick_once(self):
         self._check_process_health()
-        self._flush_pointer_move()
+        self.flush_pointer_move()
         frame = self.frame_pipeline.pop_latest()
         frame_updated = False
         business_updated = False
@@ -247,18 +241,17 @@ class BridgeController:
             frame_updated = True
         business_updated = self._process_business_packets()
         if frame_updated or business_updated:
-            self.tag_redraw()
+            self._request_redraw()
 
     def handle_event(self, context, event) -> bool:
-        if not self._remote_supports_input:
+        if self.host is None:
             return False
-        return self.input_router.handle_event(context, event)
+        return self.host.handle_event(context, event)
 
-    def release_capture_input(self):
-        self.capture_input = False
+    def release_capture_input(self, last_message: str = "Pointer left overlay"):
         self._pending_pointer_move = None
-        self._replace_state(capture_input=False, last_message="Pointer left overlay")
-        self.tag_redraw()
+        self._replace_state(capture_input=False, last_message=last_message)
+        self._request_redraw()
 
     def send_message(self, header: Mapping[str, object], payload: bytes = b"") -> bool:
         if self.server is None:
@@ -270,37 +263,13 @@ class BridgeController:
         self._diagnostics.record_outgoing_message(message, sent)
         return sent
 
-    def get_overlay_rect(self, context) -> OverlayRect:
-        region = context.region
-        window_manager = getattr(context, "window_manager", None)
-        if window_manager is None:
-            window_manager = getattr(getattr(bpy, "data", None), "window_managers", {}).get("WinMan")
-        bridge_state = getattr(window_manager, "avalonia_bridge_state", None) if window_manager is not None else None
-        if bridge_state is not None:
-            self._render_scaling = self._sanitize_render_scaling(getattr(bridge_state, "render_scaling", self._render_scaling))
-        # Input coordinates should map to the logical UI size, not the render resolution.
-        source_width = self._state.width
-        source_height = self._state.height
-        dpi_scale = self._overlay_display_scale(context)
-        return input_mapper.overlay_rect(
-            region.width,
-            region.height,
-            self._state.width,
-            self._state.height,
-            source_width=source_width,
-            source_height=source_height,
-            offset_x=self._state.overlay_offset_x,
-            offset_y=self._state.overlay_offset_y,
-            display_scale=dpi_scale,
-        )
-
     def state_snapshot(self) -> BridgeStateSnapshot:
         return replace(self._state)
 
     def diagnostics_snapshot(self) -> BridgeDiagnosticsSnapshot:
         return self._diagnostics.build_snapshot(
             image_bridge=self.image_bridge,
-            drawer=self.drawer,
+            presentation_host=self.host,
             pending_pointer_move=self._pending_pointer_move is not None,
         )
 
@@ -341,32 +310,30 @@ class BridgeController:
                 }
             )
         self.send_message(init_message)
-        self.tag_redraw()
+        self._request_redraw()
 
     def _on_disconnect(self):
-        self.capture_input = False
-        self._pending_pointer_move = None
-        self._forwarded_buttons.clear()
+        self.release_capture_input(last_message="")
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
         self._remote_supports_input = bool(getattr(self._config, "supports_input", True))
         self._replace_state(connected=False, capture_input=False, last_message="Avalonia disconnected")
-        self.tag_redraw()
+        self._request_redraw()
 
     def _on_error(self, exc):
         message = str(exc)
         if exc.__class__.__name__ == "ProtocolViolationError":
             message = f"Protocol violation: {message}"
         self._replace_state(last_error=message)
-        self.tag_redraw()
+        self._request_redraw()
 
     def _on_packet(self, header: Mapping[str, object], payload: bytes):
         if self._is_business_packet(header):
             with self._business_lock:
                 self._pending_business_packets.append((dict(header), payload or b""))
             self._replace_state(last_message=f"Queued {header.get('type', '')}")
-            self.tag_redraw()
+            self._request_redraw()
             return
         self._handle_packet(header, payload)
 
@@ -401,16 +368,6 @@ class BridgeController:
             self._remote_supports_business = bool(header.get("supports_business", True))
             self._remote_supports_frames = bool(header.get("supports_frames", True))
             self._remote_supports_input = bool(header.get("supports_input", True))
-            if self._remote_supports_frames and self._config.supports_frames:
-                try:
-                    self.drawer.ensure_handler()
-                except Exception as exc:
-                    self._replace_state(last_error=str(exc))
-            else:
-                try:
-                    self.drawer.remove_handler()
-                except Exception:
-                    pass
             self._replace_state(
                 last_message=header.get("message", "Init acknowledged"),
                 remote_window_mode=self._remote_window_mode,
@@ -421,7 +378,7 @@ class BridgeController:
         elif packet_type == "error":
             self._replace_state(last_error=header.get("message", "Avalonia reported an error"))
         if packet_type not in {"frame", "frame_ready"}:
-            self.tag_redraw()
+            self._request_redraw()
         return None
 
     def _process_business_packets(self):
@@ -450,31 +407,24 @@ class BridgeController:
         if self._state_callback is not None:
             self._state_callback(self.state_snapshot())
 
-    def _sync_hover_capture(self, inside):
-        if self.capture_input == inside:
-            return
-        self.capture_input = inside
-        self._replace_state(capture_input=inside)
-        if not inside:
-            self._pending_pointer_move = None
-        self.tag_redraw()
-
-    def _overlay_display_scale(self, context):
-        if not self.image_bridge.expects_gpu_draw:
-            return 1.0
-        system_preferences = getattr(getattr(context, "preferences", None), "system", None)
-        dpi = getattr(system_preferences, "dpi", 72)
-        try:
-            return max(1.0, float(dpi) / 96.0)
-        except (TypeError, ValueError):
-            return 1.0
-
-    def _flush_pointer_move(self) -> bool:
+    def flush_pointer_move(self) -> bool:
         if not self._pending_pointer_move:
             return False
         message = self._pending_pointer_move
         self._pending_pointer_move = None
         return self.send_message(message)
+
+    def queue_pointer_move(self, message: PacketHeader) -> None:
+        self._pending_pointer_move = dict(message)
+
+    def clear_pending_pointer_move(self) -> None:
+        self._pending_pointer_move = None
+
+    def record_pointer_move_received(self, was_coalesced: bool) -> None:
+        self._diagnostics.record_pointer_move_received(was_coalesced)
+
+    def update_state(self, **changes) -> None:
+        self._replace_state(**changes)
 
     @staticmethod
     def _is_business_packet(header):
@@ -505,9 +455,7 @@ class BridgeController:
             message = f"Avalonia exited ({return_code}): {last_line[:300]}"
         else:
             message = f"Avalonia exited ({return_code})"
-        self.capture_input = False
-        self._pending_pointer_move = None
-        self._forwarded_buttons.clear()
+        self.release_capture_input(last_message="")
         self._replace_state(
             process_running=False,
             connected=False,
@@ -516,16 +464,11 @@ class BridgeController:
             last_error=message,
             last_message="Process exited",
         )
-        self.tag_redraw()
+        self._request_redraw()
 
-    def tag_redraw(self):
-        context = getattr(bpy, "context", None)
-        screen = getattr(context, "screen", None)
-        if screen is None:
-            return
-        for area in getattr(screen, "areas", []):
-            if getattr(area, "type", "") == "VIEW_3D":
-                area.tag_redraw()
+    def _request_redraw(self) -> None:
+        if self.host is not None:
+            self.host.tag_redraw()
 
     @staticmethod
     def _sanitize_render_scaling(value):

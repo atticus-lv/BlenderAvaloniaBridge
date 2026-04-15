@@ -13,12 +13,15 @@ from .business import (
 from .config import BridgeConfig
 from .controller import BridgeController
 from .state import BridgeDiagnosticsSnapshot, BridgeStateSnapshot
+from .view3d_overlay_host import BridgePresentationHost, View3DOverlayHost
 
 __all__ = [
     "BridgeConfig",
     "BridgeController",
     "BridgeStateSnapshot",
     "BridgeDiagnosticsSnapshot",
+    "BridgePresentationHost",
+    "View3DOverlayHost",
     "BusinessRequest",
     "BusinessResponse",
     "BusinessError",

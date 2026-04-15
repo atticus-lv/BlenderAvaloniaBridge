@@ -78,8 +78,6 @@ class OverlayDrawer:
             self._texture_shader.uniform_sampler("image", texture)
             batch.draw(self._texture_shader)
 
-        self._draw_title_bar_separator(rect)
-
         if show_overlay_debug:
             blf.position(0, rect["x"] + 10, rect["title_bar_y"] + 7, 0)
             blf.size(0, 12)
@@ -231,8 +229,8 @@ class OverlayDrawer:
 
     def _draw_shadow(self, rect, corner_radius):
         shadow_layers = (
-            (28.0, (0.0, -8.0), 34.0, (0.0, 0.0, 0.0, 0.16)),
-            (14.0, (0.0, -3.0), 16.0, (0.0, 0.0, 0.0, 0.11)),
+            (22.0, (0.0, 0.0), 28.0, (0.0, 0.0, 0.0, 0.12)),
+            (10.0, (0.0, 0.0), 12.0, (0.0, 0.0, 0.0, 0.08)),
         )
         for expand, offset, softness, color in shadow_layers:
             self._draw_shadow_pass(rect, corner_radius, expand, offset, softness, color)

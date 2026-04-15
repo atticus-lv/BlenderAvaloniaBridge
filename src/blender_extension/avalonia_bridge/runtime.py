@@ -1,4 +1,4 @@
-from .core import BridgeConfig, BridgeController, BridgeDiagnosticsSnapshot, BridgeStateSnapshot
+from .core import BridgeConfig, BridgeController, BridgeDiagnosticsSnapshot, BridgeStateSnapshot, View3DOverlayHost
 from .core.process import ProcessLaunchError
 
 
@@ -36,7 +36,11 @@ class BridgeRuntime:
     @property
     def controller(self):
         if self._controller is None:
-            self._controller = BridgeController(BridgeConfig(), state_callback=self._sync_state)
+            self._controller = BridgeController(
+                BridgeConfig(),
+                state_callback=self._sync_state,
+                host=View3DOverlayHost(),
+            )
         return self._controller
 
     def start(self, context, executable_path):
@@ -61,9 +65,6 @@ class BridgeRuntime:
     def send_message(self, header, payload=b""):
         return self.controller.send_message(header, payload)
 
-    def get_overlay_rect(self, context):
-        return self.controller.get_overlay_rect(context)
-
     def state_snapshot(self, context=None):
         controller = self._ensure_controller(context) if context is not None else self.controller
         return controller.state_snapshot()
@@ -82,9 +83,24 @@ class BridgeRuntime:
     def _ensure_controller(self, context=None, executable_path=None):
         config = self._build_config(context, executable_path)
         if self._controller is None:
-            self._controller = BridgeController(config, state_callback=self._sync_state)
+            host = View3DOverlayHost() if config.supports_frames else None
+            self._controller = BridgeController(config, state_callback=self._sync_state, host=host)
         else:
-            self._controller.set_config(config)
+            current_host = self._controller.host
+            wants_host = config.supports_frames
+            if wants_host and current_host is None:
+                next_host = View3DOverlayHost()
+            elif not wants_host and current_host is not None:
+                next_host = None
+            else:
+                next_host = current_host
+
+            if current_host is not next_host:
+                if self._controller.state_snapshot().process_running:
+                    self._controller.stop()
+                self._controller = BridgeController(config, state_callback=self._sync_state, host=next_host)
+            else:
+                self._controller.set_config(config)
         if context is not None:
             self._sync_state(self._controller.state_snapshot())
         return self._controller
