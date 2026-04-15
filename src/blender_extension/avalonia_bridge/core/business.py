@@ -333,6 +333,34 @@ def _value_type_from_property(property_definition: object | None) -> str | None:
     return None
 
 
+def _safe_getattr(value: object, name: str) -> object | None:
+    try:
+        return getattr(value, name)
+    except Exception:
+        return None
+
+
+def _module_path(value: object) -> str | None:
+    path_from_module = _safe_getattr(value, "path_from_module")
+    if not callable(path_from_module):
+        return None
+
+    try:
+        module_path = path_from_module()
+    except Exception:
+        return None
+
+    return module_path if isinstance(module_path, str) and module_path else None
+
+
+def _is_rna_value(value: object) -> bool:
+    if _safe_getattr(value, "bl_rna") is not None:
+        return True
+    if _safe_getattr(value, "rna_type") is not None:
+        return True
+    return _module_path(value) is not None
+
+
 def _serialize_value(value: object, path: str = "", property_definition: object | None = None) -> object | None:
     if value is None:
         return None
@@ -361,7 +389,7 @@ def _serialize_value(value: object, path: str = "", property_definition: object 
         return [_serialize_value(item) for item in sequence_items]
     if isinstance(value, dict):
         return {str(key): _serialize_value(item) for key, item in value.items()}
-    if hasattr(value, "name") or hasattr(value, "session_uid"):
+    if _is_rna_value(value):
         return _to_item_ref(value, path)
     return value
 
@@ -386,7 +414,7 @@ def _value_type(value: object, property_definition: object | None = None) -> str
         if all(isinstance(item, (int, float)) for item in sequence_items):
             return "float_array"
         return "array"
-    if hasattr(value, "name") or hasattr(value, "session_uid"):
+    if _is_rna_value(value):
         return "rna_ref"
     if _is_collection_value(value):
         return "collection"
@@ -455,28 +483,39 @@ def _resolve_path_reference(value: object, resolver: PathResolver) -> object:
 
 
 def _rna_type(value: object) -> str:
-    bl_rna = getattr(value, "bl_rna", None)
+    bl_rna = _safe_getattr(value, "bl_rna")
     if bl_rna is None:
+        rna_type = _safe_getattr(value, "rna_type")
+        if rna_type is not None:
+            return str(_safe_getattr(rna_type, "identifier") or type(value).__name__)
         return type(value).__name__
     return getattr(bl_rna, "identifier", type(value).__name__)
 
 
 def _id_type(value: object) -> str | None:
-    id_type = getattr(value, "id_type", None)
+    id_type = _safe_getattr(value, "id_type")
     if isinstance(id_type, str):
         return id_type
     return None
 
 
+def _session_uid(value: object) -> int | None:
+    session_uid = _safe_getattr(value, "session_uid")
+    return int(session_uid) if isinstance(session_uid, int) else None
+
+
 def _to_item_ref(value: object, path: str, *, label: str | None = None) -> JsonObject:
+    path = path or _module_path(value) or ""
+    display_name = _safe_getattr(value, "name")
+    name = display_name if isinstance(display_name, str) and display_name else path
     return {
         "kind": "rna",
         "path": path,
-        "name": getattr(value, "name", path),
-        "label": label or getattr(value, "name", path),
+        "name": name,
+        "label": label or name,
         "rnaType": _rna_type(value),
         "idType": _id_type(value),
-        "sessionUid": getattr(value, "session_uid", None),
+        "sessionUid": _session_uid(value),
     }
 
 
@@ -597,7 +636,9 @@ class RnaService:
         }
         result = member(*args, **kwargs)
         result_path = path
-        if hasattr(result, "name") and getattr(result, "name", None):
+        if method == "preview_ensure":
+            result_path = f"{path}.preview"
+        elif hasattr(result, "name") and getattr(result, "name", None):
             result_path = f"{path}[{_json_string(result.name)}]"
         return {
             "return": _serialize_value(result, result_path),
