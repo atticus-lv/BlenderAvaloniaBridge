@@ -19,7 +19,7 @@ This split keeps resource access, imperative commands, and observation flows sep
 ## Domain Map
 
 ```csharp
-blenderApi.Rna.ListAsync / GetAsync<T> / SetAsync<T> / DescribeAsync / CallAsync<T>
+blenderApi.Rna.ListAsync / GetAsync<T> / ReadArrayAsync / SetAsync<T> / DescribeAsync / CallAsync<T>
 blenderApi.Ops.PollAsync / CallAsync
 blenderApi.Observe.WatchAsync / ReadAsync
 ```

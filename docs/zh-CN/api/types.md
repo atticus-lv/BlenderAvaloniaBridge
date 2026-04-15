@@ -18,6 +18,22 @@
 
 建议把它理解成可继续寻址的引用，而不是已经展开完成的 DTO。
 
+## BlenderArrayReadResult
+
+`BlenderArrayReadResult` 是 `blenderApi.Rna.ReadArrayAsync` 的返回类型。
+
+它把数组元数据和原始二进制 payload 分开表示：
+
+- `Path`
+- `RnaType`
+- `ValueType`
+- `ElementType`
+- `Count`
+- `Shape`
+- `RawBytes`
+
+`RawBytes` 不是 JSON 数组，而是协议包中的二进制 payload。使用时应结合 `ElementType` 和 `Shape` 进行解释。
+
 ## BlenderOperatorCall
 
 `BlenderOperatorCall` 是 `blenderApi.Ops` 使用的结构化 operator 请求模型。

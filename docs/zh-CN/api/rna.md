@@ -6,6 +6,7 @@
 
 - `ListAsync(path)`
 - `GetAsync<T>(path)`
+- `ReadArrayAsync(path)`
 - `SetAsync<T>(path, value)`
 - `DescribeAsync(path)`
 - `CallAsync<T>(path, methodName, params (string Name, object? Value)[] kwargs)`
@@ -34,6 +35,48 @@ await blenderApi.Rna.SetAsync(
     new[] { 0.0, 0.0, 1.0 },
     ct);
 ```
+
+## 读取二进制数组值
+
+`ReadArrayAsync` 用于读取不适合展开成 JSON 数组的 RNA 数组型数据。
+
+它适合 image pixel 这类大数组，也适合其他 `foreach_get` 风格的值。
+
+```csharp
+var size = await blenderApi.Rna.GetAsync<int[]>(
+    "bpy.data.images[\"Render Result\"].size",
+    ct);
+
+var pixels = await blenderApi.Rna.ReadArrayAsync(
+    "bpy.data.images[\"Render Result\"].pixels",
+    ct);
+
+// pixels.RawBytes 是协议里的二进制 payload。
+// pixels.ElementType / Count / Shape 用来解释这些字节。
+```
+
+`ReadArrayAsync` 返回 `BlenderArrayReadResult`，其中包括：
+
+- `Path`
+- `RnaType`
+- `ValueType`（`array_buffer`）
+- `ElementType`
+- `Count`
+- `Shape`
+- `RawBytes`
+
+当前 bridge 支持的元素类型包括：
+
+- `bool`
+- `int32`
+- `float32`
+- `uint8`
+
+对于 image pixel 缓冲区，常见读取方式是：
+
+- 先用 `GetAsync<int[]>` 读取图像尺寸元数据
+- 再用 `ReadArrayAsync(...)` 读取像素数据
+- 最后根据 `ElementType` 和 `Shape` 解释 `RawBytes`
 
 ## 读取路径描述
 

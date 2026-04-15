@@ -18,6 +18,22 @@ Common stable fields include:
 
 Treat it as an addressable reference, not a fully expanded DTO.
 
+## BlenderArrayReadResult
+
+`BlenderArrayReadResult` is returned by `blenderApi.Rna.ReadArrayAsync`.
+
+It separates array metadata from the raw binary payload:
+
+- `Path`
+- `RnaType`
+- `ValueType`
+- `ElementType`
+- `Count`
+- `Shape`
+- `RawBytes`
+
+`RawBytes` is not JSON data. It comes from the protocol packet payload and should be decoded using `ElementType` and `Shape`.
+
 ## BlenderOperatorCall
 
 `BlenderOperatorCall` is the structured operator request model used by `blenderApi.Ops`.

@@ -6,6 +6,7 @@
 
 - `ListAsync(path)`
 - `GetAsync<T>(path)`
+- `ReadArrayAsync(path)`
 - `SetAsync<T>(path, value)`
 - `DescribeAsync(path)`
 - `CallAsync<T>(path, methodName, params (string Name, object? Value)[] kwargs)`
@@ -34,6 +35,48 @@ await blenderApi.Rna.SetAsync(
     new[] { 0.0, 0.0, 1.0 },
     ct);
 ```
+
+## Read Binary Array Values
+
+`ReadArrayAsync` is for RNA array-like values that should not be expanded into JSON arrays.
+
+It is useful for large buffers such as image pixels and other `foreach_get`-style values.
+
+```csharp
+var size = await blenderApi.Rna.GetAsync<int[]>(
+    "bpy.data.images[\"Render Result\"].size",
+    ct);
+
+var pixels = await blenderApi.Rna.ReadArrayAsync(
+    "bpy.data.images[\"Render Result\"].pixels",
+    ct);
+
+// pixels.RawBytes contains the protocol binary payload.
+// pixels.ElementType / Count / Shape describe how to interpret it.
+```
+
+`ReadArrayAsync` returns a `BlenderArrayReadResult` with:
+
+- `Path`
+- `RnaType`
+- `ValueType` (`array_buffer`)
+- `ElementType`
+- `Count`
+- `Shape`
+- `RawBytes`
+
+Current bridge element kinds include:
+
+- `bool`
+- `int32`
+- `float32`
+- `uint8`
+
+For image pixel buffers, the common pattern is:
+
+- read image size metadata with `GetAsync<int[]>`
+- read pixel data with `ReadArrayAsync(...)`
+- decode `RawBytes` using `ElementType` and `Shape`
 
 ## Describe A Path
 
