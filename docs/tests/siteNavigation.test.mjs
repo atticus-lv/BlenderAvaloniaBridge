@@ -8,24 +8,32 @@ function readDoc(relativePath) {
     return readFileSync(new URL(relativePath, docsRoot), 'utf8');
 }
 
-test('root locale redirect sends users directly to the English overview article', () => {
+test('root docs entry renders a landing page and keeps locale redirect logic', () => {
     const index = readDoc('index.md');
 
-    assert.match(index, /\/en\/guide\/what-is/);
+    assert.match(index, /layout:\s*home/);
+    assert.match(index, /Practical bridge tooling for Avalonia UI inside Blender/);
+    assert.match(index, /link:\s*\/en\//);
+    assert.match(index, /link:\s*\/zh-CN\//);
+    assert.match(index, /resolveLocalePath/);
+    assert.match(index, /window\.location\.replace/);
 });
 
-test('Chinese locale entry redirects to the overview article instead of rendering a home page', () => {
+test('Chinese locale entry renders a localized home page', () => {
     const index = readDoc('zh-CN/index.md');
 
-    assert.doesNotMatch(index, /layout:\s*home/);
-    assert.match(index, /\/zh-CN\/guide\/what-is/);
+    assert.match(index, /layout:\s*home/);
+    assert.match(index, /在 Blender 中使用 Avalonia 构建桌面级 UI/);
+    assert.match(index, /\/zh-CN\/guide\/quick-start/);
 });
 
-test('English locale entry redirects to the overview article instead of rendering a home page', () => {
+test('English locale entry renders a localized home page', () => {
     const index = readDoc('en/index.md');
 
-    assert.doesNotMatch(index, /layout:\s*home/);
-    assert.match(index, /\/en\/guide\/what-is/);
+    assert.match(index, /layout:\s*home/);
+    assert.match(index, /Avalonia UI inside Blender, with transport and business boundaries kept explicit/);
+    assert.match(index, /What Is Blender Avalonia Bridge/);
+    assert.match(index, /\/en\/guide\/quick-start/);
 });
 
 test('sidebar configuration does not include locale home entries', () => {

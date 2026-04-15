@@ -1,21 +1,9 @@
 import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 
-const zhNav = [
-  { text: '简介', link: '/zh-CN/guide/what-is' },
-  { text: '快速开始', link: '/zh-CN/guide/quick-start' },
-  { text: '集成指南', link: '/zh-CN/integration/' },
-  { text: '高级', link: '/zh-CN/advanced/custom-business-handler' },
-  { text: 'English', link: '/en/guide/what-is' },
-];
+const zhNav = [];
 
-const enNav = [
-  { text: 'Overview', link: '/en/guide/what-is' },
-  { text: 'Quick Start', link: '/en/guide/quick-start' },
-  { text: 'Integration Guide', link: '/en/integration/' },
-  { text: 'Advanced', link: '/en/advanced/custom-business-handler' },
-  { text: '中文', link: '/zh-CN/guide/what-is' },
-];
+const enNav = [];
 
 const zhSidebar = [
   {
@@ -29,7 +17,16 @@ const zhSidebar = [
     text: '集成',
     items: [
       { text: '集成指南', link: '/zh-CN/integration/' },
-      { text: 'C# API 使用指南', link: '/zh-CN/integration/avalonia' },
+    ],
+  },
+  {
+    text: 'API',
+    items: [
+      { text: 'BlenderApi', link: '/zh-CN/api/' },
+      { text: 'RNA', link: '/zh-CN/api/rna' },
+      { text: 'Ops', link: '/zh-CN/api/ops' },
+      { text: 'Observe', link: '/zh-CN/api/observe' },
+      { text: 'Shared Types', link: '/zh-CN/api/types' },
     ],
   },
   {
@@ -53,7 +50,16 @@ const enSidebar = [
     text: 'Integration',
     items: [
       { text: 'Integration Guide', link: '/en/integration/' },
-      { text: 'C# API Usage Guide', link: '/en/integration/avalonia' },
+    ],
+  },
+  {
+    text: 'API',
+    items: [
+      { text: 'BlenderApi', link: '/en/api/' },
+      { text: 'RNA', link: '/en/api/rna' },
+      { text: 'Ops', link: '/en/api/ops' },
+      { text: 'Observe', link: '/en/api/observe' },
+      { text: 'Shared Types', link: '/en/api/types' },
     ],
   },
   {
@@ -73,7 +79,7 @@ export default withMermaid(defineConfig({
       ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/`
       : '/',
   title: 'Blender Avalonia Bridge',
-  description: 'Windows-first bridge toolkit for embedding Avalonia UI inside Blender.',
+  description: 'Bridge toolkit for embedding Avalonia UI inside Blender on Windows and macOS.',
   cleanUrls: true,
   lastUpdated: true,
   mermaid: {},
@@ -82,31 +88,19 @@ export default withMermaid(defineConfig({
     search: {
       provider: 'local',
     },
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/atticus-lv/BlenderAvaloniaBridge/' },
+    ],
     sidebar: {
       '/zh-CN/': zhSidebar,
       '/en/': enSidebar,
     },
   },
   locales: {
-    '/zh-CN/': {
-      lang: 'zh-CN',
-      label: '简体中文',
-      title: 'Blender Avalonia Bridge',
-      description: '在 Blender 中嵌入 Avalonia UI 的桥接工具套件。',
-      themeConfig: {
-        nav: zhNav,
-        outline: {
-          label: '本页目录',
-        },
-        docFooter: {
-          prev: '上一页',
-          next: '下一页',
-        },
-      },
-    },
-    '/en/': {
+    en: {
       lang: 'en-US',
       label: 'English',
+      link: '/en/',
       title: 'Blender Avalonia Bridge',
       description: 'A bridge toolkit for embedding Avalonia UI inside Blender.',
       themeConfig: {
@@ -117,6 +111,23 @@ export default withMermaid(defineConfig({
         docFooter: {
           prev: 'Previous page',
           next: 'Next page',
+        },
+      },
+    },
+    'zh-CN': {
+      lang: 'zh-CN',
+      label: '简体中文',
+      link: '/zh-CN/',
+      title: 'Blender Avalonia Bridge',
+      description: '一个支持 Windows 和 macOS 的 Blender Avalonia UI 桥接工具套件。',
+      themeConfig: {
+        nav: zhNav,
+        outline: {
+          label: '本页目录',
+        },
+        docFooter: {
+          prev: '上一页',
+          next: '下一页',
         },
       },
     },

@@ -1,20 +1,24 @@
 ---
-layout: false
 title: Blender Avalonia Bridge 文档
+layout: home
+
+hero:
+  name: Blender Avalonia Bridge
+  text: 在 Blender 中使用 Avalonia 构建桌面级 UI
+  tagline: Windows / macOS 的接口模块，允许用户和开发者使用桌面级 UI 框架与 Blender 交互。
+  actions:
+    - theme: brand
+      text: Blender Avalonia Bridge 是什么
+      link: /zh-CN/guide/what-is
+    - theme: alt
+      text: 快速开始
+      link: /zh-CN/guide/quick-start
+
+features:
+  - title: 从这里开始
+    details: 运行准备好的样例程序，在 Blender 中直接体验操作。
+  - title: 平台支持
+    details: 当前 headless 共享内存传输支持 Windows 和 macOS，未来可能添加更多平台。
+  - title: Blender Like API
+    details: 根据 Blender API 设计的 C# API，让熟悉 Blender 插件开发的用户更容易上手。
 ---
-
-<script setup>
-import { onMounted } from 'vue'
-import { withBase } from 'vitepress'
-
-onMounted(() => {
-  window.location.replace(withBase('/zh-CN/guide/what-is'))
-})
-</script>
-
-# Redirecting
-
-中文文档入口已直接跳到正文。
-
-- [进入简介页](/zh-CN/guide/what-is)
-- [快速开始](/zh-CN/guide/quick-start)
