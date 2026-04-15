@@ -10,6 +10,8 @@ namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 {
+    private const int PreviewRetryCount = 12;
+    private static readonly TimeSpan PreviewPollTimeout = TimeSpan.FromSeconds(1.2);
     private bool _isApplyingRemoteState;
     private IAsyncDisposable? _watchSubscription;
 
@@ -63,6 +65,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     protected override void OnBlenderApiChanged()
     {
         RefreshMaterialsCommand.NotifyCanExecuteChanged();
+        RefreshSelectedPreviewCommand.NotifyCanExecuteChanged();
         CreateMaterialCommand.NotifyCanExecuteChanged();
         CommitMaterialNameCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(HasSelectedMaterial));
@@ -71,6 +74,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     partial void OnSelectedMaterialChanged(MaterialLibraryItem? value)
     {
         OnPropertyChanged(nameof(HasSelectedMaterial));
+        RefreshSelectedPreviewCommand.NotifyCanExecuteChanged();
         CommitMaterialNameCommand.NotifyCanExecuteChanged();
 
         if (!_isApplyingRemoteState)
@@ -82,13 +86,19 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     [RelayCommand(CanExecute = nameof(CanUseBridge))]
     public Task RefreshMaterialsAsync()
     {
-        return RunPageOperationAsync(RefreshMaterialsCoreAsync);
+        return RunPageOperationAsync(() => RefreshMaterialsCoreAsync());
     }
 
     [RelayCommand(CanExecute = nameof(CanUseBridge))]
     public Task CreateMaterialAsync()
     {
         return RunPageOperationAsync(CreateMaterialCoreAsync);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRefreshSelectedMaterial))]
+    public Task RefreshSelectedPreviewAsync()
+    {
+        return RunPageOperationAsync(RefreshSelectedPreviewCoreAsync);
     }
 
     public Task SelectionChangedAsync()
@@ -104,15 +114,24 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 
     private bool CanUseBridge() => BlenderApi is not null;
 
+    private bool CanRefreshSelectedMaterial() => SelectedMaterial is not null && BlenderApi is not null;
+
     private bool CanCommitMaterialName() => SelectedMaterial is not null && BlenderApi is not null;
 
-    private async Task RefreshMaterialsCoreAsync()
+    private async Task RefreshMaterialsCoreAsync(
+        RnaItemRef? preferredSelection = null,
+        bool pollForExistingPreviewIfMissing = false)
     {
         var blender = RequireBlenderApi();
         var previousSelection = SelectedMaterial?.MaterialRef;
         var materialRefs = await blender.Rna.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
         var materialCards = await Task.WhenAll(materialRefs.Select(item => CreateMaterialLibraryItemAsync(blender, item)));
-        var nextSelection = previousSelection is null
+        var nextSelection = preferredSelection is not null
+            ? materialCards.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.MaterialRef, preferredSelection))
+              ?? materialCards.FirstOrDefault(item => string.Equals(item.DisplayName, preferredSelection.Name, StringComparison.Ordinal))
+            : null;
+
+        nextSelection ??= previousSelection is null
             ? materialCards.FirstOrDefault()
             : materialCards.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.MaterialRef, previousSelection))
               ?? materialCards.FirstOrDefault(item => string.Equals(item.DisplayName, previousSelection.Name, StringComparison.Ordinal))
@@ -139,7 +158,9 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 
         if (nextSelection is not null)
         {
-            await LoadSelectedMaterialAsync(nextSelection);
+            await LoadSelectedMaterialAsync(
+                nextSelection,
+                pollForExistingPreviewIfMissing: pollForExistingPreviewIfMissing);
         }
         else
         {
@@ -172,17 +193,45 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
             ("name", requestedName));
 
         NewMaterialName = requestedName;
-        await RefreshMaterialsCoreAsync();
+        await RefreshMaterialsCoreAsync(
+            preferredSelection: created,
+            pollForExistingPreviewIfMissing: true);
+    }
 
-        var matched = Materials.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item.MaterialRef, created))
-                      ?? Materials.FirstOrDefault(item => string.Equals(item.DisplayName, created.Name, StringComparison.Ordinal));
-        if (matched is not null)
+    private async Task RefreshSelectedPreviewCoreAsync()
+    {
+        if (SelectedMaterial is null)
         {
-            _isApplyingRemoteState = true;
-            SelectedMaterial = matched;
-            _isApplyingRemoteState = false;
-            await LoadSelectedMaterialAsync(matched);
+            return;
         }
+
+        var blender = RequireBlenderApi();
+        var material = SelectedMaterial;
+        var current = await TryLoadPreviewDataAsync(blender, material.MaterialRef.Path);
+
+        await GeneratePreviewAsync(blender, material.MaterialRef.Path);
+
+        var updated = await PollPreviewDataUntilReadyAsync(
+            blender,
+            material.MaterialRef.Path,
+            current?.RgbaBytes);
+
+        await RunOnUiThreadAsync(() =>
+        {
+            if (updated is not null)
+            {
+                var image = MaterialPreviewImageFactory.CreateImage(updated);
+                SelectedPreviewImage = image;
+                material.Thumbnail = MaterialPreviewImageFactory.CreateImage(updated);
+                SetConnectedIdleStatus($"Updated preview for {material.DisplayName}.");
+            }
+            else
+            {
+                SetConnectedIdleStatus($"Preview update timed out for {material.DisplayName}.");
+            }
+
+            return Task.CompletedTask;
+        });
     }
 
     private async Task CommitMaterialNameCoreAsync()
@@ -196,19 +245,24 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         await RefreshMaterialsCoreAsync();
     }
 
-    private async Task LoadSelectedMaterialAsync(MaterialLibraryItem material)
+    private async Task LoadSelectedMaterialAsync(
+        MaterialLibraryItem material,
+        bool pollForExistingPreviewIfMissing = false)
     {
         var blender = RequireBlenderApi();
         var materialName = await blender.Rna.GetAsync<string>($"{material.MaterialRef.Path}.name");
-        var selectedPreview = await LoadPreviewImageAsync(blender, material.MaterialRef.Path, useLargePreview: true)
-                              ?? await LoadPreviewImageAsync(blender, material.MaterialRef.Path, useLargePreview: false, ensureGeneratedIfMissing: false);
+        var previewLoad = await LoadSelectedPreviewAsync(
+            blender,
+            material.MaterialRef.Path,
+            pollForExistingPreviewIfMissing);
 
         await RunOnUiThreadAsync(() =>
         {
             _isApplyingRemoteState = true;
             MaterialName = materialName;
             SelectedMaterialPath = material.MaterialRef.Path;
-            SelectedPreviewImage = selectedPreview;
+            SelectedPreviewImage = previewLoad.SelectedImage;
+            material.Thumbnail = previewLoad.ThumbnailImage;
             _isApplyingRemoteState = false;
 
             SetConnectedIdleStatus($"Loaded material {materialName}.");
@@ -264,51 +318,119 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     private async Task<MaterialLibraryItem> CreateMaterialLibraryItemAsync(BlenderApi blender, RnaItemRef materialRef)
     {
         var displayName = await blender.Rna.GetAsync<string>($"{materialRef.Path}.name");
-        var thumbnail = await LoadPreviewImageAsync(blender, materialRef.Path, useLargePreview: false);
+        var thumbnail = await TryLoadPreviewImageAsync(blender, materialRef.Path);
         return new MaterialLibraryItem(materialRef, displayName, thumbnail);
     }
 
-    private static async Task<IImage?> LoadPreviewImageAsync(
+    private async Task<PreviewLoadResult> LoadSelectedPreviewAsync(
         BlenderApi blender,
         string materialPath,
-        bool useLargePreview,
-        bool ensureGeneratedIfMissing = true)
+        bool pollForExistingPreviewIfMissing)
     {
-        var preview = await TryLoadPreviewImageAsync(blender, materialPath, useLargePreview);
-        if (preview is not null || !ensureGeneratedIfMissing)
+        var current = await TryLoadPreviewDataAsync(blender, materialPath);
+        if (current is null)
         {
-            return preview;
+            if (pollForExistingPreviewIfMissing)
+            {
+                var available = await PollPreviewDataUntilReadyAsync(blender, materialPath);
+                return PreviewLoadResult.FromData(available);
+            }
+
+            return new PreviewLoadResult();
         }
 
-        await EnsurePreviewAsync(blender, materialPath);
-        return await TryLoadPreviewImageAsync(blender, materialPath, useLargePreview);
+        return PreviewLoadResult.FromData(current);
     }
 
-    private static async Task EnsurePreviewAsync(BlenderApi blender, string materialPath)
+    private static async Task GeneratePreviewAsync(BlenderApi blender, string materialPath)
     {
         try
         {
-            _ = await blender.Rna.CallAsync<RnaItemRef>(materialPath, "preview_ensure");
+            _ = await blender.Rna.CallAsync<RnaItemRef?>(materialPath, "asset_generate_preview");
         }
         catch (InvalidOperationException)
         {
         }
     }
 
-    private static async Task<IImage?> TryLoadPreviewImageAsync(BlenderApi blender, string materialPath, bool useLargePreview)
+    private static async Task<IImage?> TryLoadPreviewImageAsync(BlenderApi blender, string materialPath)
     {
-        var sizeSegment = useLargePreview ? "image_size" : "icon_size";
-        var pixelsSegment = useLargePreview ? "image_pixels" : "icon_pixels";
+        var preview = await TryLoadPreviewDataAsync(blender, materialPath);
+        return preview is null ? null : MaterialPreviewImageFactory.CreateImage(preview);
+    }
 
+    private static async Task<MaterialPreviewImageData?> TryLoadPreviewDataAsync(BlenderApi blender, string materialPath)
+    {
         try
         {
-            var size = await blender.Rna.GetAsync<int[]>($"{materialPath}.preview.{sizeSegment}");
-            var pixels = await blender.Rna.ReadArrayAsync($"{materialPath}.preview.{pixelsSegment}");
-            return MaterialPreviewImageFactory.Create(size, pixels.RawBytes);
+            var size = await blender.Rna.GetAsync<int[]>($"{materialPath}.preview.image_size");
+            var pixels = await blender.Rna.ReadArrayAsync($"{materialPath}.preview.image_pixels_float");
+            return MaterialPreviewImageFactory.CreateData(size, pixels);
         }
         catch (InvalidOperationException)
         {
             return null;
+        }
+    }
+
+    private static async Task<MaterialPreviewImageData?> PollPreviewDataUntilReadyAsync(
+        BlenderApi blender,
+        string materialPath,
+        byte[]? previousSignature = null)
+    {
+        var startedAt = DateTime.UtcNow;
+        var delayPerAttempt = TimeSpan.FromMilliseconds(PreviewPollTimeout.TotalMilliseconds / PreviewRetryCount);
+
+        for (var attempt = 0; attempt < PreviewRetryCount; attempt++)
+        {
+            var preview = await TryLoadPreviewDataAsync(blender, materialPath);
+            if (preview is not null && !PreviewMatches(preview.RgbaBytes, previousSignature))
+            {
+                return preview;
+            }
+
+            if (attempt == PreviewRetryCount - 1)
+            {
+                break;
+            }
+
+            var elapsed = DateTime.UtcNow - startedAt;
+            var remaining = PreviewPollTimeout - elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(remaining < delayPerAttempt ? remaining : delayPerAttempt);
+        }
+
+        return null;
+    }
+
+    private static bool PreviewMatches(byte[] currentSignature, byte[]? previousSignature)
+    {
+        return previousSignature is not null
+            && currentSignature.AsSpan().SequenceEqual(previousSignature);
+    }
+
+    private sealed class PreviewLoadResult
+    {
+        public IImage? SelectedImage { get; private init; }
+
+        public IImage? ThumbnailImage { get; private init; }
+
+        public static PreviewLoadResult FromData(MaterialPreviewImageData? preview)
+        {
+            if (preview is null)
+            {
+                return new PreviewLoadResult();
+            }
+
+            return new PreviewLoadResult
+            {
+                SelectedImage = MaterialPreviewImageFactory.CreateImage(preview),
+                ThumbnailImage = MaterialPreviewImageFactory.CreateImage(preview),
+            };
         }
     }
 }

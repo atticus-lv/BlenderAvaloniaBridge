@@ -57,6 +57,34 @@ public static class SampleDesignData
         };
     }
 
+    private static byte[] FloatBytes(params float[] values)
+    {
+        var bytes = new byte[values.Length * sizeof(float)];
+        for (var index = 0; index < values.Length; index++)
+        {
+            BitConverter.GetBytes(values[index]).CopyTo(bytes, index * sizeof(float));
+        }
+
+        return bytes;
+    }
+
+    private static BlenderArrayReadResult CreatePreviewPixels(params byte[] rgbaBytes)
+    {
+        var floatValues = new float[rgbaBytes.Length];
+        for (var index = 0; index < rgbaBytes.Length; index++)
+        {
+            floatValues[index] = rgbaBytes[index] / 255f;
+        }
+
+        return new BlenderArrayReadResult
+        {
+            ElementType = "float32",
+            Count = floatValues.Length,
+            Shape = [2, 2, 4],
+            RawBytes = FloatBytes(floatValues),
+        };
+    }
+
     private sealed class DesignMainViewModel : MainViewModel
     {
         public DesignMainViewModel()
@@ -139,13 +167,13 @@ public static class SampleDesignData
                 "PreviewMat",
                 MaterialPreviewImageFactory.Create(
                     [2, 2],
-                    [240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255]));
+                    CreatePreviewPixels(240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255)));
             var glass = new MaterialLibraryItem(
                 CreateRnaRef("GlassAccent", "bpy.data.materials[\"GlassAccent\"]", "Material", "MATERIAL", 402),
                 "GlassAccent",
                 MaterialPreviewImageFactory.Create(
                     [2, 2],
-                    [124, 208, 255, 255, 210, 246, 255, 255, 46, 89, 134, 255, 118, 166, 228, 255]));
+                    CreatePreviewPixels(124, 208, 255, 255, 210, 246, 255, 255, 46, 89, 134, 255, 118, 166, 228, 255)));
             var ground = new MaterialLibraryItem(
                 CreateRnaRef("Ground", "bpy.data.materials[\"Ground\"]", "Material", "MATERIAL", 403),
                 "Ground",
@@ -159,7 +187,7 @@ public static class SampleDesignData
             SelectedMaterialPath = "bpy.data.materials[\"PreviewMat\"]";
             SelectedPreviewImage = MaterialPreviewImageFactory.Create(
                 [2, 2],
-                [240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255]);
+                CreatePreviewPixels(240, 170, 72, 255, 215, 96, 80, 255, 92, 139, 220, 255, 36, 52, 86, 255));
             NewMaterialName = "Accent";
             StatusText = "Loaded material PreviewMat.";
             BridgeStatusText = "Bridge connected (design preview)";

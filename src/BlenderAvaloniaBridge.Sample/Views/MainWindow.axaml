@@ -15,6 +15,9 @@
         d:DesignWidth="1180"
         d:DesignHeight="860"
         mc:Ignorable="d">
+  <Window.Styles>
+    <StyleInclude Source="avares://BlenderAvaloniaBridge.Sample/Styles/PageStyles.axaml" />
+  </Window.Styles>
   <Design.PreviewWith>
     <ThemeVariantScope RequestedThemeVariant="Dark">
       <views:MainView DataContext="{x:Static design:SampleDesignData.MainView}" />

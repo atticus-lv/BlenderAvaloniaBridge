@@ -28,8 +28,14 @@ public partial class MaterialLibraryItem : ObservableObject, IDisposable
                 return;
             }
 
+            var previous = _thumbnail;
             if (SetProperty(ref _thumbnail, value))
             {
+                if (!ReferenceEquals(previous, value) && previous is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+
                 OnPropertyChanged(nameof(HasThumbnail));
                 OnPropertyChanged(nameof(ShowPlaceholder));
             }
