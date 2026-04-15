@@ -25,6 +25,18 @@ flowchart LR
 
 现在 business 传输已经是 bridge session 的独立能力，不再隐式依赖 headless 帧流。
 
+## C# API 分层
+
+在 Avalonia 侧，默认 business 能力现在统一挂在 `BlenderApi` 根对象下：
+
+- `BlenderApi.Rna`：面向路径的 RNA 访问和 RNA 方法调用
+- `BlenderApi.Ops`：operator 的 poll 与调用
+- `BlenderApi.Observe`：watch 订阅、`watch.dirty` 后续处理和快照读取
+
+这次调整只重构了 C# API 形状，底层业务协议名仍然保持 `rna.*`、`ops.*`、`watch.*` 不变。
+
+`Data` 会为后续资源型能力预留，但当前版本不会先暴露出来。
+
 ## 运行时数据流
 
 ```mermaid

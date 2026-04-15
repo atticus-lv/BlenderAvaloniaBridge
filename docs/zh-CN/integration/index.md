@@ -161,6 +161,6 @@ Blender 侧需要接入下面几个点：
 
 ## 6. C# 侧业务调用
 
-接入完成后，Avalonia 程序可以通过内置的 `IBlenderDataApi` 访问 Blender 数据、operator 和 watch 能力。
+接入完成后，Avalonia 程序可以通过内置的 `BlenderApi` 根对象访问 Blender 数据、operator 和 watch 能力，对外入口分别是 `Rna`、`Ops` 和 `Observe`。
 
 这部分建议单独阅读：[C# API 使用指南](./avalonia.md)。

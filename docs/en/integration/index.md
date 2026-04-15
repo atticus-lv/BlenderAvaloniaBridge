@@ -165,6 +165,6 @@ See [Architecture](../advanced/architecture.md) for the shared session model and
 
 ## 6. C# business-side usage
 
-Once the bridge is connected, your Avalonia app can use the built-in `IBlenderDataApi` for Blender data, operators, and watch subscriptions.
+Once the bridge is connected, your Avalonia app can use the built-in `BlenderApi` root for Blender data, operators, and watch subscriptions through `Rna`, `Ops`, and `Observe`.
 
 Read that part separately in the [C# API Usage Guide](./avalonia.md).

@@ -85,4 +85,4 @@ controller = BridgeController(
 - `DefaultBusinessEndpoint` 继续处理标准 Blender API 流量
 - 自定义 endpoint 只负责 `ping`、应用命令或领域专用流程
 
-在 C# 侧，默认 endpoint 会直接映射成 `IBlenderDataApi`，所以大多数场景其实不需要再写 Python glue code。
+在 C# 侧，默认 endpoint 会直接映射成带 `Rna`、`Ops`、`Observe` 三个领域入口的 `BlenderApi`，所以大多数场景其实不需要再写 Python glue code。

@@ -25,6 +25,18 @@ flowchart LR
 
 Business transport is now a first-class capability of the bridge session, not something implicitly tied to headless frame streaming.
 
+## C# API layout
+
+On the Avalonia side, the default business surface is now rooted at `BlenderApi`:
+
+- `BlenderApi.Rna`: path-oriented RNA access and RNA method calls
+- `BlenderApi.Ops`: operator poll and call flows
+- `BlenderApi.Observe`: watch subscription, `watch.dirty` follow-up, and snapshot reads
+
+This is an API-surface refactor only. The built-in business protocol names stay unchanged as `rna.*`, `ops.*`, and `watch.*`.
+
+`Data` is intentionally reserved for a future resource-oriented domain and is not exposed yet.
+
 ## Runtime Flow
 
 ```mermaid

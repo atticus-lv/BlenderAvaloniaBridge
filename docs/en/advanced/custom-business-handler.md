@@ -85,4 +85,4 @@ This is usually the best split:
 - use `DefaultBusinessEndpoint` for standard Blender API traffic
 - add a custom endpoint only for private commands such as `ping`, app actions, or domain-specific workflows
 
-On the C# side, the default endpoint is surfaced through `IBlenderDataApi`, so most applications do not need any Python-side glue code at all.
+On the C# side, the default endpoint is surfaced through `BlenderApi` with `Rna`, `Ops`, and `Observe` domains, so most applications do not need any Python-side glue code at all.
