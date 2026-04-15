@@ -47,6 +47,18 @@
   border-radius: 16px;
 }
 
+.vp-doc img:not(.no-zoom) {
+  cursor: zoom-in;
+}
+
+.medium-zoom-overlay {
+  z-index: 120;
+}
+
+.medium-zoom-image--opened {
+  z-index: 121;
+}
+
 .doc-image-card {
   margin: 0;
 }
