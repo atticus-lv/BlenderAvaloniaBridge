@@ -4,8 +4,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid';
 const zhNav = [
   { text: '简介', link: '/zh-CN/guide/what-is' },
   { text: '快速开始', link: '/zh-CN/guide/quick-start' },
-  { text: 'Blender 集成', link: '/zh-CN/integration/blender' },
-  { text: 'Avalonia 集成', link: '/zh-CN/integration/avalonia' },
+  { text: '集成指南', link: '/zh-CN/integration/' },
   { text: '高级', link: '/zh-CN/advanced/custom-business-handler' },
   { text: 'English', link: '/en/guide/what-is' },
 ];
@@ -13,8 +12,7 @@ const zhNav = [
 const enNav = [
   { text: 'Overview', link: '/en/guide/what-is' },
   { text: 'Quick Start', link: '/en/guide/quick-start' },
-  { text: 'Blender Integration', link: '/en/integration/blender' },
-  { text: 'Avalonia Integration', link: '/en/integration/avalonia' },
+  { text: 'Integration Guide', link: '/en/integration/' },
   { text: 'Advanced', link: '/en/advanced/custom-business-handler' },
   { text: '中文', link: '/zh-CN/guide/what-is' },
 ];
@@ -30,8 +28,8 @@ const zhSidebar = [
   {
     text: '集成',
     items: [
-      { text: 'Blender 集成', link: '/zh-CN/integration/blender' },
-      { text: 'Avalonia 集成', link: '/zh-CN/integration/avalonia' },
+      { text: '集成指南', link: '/zh-CN/integration/' },
+      { text: 'C# API 使用指南', link: '/zh-CN/integration/avalonia' },
     ],
   },
   {
@@ -54,8 +52,8 @@ const enSidebar = [
   {
     text: 'Integration',
     items: [
-      { text: 'Blender Integration', link: '/en/integration/blender' },
-      { text: 'Avalonia Integration', link: '/en/integration/avalonia' },
+      { text: 'Integration Guide', link: '/en/integration/' },
+      { text: 'C# API Usage Guide', link: '/en/integration/avalonia' },
     ],
   },
   {

@@ -1,97 +1,12 @@
-# Avalonia 集成
+# C# API 使用指南
 
-这条路径适合你已经有自己的 Avalonia 应用，想把 Blender 桥接能力接进去。
+本页说明 Avalonia 程序在 bridge 已经接通之后，如何通过 C# API 访问 Blender 数据和 operator。
 
-bridge SDK 支持两种运行模式：
+如果你还没有完成 Blender 侧与 Avalonia 侧的整体接线，请先看[集成指南](./index.md)。
 
-- `headless`：`frames + input + business`
-- `desktop-business`：只保留 `business`，由真实 Avalonia 桌面窗口承载
+## 可用能力
 
-## 当前分发方式
-
-目前仓库还没有发布 NuGet 包，所以需要你先本地构建 `BlenderAvaloniaBridge.Core`。
-
-## 1. 构建 SDK
-
-在仓库根目录运行：
-
-```powershell
-dotnet build .\src\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj -c Release --configfile .\NuGet.Config
-```
-
-构建产物默认位于：
-
-```text
-src\BlenderAvaloniaBridge.Core\bin\Release\net10.0\BlenderAvaloniaBridge.Core.dll
-```
-
-## 2. 选择集成方式
-
-推荐方式是直接项目引用：
-
-```xml
-<ItemGroup>
-  <ProjectReference Include="..\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj" />
-</ItemGroup>
-```
-
-如果你只是做临时接入，也可以直接引用编译后的 DLL。
-
-## 3. 选择 bridge 模式
-
-| 模式 | 窗口宿主 | Frames | Input | Business | 适用场景 |
-| --- | --- | --- | --- | --- | --- |
-| `headless` | Avalonia 无头运行时 | Yes | Yes | Yes | 需要 Blender 绘制 overlay 并转发输入 |
-| `desktop-business` | 真实 Avalonia 桌面窗口 | No | No | Yes | 保留真实 Avalonia 窗口，只交换业务数据 |
-
-模式通过 CLI bridge 参数显式选择，最终生效的 capability 会在 `init` / `init ack` 握手里确认。
-
-## 4. 修改入口代码
-
-推荐做法是在 `Program.cs` 中保留一套通用入口，根据 `WindowMode` 自动走不同分支。
-
-```csharp
-using Avalonia;
-using BlenderAvaloniaBridge;
-
-internal static class Program
-{
-    [STAThread]
-    public static async Task<int> Main(string[] args)
-    {
-        var launch = BlenderBridgeLauncher.TryParse(args);
-
-        if (launch.IsBridgeMode)
-        {
-            var options = launch.GetRequiredBridgeOptions();
-
-            if (options.WindowMode == BridgeWindowMode.Desktop)
-            {
-                DesktopBridgeLaunchContext.Configure(options);
-                BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
-                return 0;
-            }
-
-            await BlenderBridgeLauncher.RunBridgeAsync(
-                launch,
-                createBridgeWindow: () => new MainWindow());
-            return 0;
-        }
-
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
-        return 0;
-    }
-
-public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .LogToTrace();
-}
-```
-
-## 5. 使用内置 Blender 数据 API
-
-现在 bridge 会直接暴露一个 Path-first 的 `IBlenderDataApi`，它对应内置的 Blender 通用业务协议：
+bridge 会直接暴露一个 Path-first 的 `IBlenderDataApi`，它对应内置的 Blender 通用业务协议：
 
 - `rna.list`
 - `rna.get`
@@ -104,7 +19,9 @@ public static AppBuilder BuildAvaloniaApp()
 - `watch.unsubscribe`
 - `watch.read`
 
-对外的 C# 接口仍然保持常见读写足够直接：
+## 常用接口
+
+对外的 C# 接口保持为直接的读写与调用模型：
 
 ```csharp
 Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default);
@@ -125,6 +42,8 @@ Task<IAsyncDisposable> WatchAsync(
     Func<WatchDirtyEvent, Task> onDirty,
     CancellationToken cancellationToken = default);
 ```
+
+## 典型数据读写
 
 典型用法会尽量贴近 Blender Python API：
 
@@ -155,7 +74,9 @@ public sealed class MaterialService
 }
 ```
 
-operator 调用改成 tuple kwargs 加强类型 `contextOverride`，不再依赖匿名对象：
+## Operator 调用
+
+operator 调用使用 tuple kwargs 和强类型 `contextOverride`，不再依赖匿名对象：
 
 ```csharp
 await blender.CallOperatorAsync(
@@ -174,7 +95,9 @@ await blender.CallOperatorAsync(
     });
 ```
 
-`WatchAsync` 采用 socket 小事件加按需读取的模型。Blender 侧会发送轻量 `watch.dirty`，然后由 C# 侧决定是否执行 `ReadWatchAsync`、`GetAsync` 或 `ListAsync`。
+## Watch 订阅
+
+`WatchAsync` 采用轻量事件通知加按需读取的模型。Blender 侧会发送 `watch.dirty`，然后由 C# 侧决定是否执行 `ReadWatchAsync`、`GetAsync` 或 `ListAsync`。
 
 ```csharp
 await using var watch = await blender.WatchAsync(
@@ -188,7 +111,7 @@ await using var watch = await blender.WatchAsync(
     });
 ```
 
-## 6. AOT 与 trimming 说明
+## AOT 与 trimming 说明
 
 内置 business SDK 现在按严格 AOT-safe 设计：
 

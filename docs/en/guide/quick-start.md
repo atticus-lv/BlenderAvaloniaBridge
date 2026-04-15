@@ -1,5 +1,9 @@
 # Quick Start
 
+This page only covers how to run the sample that ships with this repository.
+
+If you want to integrate the bridge into an existing project, go to the [Integration Guide](../integration/index.md).
+
 ## 1. Publish the Avalonia Sample
 
 Make sure `.NET 10 SDK` is installed, then run this from the repository root:

@@ -1,98 +1,12 @@
-# Avalonia Integration
+# C# API Usage Guide
 
-Use this path when you already have your own Avalonia application and want to add Blender bridge support.
+This page explains how an Avalonia app can use the C# bridge API after the Blender-side and Avalonia-side integration is already connected.
 
-The bridge SDK supports two runtime modes:
+If you have not wired both sides together yet, start with the [Integration Guide](./index.md).
 
-- `headless`: `frames + input + business`
-- `desktop-business`: `business` only, hosted by a real Avalonia desktop window
+## Available capabilities
 
-## Current distribution model
-
-The repository does not publish a NuGet package yet, so you need to build `BlenderAvaloniaBridge.Core` locally first.
-
-## 1. Build the SDK
-
-Run this from the repository root:
-
-```powershell
-dotnet build .\src\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj -c Release --configfile .\NuGet.Config
-```
-
-The build output is placed at:
-
-```text
-src\BlenderAvaloniaBridge.Core\bin\Release\net10.0\BlenderAvaloniaBridge.Core.dll
-```
-
-## 2. Choose an integration style
-
-The recommended option is a project reference:
-
-```xml
-<ItemGroup>
-  <ProjectReference Include="..\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj" />
-</ItemGroup>
-```
-
-If you only need a temporary integration, you can also reference the built DLL directly.
-
-## 3. Choose a bridge mode
-
-| Mode | Window Host | Frames | Input | Business | Use when |
-| --- | --- | --- | --- | --- | --- |
-| `headless` | Avalonia headless runtime | Yes | Yes | Yes | You want Blender to draw an overlay and forward input |
-| `desktop-business` | Real Avalonia desktop window | No | No | Yes | You want to keep a real Avalonia window and only exchange business data |
-
-The mode is selected explicitly through CLI bridge arguments, and the final active capabilities are confirmed in the `init` / `init ack` handshake.
-
-## 4. Update your Program entry point
-
-The recommended approach is to keep one shared entry point in `Program.cs` and branch automatically by `WindowMode`.
-
-```csharp
-using Avalonia;
-using BlenderAvaloniaBridge;
-
-internal static class Program
-{
-    [STAThread]
-    public static async Task<int> Main(string[] args)
-    {
-        var launch = BlenderBridgeLauncher.TryParse(args);
-
-        if (launch.IsBridgeMode)
-        {
-            var options = launch.GetRequiredBridgeOptions();
-
-            if (options.WindowMode == BridgeWindowMode.Desktop)
-            {
-                DesktopBridgeLaunchContext.Configure(options);
-                BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
-                return 0;
-            }
-
-            await BlenderBridgeLauncher.RunBridgeAsync(
-                launch,
-                createBridgeWindow: () => new MainWindow());
-
-            return 0;
-        }
-
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(launch.AppArgs);
-        return 0;
-    }
-
-public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .LogToTrace();
-}
-```
-
-## 5. Use the built-in Blender data API
-
-The bridge now exposes a path-first `IBlenderDataApi` that maps directly to the built-in Blender business protocol:
+The bridge exposes a path-first `IBlenderDataApi` that maps directly to the built-in Blender business protocol:
 
 - `rna.list`
 - `rna.get`
@@ -105,7 +19,9 @@ The bridge now exposes a path-first `IBlenderDataApi` that maps directly to the 
 - `watch.unsubscribe`
 - `watch.read`
 
-The public C# surface keeps the common reads and writes simple:
+## Common surface area
+
+The public C# surface keeps common reads, writes, and calls direct:
 
 ```csharp
 Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default);
@@ -126,6 +42,8 @@ Task<IAsyncDisposable> WatchAsync(
     Func<WatchDirtyEvent, Task> onDirty,
     CancellationToken cancellationToken = default);
 ```
+
+## Typical data access
 
 Typical usage stays close to Blender's Python API:
 
@@ -156,6 +74,8 @@ public sealed class MaterialService
 }
 ```
 
+## Operator calls
+
 Operator calls use tuple kwargs and optional strongly typed context override data instead of anonymous objects:
 
 ```csharp
@@ -175,7 +95,9 @@ await blender.CallOperatorAsync(
     });
 ```
 
-`WatchAsync` uses socket events plus explicit reads. Blender sends a lightweight `watch.dirty` event, and your app decides when to call `ReadWatchAsync`, `GetAsync`, or `ListAsync` again.
+## Watch subscriptions
+
+`WatchAsync` uses lightweight socket events plus explicit reads. Blender sends `watch.dirty`, and your app decides when to call `ReadWatchAsync`, `GetAsync`, or `ListAsync` again.
 
 ```csharp
 await using var watch = await blender.WatchAsync(
@@ -189,7 +111,7 @@ await using var watch = await blender.WatchAsync(
     });
 ```
 
-## 6. AOT and trimming notes
+## AOT and trimming notes
 
 The built-in business SDK is designed to be AOT-safe:
 
