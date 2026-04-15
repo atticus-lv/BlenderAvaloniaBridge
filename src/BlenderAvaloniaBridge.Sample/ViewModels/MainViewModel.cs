@@ -1,7 +1,9 @@
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
+using Material.Icons;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
@@ -54,7 +56,11 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 
     public bool IsOperatorsPageSelected => ReferenceEquals(CurrentPage, _operatorsPage);
 
-    public string SidebarToggleText => IsSidebarOpen ? "<" : ">";
+    public StreamGeometry SidebarToggleIcon => StreamGeometry.Parse(
+        MaterialIconDataProvider.GetData(IsSidebarOpen
+            ? MaterialIconKind.AlignHorizontalRight
+            : MaterialIconKind.AlignHorizontalLeft));
+
 
     public void AttachBlenderApi(BlenderApi? blenderApi)
     {
@@ -76,7 +82,7 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
     private void ToggleSidebar()
     {
         IsSidebarOpen = !IsSidebarOpen;
-        OnPropertyChanged(nameof(SidebarToggleText));
+        OnPropertyChanged(nameof(SidebarToggleIcon));
     }
 
     [RelayCommand]

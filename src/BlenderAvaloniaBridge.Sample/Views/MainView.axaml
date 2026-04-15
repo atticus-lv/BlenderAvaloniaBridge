@@ -13,293 +13,296 @@
              d:DesignWidth="1180"
              d:DesignHeight="860"
              mc:Ignorable="d">
-  <UserControl.DataTemplates>
-    <DataTemplate DataType="pageViewModels:ButtonsDemoPageViewModel">
-      <pages:ButtonsDemoPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:SortableListDemoPageViewModel">
-      <pages:SortableListDemoPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:BlenderObjectsPageViewModel">
-      <pages:BlenderObjectsPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:LiveTransformPageViewModel">
-      <pages:LiveTransformPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:MaterialsPageViewModel">
-      <pages:MaterialsPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:CollectionsPageViewModel">
-      <pages:CollectionsPageView />
-    </DataTemplate>
-    <DataTemplate DataType="pageViewModels:OperatorsPageViewModel">
-      <pages:OperatorsPageView />
-    </DataTemplate>
-  </UserControl.DataTemplates>
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="pageViewModels:ButtonsDemoPageViewModel">
+            <pages:ButtonsDemoPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:SortableListDemoPageViewModel">
+            <pages:SortableListDemoPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:BlenderObjectsPageViewModel">
+            <pages:BlenderObjectsPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:LiveTransformPageViewModel">
+            <pages:LiveTransformPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:MaterialsPageViewModel">
+            <pages:MaterialsPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:CollectionsPageViewModel">
+            <pages:CollectionsPageView />
+        </DataTemplate>
+        <DataTemplate DataType="pageViewModels:OperatorsPageViewModel">
+            <pages:OperatorsPageView />
+        </DataTemplate>
+    </UserControl.DataTemplates>
 
-  <UserControl.Styles>
-    <StyleInclude Source="avares://BlenderAvaloniaBridge.Sample/Styles/MainViewStyles.axaml" />
-  </UserControl.Styles>
+    <UserControl.Styles>
+        <StyleInclude Source="avares://BlenderAvaloniaBridge.Sample/Styles/MainViewStyles.axaml" />
+    </UserControl.Styles>
 
-  <Border Padding="16"
-          Background="#FF0B1220">
-    <SplitView IsPaneOpen="{Binding IsSidebarOpen}"
-               DisplayMode="CompactInline"
-               CompactPaneLength="86"
-               OpenPaneLength="208"
-               PanePlacement="Left"
-               UseLightDismissOverlayMode="False"
-               PaneBackground="#FF0F172A">
-      <SplitView.Pane>
-        <Border Padding="14"
-                Background="#FF0F172A"
-                BorderBrush="#1E293B"
-                BorderThickness="0,0,1,0">
-          <Grid RowDefinitions="Auto,*,Auto"
-                RowSpacing="14">
-            <Button Classes="sidebar-toggle"
-                    Width="48"
-                    Height="48"
-                    HorizontalAlignment="Left"
-                    Content="{Binding SidebarToggleText}"
-                    Command="{Binding ToggleSidebarCommand}" />
+    <Border Padding="16"
+            Background="#FF0B1220">
+        <SplitView IsPaneOpen="{Binding IsSidebarOpen}"
+                   DisplayMode="CompactInline"
+                   CompactPaneLength="86"
+                   OpenPaneLength="208"
+                   PanePlacement="Left"
+                   UseLightDismissOverlayMode="False"
+                   PaneBackground="#FF0F172A">
+            <SplitView.Pane>
+                <Border Padding="14"
+                        Background="#FF0F172A"
+                        BorderBrush="#1E293B"
+                        BorderThickness="0,0,1,0">
+                    <Grid RowDefinitions="Auto,*,Auto"
+                          RowSpacing="14">
+                        <Button Classes="sidebar-toggle"
+                                Width="48"
+                                Height="48"
+                                HorizontalAlignment="Left"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Command="{Binding ToggleSidebarCommand}">
+                            <PathIcon Data="{Binding SidebarToggleIcon}"></PathIcon>
+                        </Button>
 
-            <StackPanel Grid.Row="1"
-                        Spacing="10">
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsButtonsPageSelected}"
-                      Command="{Binding ShowButtonsPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10">
-                      <TextBlock Text="UI"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFE2E8F0" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
+                        <StackPanel Grid.Row="1"
+                                    Spacing="10">
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsButtonsPageSelected}"
+                                    Command="{Binding ShowButtonsPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10">
+                                            <TextBlock Text="UI"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFE2E8F0" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Buttons" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsSortableListPageSelected}"
+                                    Command="{Binding ShowSortableListPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#164E63">
+                                            <TextBlock Text="DS"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFECFEFF" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="List Sort" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsBlenderObjectsPageSelected}"
+                                    Command="{Binding ShowBlenderObjectsPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#3F2A56">
+                                            <TextBlock Text="OB"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFF5F3FF" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Objects" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsLiveTransformPageSelected}"
+                                    Command="{Binding ShowLiveTransformPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#5B3147">
+                                            <TextBlock Text="LT"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFFDF2F8" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Live" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsMaterialsPageSelected}"
+                                    Command="{Binding ShowMaterialsPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#30554A">
+                                            <TextBlock Text="MT"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFF0FDFA" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Materials" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsCollectionsPageSelected}"
+                                    Command="{Binding ShowCollectionsPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#2F4A73">
+                                            <TextBlock Text="CL"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFF0F7FF" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Collections" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+
+                            <Button Classes="nav-button"
+                                    Classes.selected="{Binding IsOperatorsPageSelected}"
+                                    Command="{Binding ShowOperatorsPageCommand}">
+                                <Border Classes="nav-card"
+                                        CornerRadius="12"
+                                        Padding="10"
+                                        BorderThickness="1">
+                                    <Grid ColumnDefinitions="36,*"
+                                          ColumnSpacing="10">
+                                        <Border Classes="nav-badge"
+                                                Width="36"
+                                                Height="36"
+                                                CornerRadius="10"
+                                                Background="#6A4A1E">
+                                            <TextBlock Text="OP"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="Bold"
+                                                       Foreground="#FFFFF7ED" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    IsVisible="{Binding IsSidebarOpen}">
+                                            <TextBlock Classes="nav-title"
+                                                       Text="Operator Playground" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </StackPanel>
+
+                        <Border Grid.Row="2"
+                                Padding="12"
+                                Background="#101826"
+                                BorderBrush="#1E293B"
+                                BorderThickness="1"
+                                CornerRadius="12"
                                 IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Buttons" />
-                    </StackPanel>
-                  </Grid>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Current Page"
+                                           FontSize="11"
+                                           Foreground="#FF64748B" />
+                                <TextBlock Text="{Binding CurrentPageTitle}"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FFF8FAFC" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Border>
-              </Button>
+            </SplitView.Pane>
 
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsSortableListPageSelected}"
-                      Command="{Binding ShowSortableListPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#164E63">
-                      <TextBlock Text="DS"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFECFEFF" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="List Sort" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsBlenderObjectsPageSelected}"
-                      Command="{Binding ShowBlenderObjectsPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#3F2A56">
-                      <TextBlock Text="OB"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFF5F3FF" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Objects" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsLiveTransformPageSelected}"
-                      Command="{Binding ShowLiveTransformPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#5B3147">
-                      <TextBlock Text="LT"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFFDF2F8" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Live" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsMaterialsPageSelected}"
-                      Command="{Binding ShowMaterialsPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#30554A">
-                      <TextBlock Text="MT"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFF0FDFA" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Materials" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsCollectionsPageSelected}"
-                      Command="{Binding ShowCollectionsPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#2F4A73">
-                      <TextBlock Text="CL"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFF0F7FF" />
-                    </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Collections" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-
-              <Button Classes="nav-button"
-                      Classes.selected="{Binding IsOperatorsPageSelected}"
-                      Command="{Binding ShowOperatorsPageCommand}">
-                <Border Classes="nav-card"
-                        CornerRadius="12"
-                        Padding="10"
-                        BorderThickness="1">
-                  <Grid ColumnDefinitions="36,*"
-                        ColumnSpacing="10">
-                    <Border Classes="nav-badge"
-                            Width="36"
-                            Height="36"
-                            CornerRadius="10"
-                            Background="#6A4A1E">
-                      <TextBlock Text="OP"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 FontWeight="Bold"
-                                 Foreground="#FFFFF7ED" />
-                    </Border>
-                     <StackPanel Grid.Column="1"
-                                 IsVisible="{Binding IsSidebarOpen}">
-                       <TextBlock Classes="nav-title"
-                                  Text="Operator Playground" />
-                     </StackPanel>
-                  </Grid>
-                </Border>
-              </Button>
-            </StackPanel>
-
-            <Border Grid.Row="2"
-                    Padding="12"
-                    Background="#101826"
-                    BorderBrush="#1E293B"
+            <Border Margin="16,0,0,0"
+                    Background="#FF0F172A"
+                    BorderBrush="#111827"
                     BorderThickness="1"
-                    CornerRadius="12"
-                    IsVisible="{Binding IsSidebarOpen}">
-              <StackPanel Spacing="4">
-                <TextBlock Text="Current Page"
-                           FontSize="11"
-                           Foreground="#FF64748B" />
-                <TextBlock Text="{Binding CurrentPageTitle}"
-                           FontWeight="SemiBold"
-                           Foreground="#FFF8FAFC" />
-              </StackPanel>
+                    CornerRadius="18">
+                <TransitioningContentControl Content="{Binding CurrentPage}">
+                    <TransitioningContentControl.PageTransition>
+                        <animation:CrossFade Duration="0:0:0.25" />
+                    </TransitioningContentControl.PageTransition>
+                </TransitioningContentControl>
             </Border>
-          </Grid>
-        </Border>
-      </SplitView.Pane>
-
-      <Border Margin="16,0,0,0"
-              Background="#FF0F172A"
-              BorderBrush="#111827"
-              BorderThickness="1"
-              CornerRadius="18">
-        <TransitioningContentControl Content="{Binding CurrentPage}">
-          <TransitioningContentControl.PageTransition>
-            <animation:CrossFade Duration="0:0:0.25" />
-          </TransitioningContentControl.PageTransition>
-        </TransitioningContentControl>
-      </Border>
-    </SplitView>
-  </Border>
+        </SplitView>
+    </Border>
 </UserControl>
