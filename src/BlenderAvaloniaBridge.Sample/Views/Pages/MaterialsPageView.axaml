@@ -1,0 +1,108 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bridge="clr-namespace:BlenderAvaloniaBridge;assembly=BlenderAvaloniaBridge.Core"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.MaterialsPageView"
+             x:DataType="viewModels:MaterialsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="14">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Materials"
+                     FontSize="26"
+                     FontWeight="Bold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="Browse materials, create new ones, and observe list updates."
+                     FontSize="12"
+                     Foreground="#FF94A3B8" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Content="Refresh Materials"
+                Padding="14,8"
+                Command="{Binding RefreshMaterialsCommand}" />
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF172033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="10">
+          <TextBlock Text="Create"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBox Grid.Column="1"
+                   Text="{Binding NewMaterialName, Mode=TwoWay}" />
+          <Button Grid.Column="2"
+                  Content="New Material"
+                  Padding="14,8"
+                  Command="{Binding CreateMaterialCommand}" />
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF111B2D"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto,Auto"
+              RowSpacing="12">
+          <TextBlock Grid.Row="0"
+                     Text="Material"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <ComboBox Grid.Row="0"
+                    Grid.Column="1"
+                    ItemsSource="{Binding Materials}"
+                    SelectedItem="{Binding SelectedMaterial, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="bridge:RnaItemRef">
+                <TextBlock Text="{Binding Name}"
+                           Foreground="#FFF8FAFC" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock Grid.Row="1"
+                     Text="Name"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBox Grid.Row="1"
+                   Grid.Column="1"
+                   Text="{Binding MaterialName, Mode=TwoWay}"
+                   LostFocus="OnNameLostFocus"
+                   KeyDown="OnNameKeyDown" />
+
+          <TextBlock Grid.Row="2"
+                     Text="Use Nodes"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <CheckBox Grid.Row="2"
+                    Grid.Column="1"
+                    Content="Enable node tree"
+                    IsChecked="{Binding UseNodes, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF1D2432"
+              BorderBrush="#253449"
+              BorderThickness="1"
+              CornerRadius="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding StatusText}"
+                     FontWeight="SemiBold"
+                     Foreground="#FFFDE68A" />
+          <TextBlock Text="{Binding BridgeStatusText}"
+                     Foreground="#FFCBD5E1" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -8,7 +8,12 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 {
     private readonly ButtonsDemoPageViewModel _buttonsPage = new();
     private readonly SortableListDemoPageViewModel _sortableListPage = new();
-    private readonly BlenderInspectorPageViewModel _blenderPage = new();
+    private readonly BlenderObjectsPageViewModel _blenderObjectsPage = new();
+    private readonly LiveTransformPageViewModel _liveTransformPage = new();
+    private readonly MaterialsPageViewModel _materialsPage = new();
+    private readonly CollectionsPageViewModel _collectionsPage = new();
+    private readonly OperatorsPageViewModel _operatorsPage = new();
+    private readonly IBlenderSamplePageViewModel[] _blenderPages;
 
     [ObservableProperty]
     private bool _isSidebarOpen = true;
@@ -21,6 +26,15 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 
     public MainViewModel()
     {
+        _blenderPages =
+        [
+            _blenderObjectsPage,
+            _liveTransformPage,
+            _materialsPage,
+            _collectionsPage,
+            _operatorsPage,
+        ];
+
         _currentPage = _buttonsPage;
         _currentPageTitle = "Buttons + Checkbox";
     }
@@ -29,18 +43,32 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 
     public bool IsSortableListPageSelected => ReferenceEquals(CurrentPage, _sortableListPage);
 
-    public bool IsBlenderPageSelected => ReferenceEquals(CurrentPage, _blenderPage);
+    public bool IsBlenderObjectsPageSelected => ReferenceEquals(CurrentPage, _blenderObjectsPage);
+
+    public bool IsLiveTransformPageSelected => ReferenceEquals(CurrentPage, _liveTransformPage);
+
+    public bool IsMaterialsPageSelected => ReferenceEquals(CurrentPage, _materialsPage);
+
+    public bool IsCollectionsPageSelected => ReferenceEquals(CurrentPage, _collectionsPage);
+
+    public bool IsOperatorsPageSelected => ReferenceEquals(CurrentPage, _operatorsPage);
 
     public string SidebarToggleText => IsSidebarOpen ? "<" : ">";
 
     public void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi)
     {
-        _blenderPage.AttachBlenderDataApi(blenderDataApi);
+        foreach (var page in _blenderPages)
+        {
+            page.AttachBlenderDataApi(blenderDataApi);
+        }
     }
 
     public void SetBridgeStatus(string status)
     {
-        _blenderPage.SetBridgeStatus(status);
+        foreach (var page in _blenderPages)
+        {
+            page.SetBridgeStatus(status);
+        }
     }
 
     [RelayCommand]
@@ -63,21 +91,77 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
     }
 
     [RelayCommand]
-    private void ShowBlenderPage()
+    private void ShowBlenderObjectsPage()
     {
-        NavigateTo(_blenderPage, "Blender Bridge");
+        NavigateTo(_blenderObjectsPage, "Blender Objects");
+    }
+
+    [RelayCommand]
+    private void ShowLiveTransformPage()
+    {
+        NavigateTo(_liveTransformPage, "Live Transform");
+    }
+
+    [RelayCommand]
+    private void ShowMaterialsPage()
+    {
+        NavigateTo(_materialsPage, "Materials");
+    }
+
+    [RelayCommand]
+    private void ShowCollectionsPage()
+    {
+        NavigateTo(_collectionsPage, "Collections");
+    }
+
+    [RelayCommand]
+    private void ShowOperatorsPage()
+    {
+        NavigateTo(_operatorsPage, "Operators");
     }
 
     partial void OnCurrentPageChanged(ObservableObject value)
     {
         OnPropertyChanged(nameof(IsButtonsPageSelected));
         OnPropertyChanged(nameof(IsSortableListPageSelected));
-        OnPropertyChanged(nameof(IsBlenderPageSelected));
+        OnPropertyChanged(nameof(IsBlenderObjectsPageSelected));
+        OnPropertyChanged(nameof(IsLiveTransformPageSelected));
+        OnPropertyChanged(nameof(IsMaterialsPageSelected));
+        OnPropertyChanged(nameof(IsCollectionsPageSelected));
+        OnPropertyChanged(nameof(IsOperatorsPageSelected));
     }
 
     private void NavigateTo(ObservableObject page, string title)
     {
+        if (ReferenceEquals(CurrentPage, page))
+        {
+            CurrentPageTitle = title;
+            return;
+        }
+
+        var previousPage = CurrentPage;
         CurrentPage = page;
         CurrentPageTitle = title;
+        _ = TransitionPagesAsync(previousPage, page);
+    }
+
+    private static async Task TransitionPagesAsync(ObservableObject? previousPage, ObservableObject nextPage)
+    {
+        try
+        {
+            if (previousPage is IBlenderSamplePageViewModel previousBlenderPage)
+            {
+                await previousBlenderPage.DeactivateAsync();
+            }
+
+            if (nextPage is IBlenderSamplePageViewModel nextBlenderPage)
+            {
+                await nextBlenderPage.ActivateAsync();
+            }
+        }
+        catch
+        {
+            // Each page stores its own failure state, so navigation should remain resilient.
+        }
     }
 }

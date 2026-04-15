@@ -1,0 +1,145 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.LiveTransformPageView"
+             x:DataType="viewModels:LiveTransformPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="14">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Live Transform"
+                     FontSize="26"
+                     FontWeight="Bold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="Monitor object transform values and opt into a live watch stream."
+                     FontSize="12"
+                     Foreground="#FF94A3B8" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Content="Refresh Objects"
+                Padding="14,8"
+                Command="{Binding RefreshObjectsCommand}" />
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF172033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto,Auto"
+              RowSpacing="10">
+          <TextBlock Grid.Row="0"
+                     Text="Live Mode"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <CheckBox Grid.Row="0"
+                    Grid.Column="1"
+                    Content="Enable live watch"
+                    IsChecked="{Binding IsLiveWatchEnabled, Mode=TwoWay}"
+                    IsEnabled="{Binding CanEnableLiveWatch}" />
+
+          <TextBlock Grid.Row="1"
+                     Text="Object"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <ComboBox Grid.Row="1"
+                    Grid.Column="1"
+                    ItemsSource="{Binding Objects}"
+                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="viewModels:BlenderObjectListItem">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Text="{Binding Label}"
+                             Foreground="#FFF8FAFC" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding ObjectType}"
+                             Foreground="#FF94A3B8" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock Grid.Row="2"
+                     Text="Reference"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBlock Grid.Row="2"
+                     Grid.Column="1"
+                     Text="{Binding SelectedReferenceText}"
+                     TextWrapping="Wrap"
+                     Foreground="#FFFDE68A" />
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF111B2D"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto,Auto"
+              RowSpacing="12">
+          <TextBlock Grid.Row="0"
+                     Text="Location"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <Grid Grid.Row="0"
+                Grid.Column="1"
+                ColumnDefinitions="*,*,*"
+                ColumnSpacing="8">
+            <TextBox Grid.Column="0" Text="{Binding LocationX}" IsReadOnly="True" />
+            <TextBox Grid.Column="1" Text="{Binding LocationY}" IsReadOnly="True" />
+            <TextBox Grid.Column="2" Text="{Binding LocationZ}" IsReadOnly="True" />
+          </Grid>
+
+          <TextBlock Grid.Row="1"
+                     Text="Rotation Euler"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <Grid Grid.Row="1"
+                Grid.Column="1"
+                ColumnDefinitions="*,*,*"
+                ColumnSpacing="8">
+            <TextBox Grid.Column="0" Text="{Binding RotationX}" IsReadOnly="True" />
+            <TextBox Grid.Column="1" Text="{Binding RotationY}" IsReadOnly="True" />
+            <TextBox Grid.Column="2" Text="{Binding RotationZ}" IsReadOnly="True" />
+          </Grid>
+
+          <TextBlock Grid.Row="2"
+                     Text="Scale"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <Grid Grid.Row="2"
+                Grid.Column="1"
+                ColumnDefinitions="*,*,*"
+                ColumnSpacing="8">
+            <TextBox Grid.Column="0" Text="{Binding ScaleX}" IsReadOnly="True" />
+            <TextBox Grid.Column="1" Text="{Binding ScaleY}" IsReadOnly="True" />
+            <TextBox Grid.Column="2" Text="{Binding ScaleZ}" IsReadOnly="True" />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Padding="14"
+              Background="#FF1D2432"
+              BorderBrush="#253449"
+              BorderThickness="1"
+              CornerRadius="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding StatusText}"
+                     FontWeight="SemiBold"
+                     Foreground="#FFFDE68A" />
+          <TextBlock Text="{Binding BridgeStatusText}"
+                     Foreground="#FFCBD5E1" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

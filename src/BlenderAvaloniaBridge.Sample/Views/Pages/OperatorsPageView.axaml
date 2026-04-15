@@ -1,0 +1,169 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.OperatorsPageView"
+             x:DataType="viewModels:OperatorsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="14">
+      <Grid ColumnDefinitions="*,Auto,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Operators"
+                     FontSize="26"
+                     FontWeight="Bold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="Preview poll state and run a few common operator workflows."
+                     FontSize="12"
+                     Foreground="#FF94A3B8" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Content="Refresh Objects"
+                Padding="14,8"
+                Command="{Binding RefreshObjectsCommand}" />
+        <Button Grid.Column="2"
+                Content="Refresh Poll"
+                Padding="14,8"
+                Command="{Binding RefreshPollCommand}" />
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF172033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto"
+              RowSpacing="10">
+          <TextBlock Grid.Row="0"
+                     Text="Selection"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <ComboBox Grid.Row="0"
+                    Grid.Column="1"
+                    ItemsSource="{Binding Objects}"
+                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="viewModels:BlenderObjectListItem">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
+                  <TextBlock Text="{Binding Label}"
+                             Foreground="#FFF8FAFC" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding ObjectType}"
+                             Foreground="#FF94A3B8" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock Grid.Row="1"
+                     Text="Reference"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="1"
+                     Text="{Binding SelectedReferenceText}"
+                     TextWrapping="Wrap"
+                     Foreground="#FFFDE68A" />
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*"
+            ColumnSpacing="12">
+        <Border Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Add Cube"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <TextBlock Text="{Binding AddCubePollText}"
+                       TextWrapping="Wrap"
+                       Foreground="#FFE2E8F0" />
+            <Button Content="mesh.primitive_cube_add"
+                    Command="{Binding AddCubeCommand}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Duplicate"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <TextBlock Text="{Binding DuplicatePollText}"
+                       TextWrapping="Wrap"
+                       Foreground="#FFE2E8F0" />
+            <Button Content="object.duplicate_move"
+                    Command="{Binding DuplicateCommand}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,*"
+            ColumnSpacing="12">
+        <Border Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="View Selected"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <TextBlock Text="{Binding ViewSelectedPollText}"
+                       TextWrapping="Wrap"
+                       Foreground="#FFE2E8F0" />
+            <Button Content="view3d.view_selected"
+                    Command="{Binding ViewSelectedCommand}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Delete Selected"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <TextBlock Text="{Binding DeletePollText}"
+                       TextWrapping="Wrap"
+                       Foreground="#FFE2E8F0" />
+            <Button Content="object.delete"
+                    Command="{Binding DeleteSelectedCommand}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF1D2432"
+              BorderBrush="#253449"
+              BorderThickness="1"
+              CornerRadius="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding StatusText}"
+                     FontWeight="SemiBold"
+                     Foreground="#FFFDE68A" />
+          <TextBlock Text="{Binding BridgeStatusText}"
+                     Foreground="#FFCBD5E1" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

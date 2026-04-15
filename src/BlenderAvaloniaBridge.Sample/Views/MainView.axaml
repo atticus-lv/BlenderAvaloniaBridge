@@ -12,8 +12,20 @@
     <DataTemplate DataType="viewModels:SortableListDemoPageViewModel">
       <pages:SortableListDemoPageView />
     </DataTemplate>
-    <DataTemplate DataType="viewModels:BlenderInspectorPageViewModel">
-      <pages:BlenderInspectorPageView />
+    <DataTemplate DataType="viewModels:BlenderObjectsPageViewModel">
+      <pages:BlenderObjectsPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:LiveTransformPageViewModel">
+      <pages:LiveTransformPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:MaterialsPageViewModel">
+      <pages:MaterialsPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:CollectionsPageViewModel">
+      <pages:CollectionsPageView />
+    </DataTemplate>
+    <DataTemplate DataType="viewModels:OperatorsPageViewModel">
+      <pages:OperatorsPageView />
     </DataTemplate>
   </UserControl.DataTemplates>
 
@@ -111,7 +123,7 @@
               </Button>
 
               <Button Classes="nav-button"
-                      Command="{Binding ShowBlenderPageCommand}">
+                      Command="{Binding ShowBlenderObjectsPageCommand}">
                 <Border CornerRadius="12"
                         Padding="10"
                         Background="#101826">
@@ -129,7 +141,115 @@
                     </Border>
                     <StackPanel Grid.Column="1"
                                 IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Text="Blender"
+                      <TextBlock Text="Objects"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowLiveTransformPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#5B3147">
+                      <TextBlock Text="04"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFFDF2F8" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Live"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowMaterialsPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#30554A">
+                      <TextBlock Text="05"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFF0FDFA" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Materials"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowCollectionsPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#2F4A73">
+                      <TextBlock Text="06"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFF0F7FF" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Collections"
+                                 FontWeight="SemiBold"
+                                 Foreground="#FFF8FAFC" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Button>
+
+              <Button Classes="nav-button"
+                      Command="{Binding ShowOperatorsPageCommand}">
+                <Border CornerRadius="12"
+                        Padding="10"
+                        Background="#101826">
+                  <Grid ColumnDefinitions="36,*"
+                        ColumnSpacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            CornerRadius="10"
+                            Background="#6A4A1E">
+                      <TextBlock Text="07"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 FontWeight="Bold"
+                                 Foreground="#FFFFF7ED" />
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                IsVisible="{Binding IsSidebarOpen}">
+                      <TextBlock Text="Operators"
                                  FontWeight="SemiBold"
                                  Foreground="#FFF8FAFC" />
                     </StackPanel>

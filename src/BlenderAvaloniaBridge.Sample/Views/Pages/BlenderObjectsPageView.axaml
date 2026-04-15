@@ -1,19 +1,19 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
-             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.BlenderInspectorPageView"
-             x:DataType="viewModels:BlenderInspectorPageViewModel">
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.BlenderObjectsPageView"
+             x:DataType="viewModels:BlenderObjectsPageViewModel">
   <ScrollViewer>
     <StackPanel Margin="22"
                 Spacing="14">
       <Grid ColumnDefinitions="*,Auto"
             ColumnSpacing="12">
         <StackPanel Spacing="4">
-          <TextBlock Text="Object Inspector"
+          <TextBlock Text="Blender Objects"
                      FontSize="26"
                      FontWeight="Bold"
                      Foreground="#FFF8FAFC" />
-          <TextBlock Text="Current Blender bridge homepage, now hosted as its own page view."
+          <TextBlock Text="Browse scene objects and edit a few core RNA properties."
                      FontSize="12"
                      Foreground="#FF94A3B8" />
         </StackPanel>
@@ -40,8 +40,7 @@
           <ComboBox Grid.Row="0"
                     Grid.Column="1"
                     ItemsSource="{Binding Objects}"
-                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}"
-                    SelectionChanged="OnObjectSelectionChanged">
+                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="viewModels:BlenderObjectListItem">
                 <Grid ColumnDefinitions="*,Auto"
@@ -108,35 +107,6 @@
                      LostFocus="OnLocationLostFocus"
                      KeyDown="OnLocationKeyDown" />
           </Grid>
-        </Grid>
-      </Border>
-
-      <Border Padding="14"
-              Background="#FF0B1321"
-              BorderBrush="#223148"
-              BorderThickness="1"
-              CornerRadius="12">
-        <Grid RowDefinitions="Auto,Auto,*"
-              RowSpacing="12">
-          <TextBlock Text="Operators"
-                     FontSize="16"
-                     FontWeight="SemiBold"
-                     Foreground="#FFF8FAFC" />
-
-          <WrapPanel Grid.Row="1"
-                     Orientation="Horizontal"
-                     ItemWidth="150"
-                     ItemHeight="42">
-            <Button Content="Add Cube"
-                    Margin="0,0,10,10"
-                    Command="{Binding AddCubeCommand}" />
-            <Button Content="Duplicate"
-                    Margin="0,0,10,10"
-                    Command="{Binding DuplicateCommand}" />
-            <Button Content="View Selected"
-                    Margin="0,0,10,10"
-                    Command="{Binding ViewSelectedCommand}" />
-          </WrapPanel>
         </Grid>
       </Border>
 

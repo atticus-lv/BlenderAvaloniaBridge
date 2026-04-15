@@ -6,24 +6,16 @@ using BlenderAvaloniaBridge.Sample.ViewModels;
 
 namespace BlenderAvaloniaBridge.Sample.Views.Pages;
 
-public sealed partial class BlenderInspectorPageView : UserControl
+public sealed partial class BlenderObjectsPageView : UserControl
 {
-    public BlenderInspectorPageView()
+    public BlenderObjectsPageView()
     {
         InitializeComponent();
     }
 
-    private void OnObjectSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (DataContext is BlenderInspectorPageViewModel viewModel)
-        {
-            _ = viewModel.SelectionChangedAsync();
-        }
-    }
-
     private void OnNameLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BlenderInspectorPageViewModel viewModel)
+        if (DataContext is BlenderObjectsPageViewModel viewModel)
         {
             _ = viewModel.CommitNameAsync();
         }
@@ -31,7 +23,7 @@ public sealed partial class BlenderInspectorPageView : UserControl
 
     private void OnNameKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && DataContext is BlenderInspectorPageViewModel viewModel)
+        if (e.Key == Key.Enter && DataContext is BlenderObjectsPageViewModel viewModel)
         {
             _ = viewModel.CommitNameAsync();
         }
@@ -39,7 +31,7 @@ public sealed partial class BlenderInspectorPageView : UserControl
 
     private void OnLocationLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BlenderInspectorPageViewModel viewModel)
+        if (DataContext is BlenderObjectsPageViewModel viewModel)
         {
             _ = viewModel.CommitLocationAsync();
         }
@@ -47,7 +39,7 @@ public sealed partial class BlenderInspectorPageView : UserControl
 
     private void OnLocationKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && DataContext is BlenderInspectorPageViewModel viewModel)
+        if (e.Key == Key.Enter && DataContext is BlenderObjectsPageViewModel viewModel)
         {
             _ = viewModel.CommitLocationAsync();
         }

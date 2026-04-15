@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bridge="clr-namespace:BlenderAvaloniaBridge;assembly=BlenderAvaloniaBridge.Core"
+             xmlns:viewModels="clr-namespace:BlenderAvaloniaBridge.Sample.ViewModels"
+             x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.CollectionsPageView"
+             x:DataType="viewModels:CollectionsPageViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="22"
+                Spacing="14">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Collections"
+                     FontSize="26"
+                     FontWeight="Bold"
+                     Foreground="#FFF8FAFC" />
+          <TextBlock Text="Inspect collection hierarchies and linked object membership."
+                     FontSize="12"
+                     Foreground="#FF94A3B8" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Content="Refresh Collections"
+                Padding="14,8"
+                Command="{Binding RefreshCollectionsCommand}" />
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF172033"
+              BorderBrush="#223148"
+              BorderThickness="1"
+              CornerRadius="12">
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12">
+          <TextBlock Text="Collection"
+                     VerticalAlignment="Center"
+                     Foreground="#FFCBD5E1" />
+          <ComboBox Grid.Column="1"
+                    ItemsSource="{Binding Collections}"
+                    SelectedItem="{Binding SelectedCollection, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="bridge:RnaItemRef">
+                <TextBlock Text="{Binding Name}"
+                           Foreground="#FFF8FAFC" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,*"
+            ColumnSpacing="12">
+        <Border Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Child Collections"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <ListBox ItemsSource="{Binding ChildCollections}"
+                     Height="260">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="bridge:RnaItemRef">
+                  <TextBlock Text="{Binding Name}"
+                             Foreground="#FFE2E8F0" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Padding="14"
+                Background="#FF111B2D"
+                BorderBrush="#223148"
+                BorderThickness="1"
+                CornerRadius="12">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Objects"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#FFF8FAFC" />
+            <ListBox ItemsSource="{Binding CollectionObjects}"
+                     Height="260">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="bridge:RnaItemRef">
+                  <TextBlock Text="{Binding Name}"
+                             Foreground="#FFE2E8F0" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Border Padding="14"
+              Background="#FF1D2432"
+              BorderBrush="#253449"
+              BorderThickness="1"
+              CornerRadius="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding StatusText}"
+                     FontWeight="SemiBold"
+                     Foreground="#FFFDE68A" />
+          <TextBlock Text="{Binding BridgeStatusText}"
+                     Foreground="#FFCBD5E1" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
