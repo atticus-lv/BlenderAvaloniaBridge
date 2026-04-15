@@ -113,6 +113,16 @@ def wheel_delta(event_type: str) -> tuple[float, float]:
     return 0.0, 0.0
 
 
+def mouse_button_name(event_type: str) -> str | None:
+    if event_type == "LEFTMOUSE":
+        return "left"
+    if event_type == "RIGHTMOUSE":
+        return "right"
+    if event_type == "MIDDLEMOUSE":
+        return "middle"
+    return None
+
+
 class InputRouter:
     def __init__(self, controller: "BridgeController") -> None:
         self._controller = controller
@@ -125,7 +135,8 @@ class InputRouter:
         inside = contains_content_point(rect, x, y)
         in_title_bar = contains_title_bar(rect, x, y)
         modifiers = modifiers_from_event(event)
-        pointer_event_types = {"MOUSEMOVE", "LEFTMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"}
+        button = mouse_button_name(event.type)
+        pointer_event_types = {"MOUSEMOVE", "LEFTMOUSE", "RIGHTMOUSE", "MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE"}
 
         if event.type == "LEFTMOUSE" and event.value == "PRESS" and in_title_bar:
             if controller.capture_input:
@@ -157,28 +168,28 @@ class InputRouter:
         if event.type in pointer_event_types:
             controller._sync_hover_capture(inside)
 
-        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+        if button is not None and event.value == "PRESS":
             if inside:
                 px, py = to_avalonia_coords(rect, x, y)
                 controller._flush_pointer_move()
                 sent = controller.send_message(
-                    {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": "left", "modifiers": modifiers}
+                    {"type": "pointer_down", "seq": 3, "x": px, "y": py, "button": button, "modifiers": modifiers}
                 )
                 if sent:
-                    controller._left_button_forwarded = True
+                    controller._forwarded_buttons.add(button)
                 controller._replace_state(last_message=f"PointerDown {px},{py}")
                 controller.tag_redraw()
                 return True
             return False
 
-        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and (
-                controller.capture_input or controller._left_button_forwarded):
+        if button is not None and event.value == "RELEASE" and (
+                controller.capture_input or button in controller._forwarded_buttons):
             px, py = to_avalonia_coords(rect, x, y)
             controller._flush_pointer_move()
             controller.send_message(
-                {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": "left", "modifiers": modifiers}
+                {"type": "pointer_up", "seq": 5, "x": px, "y": py, "button": button, "modifiers": modifiers}
             )
-            controller._left_button_forwarded = False
+            controller._forwarded_buttons.discard(button)
             controller._replace_state(last_message=f"PointerUp {px},{py}")
             controller.tag_redraw()
             return True

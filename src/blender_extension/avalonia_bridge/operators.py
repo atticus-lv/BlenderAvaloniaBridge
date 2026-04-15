@@ -50,6 +50,7 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
     bl_idname = "avalonia_bridge.ui_bridge_modal"
     bl_label = "AvaloniaBridgeDemo UI Modal"
     bl_description = "Capture mouse and keyboard input for the Avalonia bridge"
+    bl_options = {"BLOCKING"}
 
     _running = False
     _timer = None
@@ -65,6 +66,14 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
     def modal(self, context, event):
         runtime = get_runtime()
         state = context.window_manager.avalonia_bridge_state
+        capture_sensitive_events = {
+            "MOUSEMOVE",
+            "LEFTMOUSE",
+            "RIGHTMOUSE",
+            "MIDDLEMOUSE",
+            "WHEELUPMOUSE",
+            "WHEELDOWNMOUSE",
+        }
         if not state.process_running:
             self.cancel(context)
             return {"CANCELLED"}
@@ -76,6 +85,8 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
         if context.area and context.area.type == "VIEW_3D":
             handled = runtime.handle_event(context, event)
             if handled:
+                return {"RUNNING_MODAL"}
+            if state.capture_input and event.type in capture_sensitive_events:
                 return {"RUNNING_MODAL"}
 
         return {"PASS_THROUGH"}

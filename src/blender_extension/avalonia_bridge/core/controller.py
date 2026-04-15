@@ -83,7 +83,7 @@ class BridgeController:
         self._business_lock = threading.Lock()
         self._diagnostics: DiagnosticsRecorder = DiagnosticsRecorder(now_ms=self._now_ms)
         self._drag_state: DragState | None = None
-        self._left_button_forwarded = False
+        self._forwarded_buttons: set[str] = set()
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
@@ -161,7 +161,7 @@ class BridgeController:
         self.capture_input = False
         self._pending_pointer_move = None
         self._drag_state = None
-        self._left_button_forwarded = False
+        self._forwarded_buttons.clear()
         with self._business_lock:
             self._pending_business_packets.clear()
         self._replace_state(
@@ -205,7 +205,7 @@ class BridgeController:
         with self._business_lock:
             self._pending_business_packets.clear()
         self._drag_state = None
-        self._left_button_forwarded = False
+        self._forwarded_buttons.clear()
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
@@ -346,7 +346,7 @@ class BridgeController:
     def _on_disconnect(self):
         self.capture_input = False
         self._pending_pointer_move = None
-        self._left_button_forwarded = False
+        self._forwarded_buttons.clear()
         self._remote_window_mode = "unknown"
         self._remote_supports_business = bool(getattr(self._config, "supports_business", True))
         self._remote_supports_frames = bool(getattr(self._config, "supports_frames", True))
@@ -507,7 +507,7 @@ class BridgeController:
             message = f"Avalonia exited ({return_code})"
         self.capture_input = False
         self._pending_pointer_move = None
-        self._left_button_forwarded = False
+        self._forwarded_buttons.clear()
         self._replace_state(
             process_running=False,
             connected=False,
