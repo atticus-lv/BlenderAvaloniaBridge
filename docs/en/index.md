@@ -1,6 +1,7 @@
 ---
 title: Blender Avalonia Bridge Docs
 layout: home
+pageClass: home-hero-visual
 
 hero:
   name: Blender Avalonia Bridge

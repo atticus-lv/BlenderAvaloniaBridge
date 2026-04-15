@@ -1,3 +1,83 @@
 .VPNavBarTitle {
   display: none;
 }
+
+.home-hero-visual .VPHero {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero-visual .VPHero .container {
+  position: relative;
+  isolation: isolate;
+}
+
+.home-hero-visual .VPHero .container::after {
+  content: "";
+  position: absolute;
+  top: -36px;
+  right: 0;
+  bottom: -28px;
+  width: min(52vw, 760px);
+  z-index: 0;
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, rgba(9, 14, 26, 0.72), rgba(9, 14, 26, 0.52)),
+    url("/statics/images/mat.png") 72% center / cover no-repeat;
+  opacity: 0.5;
+  filter: saturate(0.9);
+  pointer-events: none;
+}
+
+.home-hero-visual .VPHero .main {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+}
+
+.doc-image-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 28px;
+}
+
+.doc-image-row img {
+  width: 100%;
+  border-radius: 16px;
+}
+
+.doc-image-card {
+  margin: 0;
+}
+
+.doc-image-card figcaption {
+  margin-top: 8px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.home-hero-visual .VPHero .actions,
+.home-hero-visual .VPHero .tagline,
+.home-hero-visual .VPHero .text,
+.home-hero-visual .VPHero .name {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 960px) {
+  .home-hero-visual .VPHero .container::after {
+    top: -20px;
+    right: 0;
+    bottom: -20px;
+    width: 100%;
+    opacity: 0.5;
+    background-position: 78% center;
+  }
+
+  .doc-image-row {
+    grid-template-columns: 1fr;
+  }
+}
