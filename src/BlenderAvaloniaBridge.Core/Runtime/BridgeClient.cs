@@ -40,7 +40,7 @@ internal sealed class BridgeClient
         _diagnostics = diagnostics;
         _sharedFrameWriterFactory = sharedFrameWriterFactory ?? SharedFrameWriterFactory.Instance;
         _frameScheduler = new FrameDispatchScheduler(_options.ActiveFrameInterval, _options.IdleHeartbeatInterval);
-        _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessEnvelopeAsync);
+        _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessPacketAsync);
         _blenderApi = new BlenderApi(_businessEndpoint, _options.Api);
         if (_uiSession.SupportsFrames)
         {
@@ -138,11 +138,12 @@ internal sealed class BridgeClient
         _sharedMemoryWriter = _sharedFrameWriterFactory.Create(envelope.SharedMemoryName, _sharedFrameSize, _sharedSlotCount);
     }
 
-    private async Task ApplyEnvelopeAsync(ProtocolEnvelope envelope)
+    private async Task ApplyPacketAsync(ProtocolPacket packet)
     {
+        var envelope = packet.Header;
         if (IsBusinessResponse(envelope))
         {
-            _businessEndpoint.HandleResponse(envelope);
+            _businessEndpoint.HandleResponse(envelope, packet.Payload);
             await _uiSession.NotifyBusinessUiActivityAsync();
             NotifyBusinessUiActivity();
             return;
@@ -300,9 +301,9 @@ internal sealed class BridgeClient
         }
     }
 
-    private Task WriteBusinessEnvelopeAsync(ProtocolEnvelope envelope, CancellationToken cancellationToken)
+    private Task WriteBusinessPacketAsync(ProtocolPacket packet, CancellationToken cancellationToken)
     {
-        return WritePacketAsync(ProtocolPacket.CreateControl(envelope), cancellationToken);
+        return WritePacketAsync(packet, cancellationToken);
     }
 
     private async Task RunMessageLoopWithFramesAsync(CancellationToken cancellationToken)
@@ -315,7 +316,7 @@ internal sealed class BridgeClient
                 break;
             }
 
-            await ApplyEnvelopeAsync(packet.Header);
+            await ApplyPacketAsync(packet);
             lock (_frameSchedulerGate)
             {
                 _frameScheduler.NotifyMessageApplied(packet.Header, DateTimeOffset.UtcNow);
@@ -473,7 +474,7 @@ internal sealed class BridgeClient
                 break;
             }
 
-            await ApplyEnvelopeAsync(packet.Header);
+            await ApplyPacketAsync(packet);
         }
     }
 }

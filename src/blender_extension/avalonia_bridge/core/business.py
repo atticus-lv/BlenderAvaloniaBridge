@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import threading
 import weakref
 from collections.abc import Callable
@@ -68,6 +69,7 @@ class BusinessResponse:
     ok: bool
     payload: object | None = None
     error: BusinessError | None = None
+    raw_payload: bytes = b""
 
     def to_header(self) -> JsonObject:
         payload = {
@@ -119,6 +121,7 @@ class BusinessRequest:
         payload: object | None = None,
         ok: bool = True,
         error: BusinessError | None = None,
+        raw_payload: bytes = b"",
         protocol_version: int = PROTOCOL_VERSION,
         schema_version: int = SCHEMA_VERSION,
         message_id: int = 0,
@@ -131,6 +134,7 @@ class BusinessRequest:
             ok=ok,
             payload=payload,
             error=error,
+            raw_payload=raw_payload,
         )
 
     @classmethod
@@ -152,6 +156,7 @@ class BusinessEndpoint:
 def _success_response(
     reply_to: int,
     payload: object | None = None,
+    raw_payload: bytes = b"",
     *,
     protocol_version: int = PROTOCOL_VERSION,
     schema_version: int = SCHEMA_VERSION,
@@ -164,6 +169,7 @@ def _success_response(
         reply_to=reply_to,
         ok=True,
         payload=payload,
+        raw_payload=raw_payload,
     )
 
 
@@ -434,6 +440,84 @@ def _array_length(property_definition: object | None, value: object) -> int | No
     return len(sequence_items) if sequence_items is not None else None
 
 
+def _array_value_type(property_definition: object | None) -> str | None:
+    property_type = getattr(property_definition, "type", None)
+    if property_type == "BOOLEAN":
+        return "bool"
+    if property_type == "INT":
+        return "int32"
+    if property_type == "FLOAT":
+        return "float32"
+    return None
+
+
+def _preview_shape(resolver: PathResolver, path: str) -> list[int] | None:
+    size_path = None
+    if path.endswith(".preview.icon_pixels"):
+        size_path = f"{path[: -len('icon_pixels')]}icon_size"
+    elif path.endswith(".preview.icon_pixels_float"):
+        size_path = f"{path[: -len('icon_pixels_float')]}icon_size"
+    elif path.endswith(".preview.image_pixels"):
+        size_path = f"{path[: -len('image_pixels')]}image_size"
+    elif path.endswith(".preview.image_pixels_float"):
+        size_path = f"{path[: -len('image_pixels_float')]}image_size"
+
+    if size_path is None:
+        return None
+
+    try:
+        size = resolver.resolve(size_path).value
+    except Exception:
+        return None
+
+    flattened = _flatten_scalar_sequence(size)
+    if flattened is None or len(flattened) < 2:
+        return None
+
+    width = int(flattened[0])
+    height = int(flattened[1])
+    if width <= 0 or height <= 0:
+        return None
+    return [height, width, 4]
+
+
+def _is_preview_packed_pixel_path(path: str) -> bool:
+    return path.endswith(".preview.icon_pixels") or path.endswith(".preview.image_pixels")
+
+
+def _foreach_get_sequence(value: object, count: int, element_type: str) -> list[bool | int | float] | None:
+    foreach_get = _safe_getattr(value, "foreach_get")
+    if not callable(foreach_get) or count <= 0:
+        return None
+
+    template: list[bool | int | float]
+    if element_type == "float32":
+        template = [0.0] * count
+    elif element_type == "bool":
+        template = [False] * count
+    else:
+        template = [0] * count
+
+    try:
+        foreach_get(template)
+    except Exception:
+        return None
+
+    return template
+
+
+def _encode_array_payload(values: list[bool | int | float], element_type: str) -> bytes:
+    if element_type == "bool":
+        return bytes(1 if bool(item) else 0 for item in values)
+    if element_type == "int32":
+        return struct.pack(f"<{len(values)}i", *(int(item) for item in values)) if values else b""
+    if element_type == "float32":
+        return struct.pack(f"<{len(values)}f", *(float(item) for item in values)) if values else b""
+    if element_type == "uint8":
+        return bytes(max(0, min(255, int(item))) for item in values)
+    raise ValueError(f"Unsupported array element type: {element_type}")
+
+
 def _subtype(property_definition: object | None) -> str | None:
     subtype = getattr(property_definition, "subtype", None)
     return str(subtype) if subtype not in (None, "", "NONE") else None
@@ -572,6 +656,46 @@ class RnaService:
             "rnaType": _rna_type(resolved.parent) if resolved.parent is not None else _rna_type(resolved.value),
             "arrayLength": _array_length(property_definition, resolved.value),
         }
+
+    def read_array(self, path: str) -> tuple[JsonObject, bytes]:
+        resolved = self._resolver.resolve(path)
+        property_definition = _property_definition(resolved)
+        if property_definition is None or not bool(getattr(property_definition, "is_array", False)):
+            raise ValueError(f"Path '{path}' is not an array property.")
+
+        property_type = getattr(property_definition, "type", None)
+        if property_type in {"POINTER", "COLLECTION", "ENUM", "STRING"}:
+            raise ValueError(f"Path '{path}' does not support binary array reads.")
+
+        preview_shape = _preview_shape(self._resolver, path)
+        element_type = "uint8" if _is_preview_packed_pixel_path(path) else _array_value_type(property_definition)
+        if element_type is None:
+            raise ValueError(f"Path '{path}' does not support binary array reads.")
+
+        count = _array_length(property_definition, resolved.value)
+        if preview_shape is not None:
+            count = preview_shape[0] * preview_shape[1] * preview_shape[2]
+        if count is None:
+            flattened = _flatten_scalar_sequence(resolved.value)
+        else:
+            flattened = _foreach_get_sequence(resolved.value, count, element_type) or _flatten_scalar_sequence(resolved.value)
+
+        if flattened is None:
+            raise ValueError(f"Path '{path}' could not be flattened into a numeric array.")
+
+        count = len(flattened)
+        payload = _encode_array_payload(flattened, element_type)
+        return (
+            {
+                "path": path,
+                "rnaType": _rna_type(resolved.parent) if resolved.parent is not None else _rna_type(resolved.value),
+                "valueType": "array_buffer",
+                "elementType": element_type,
+                "count": count,
+                "shape": preview_shape or [count],
+            },
+            payload,
+        )
 
     def set(self, path: str, value: object) -> JsonObject:
         resolved = self._resolver.resolve(path)
@@ -922,9 +1046,15 @@ class BusinessDispatcher(BusinessEndpoint):
                 schema_version=request.schema_version,
             )
 
+        response_body = response_payload
+        raw_payload = b""
+        if isinstance(response_payload, tuple):
+            response_body, raw_payload = response_payload
+
         return _success_response(
             request.message_id,
-            payload=response_payload,
+            payload=response_body,
+            raw_payload=raw_payload,
             protocol_version=request.protocol_version,
             schema_version=request.schema_version,
         )
@@ -934,6 +1064,8 @@ class BusinessDispatcher(BusinessEndpoint):
             return self._rna.list(_require_str(payload, "path"))
         if name == "rna.get":
             return self._rna.get(_require_str(payload, "path"))
+        if name == "rna.read_array":
+            return self._rna.read_array(_require_str(payload, "path"))
         if name == "rna.set":
             if "value" not in payload:
                 raise ValueError("rna.set expects value.")
@@ -985,7 +1117,7 @@ class DefaultBusinessEndpoint(BusinessDispatcher):
 
 
 class BusinessBridgeHandler:
-    def handle_packet(self, header: JsonObject, payload: object) -> JsonObject:
+    def handle_packet(self, header: JsonObject, payload: object) -> tuple[JsonObject, bytes]:
         raise NotImplementedError
 
 
@@ -993,10 +1125,10 @@ class EndpointBusinessBridgeHandler(BusinessBridgeHandler):
     def __init__(self, endpoint: BusinessEndpoint | None = None) -> None:
         self.endpoint = endpoint or DefaultBusinessEndpoint()
 
-    def handle_packet(self, header: JsonObject, payload: object) -> JsonObject:
+    def handle_packet(self, header: JsonObject, payload: object) -> tuple[JsonObject, bytes]:
         request = BusinessRequest.from_header(header)
         response = self.endpoint.invoke(request)
-        return response.to_header()
+        return response.to_header(), response.raw_payload
 
 
 class DefaultBusinessBridgeHandler(EndpointBusinessBridgeHandler):

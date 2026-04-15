@@ -1,6 +1,7 @@
 import types
 import unittest
 import sys
+import struct
 
 from _test_support import import_module
 
@@ -16,6 +17,18 @@ class _RecordingBusinessEndpoint:
             payload={"ok": True},
             protocol_version=request.protocol_version,
             schema_version=request.schema_version,
+        )
+
+
+class _BinaryRecordingBusinessEndpoint(_RecordingBusinessEndpoint):
+    def invoke(self, request):
+        self.calls.append(request)
+        return request.__class__.response(
+            reply_to=request.message_id,
+            payload={"valueType": "array_buffer", "elementType": "uint8", "count": 4, "shape": [1, 1, 4]},
+            protocol_version=request.protocol_version,
+            schema_version=request.schema_version,
+            raw_payload=b"\x01\x02\x03\x04",
         )
 
 
@@ -85,6 +98,106 @@ class ControllerBusinessTests(unittest.TestCase):
         self.assertTrue(response.ok)
         self.assertEqual([1.0, 2.0, 3.0], response.payload["value"])
         self.assertEqual("float_array", response.payload["valueType"])
+
+    def test_default_business_endpoint_reads_vector_like_array_as_binary_payload(self):
+        core = import_module("avalonia_bridge.core")
+        endpoint = core.DefaultBusinessEndpoint()
+        bpy = sys.modules["bpy"]
+
+        class FakeVector:
+            def __init__(self, *values):
+                self._values = values
+
+            def __len__(self):
+                return len(self._values)
+
+            def __getitem__(self, index):
+                return self._values[index]
+
+        cube = types.SimpleNamespace(
+            name="Cube",
+            session_uid=11,
+            location=FakeVector(1.0, 2.0, 3.0),
+            bl_rna=types.SimpleNamespace(
+                properties={
+                    "location": _FakeProperty("FLOAT", is_array=True, array_length=3),
+                }
+            ),
+        )
+        bpy.data.objects["Cube"] = cube
+
+        response = endpoint.invoke(
+            core.BusinessRequest(
+                protocol_version=1,
+                schema_version=1,
+                message_id=13,
+                name="rna.read_array",
+                payload={"path": 'bpy.data.objects["Cube"].location'},
+            )
+        )
+
+        self.assertTrue(response.ok)
+        self.assertEqual("array_buffer", response.payload["valueType"])
+        self.assertEqual("float32", response.payload["elementType"])
+        self.assertEqual([3], response.payload["shape"])
+        self.assertEqual(12, len(response.raw_payload))
+        self.assertEqual((1.0, 2.0, 3.0), struct.unpack("<3f", response.raw_payload))
+
+    def test_default_business_endpoint_reads_preview_float_pixels_with_image_shape(self):
+        core = import_module("avalonia_bridge.core")
+        endpoint = core.DefaultBusinessEndpoint()
+        bpy = sys.modules["bpy"]
+
+        class FakeArray:
+            def __init__(self, values):
+                self._values = list(values)
+
+            def __len__(self):
+                return len(self._values)
+
+            def __getitem__(self, index):
+                return self._values[index]
+
+        preview = types.SimpleNamespace(
+            image_size=FakeArray([2, 1]),
+            image_pixels_float=FakeArray([1.0, 0.5, 0.25, 1.0, 0.0, 0.0, 0.0, 0.0]),
+            bl_rna=types.SimpleNamespace(
+                properties={
+                    "image_size": _FakeProperty("INT", is_array=True, array_length=2),
+                    "image_pixels_float": _FakeProperty("FLOAT", is_array=True, array_length=8),
+                }
+            ),
+        )
+        material = types.SimpleNamespace(
+            name="Mat",
+            session_uid=12,
+            preview=preview,
+            bl_rna=types.SimpleNamespace(
+                properties={
+                    "preview": _FakeProperty("POINTER", fixed_type="ImagePreview"),
+                }
+            ),
+        )
+        bpy.data.materials["Mat"] = material
+
+        response = endpoint.invoke(
+            core.BusinessRequest(
+                protocol_version=1,
+                schema_version=1,
+                message_id=14,
+                name="rna.read_array",
+                payload={"path": 'bpy.data.materials["Mat"].preview.image_pixels_float'},
+            )
+        )
+
+        self.assertTrue(response.ok)
+        self.assertEqual("float32", response.payload["elementType"])
+        self.assertEqual([1, 2, 4], response.payload["shape"])
+        self.assertEqual(32, len(response.raw_payload))
+        self.assertEqual(
+            (1.0, 0.5, 0.25, 1.0, 0.0, 0.0, 0.0, 0.0),
+            struct.unpack("<8f", response.raw_payload),
+        )
 
     def test_default_business_endpoint_describes_rna_metadata(self):
         core = import_module("avalonia_bridge.core")
@@ -220,6 +333,32 @@ class ControllerBusinessTests(unittest.TestCase):
         self.assertEqual(1, len(sent))
         self.assertEqual("business_response", sent[0][0]["type"])
         self.assertEqual(9, sent[0][0]["reply_to"])
+
+    def test_controller_routes_business_payload_bytes_to_transport(self):
+        core = import_module("avalonia_bridge.core")
+        endpoint = _BinaryRecordingBusinessEndpoint()
+        controller = core.BridgeController(
+            core.BridgeConfig(executable_path="C:/bridge.exe"),
+            business_endpoint=endpoint,
+        )
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append((dict(header), payload)) or True
+
+        controller._handle_packet(
+            {
+                "type": "business_request",
+                "protocolVersion": 1,
+                "schemaVersion": 1,
+                "message_id": 10,
+                "name": "rna.read_array",
+                "payload": {"path": 'bpy.data.materials["Mat"].preview.icon_pixels'},
+            },
+            b"",
+        )
+
+        self.assertEqual(1, len(sent))
+        self.assertEqual("business_response", sent[0][0]["type"])
+        self.assertEqual(b"\x01\x02\x03\x04", sent[0][1])
 
     def test_default_business_endpoint_rejects_unsupported_protocol_version(self):
         core = import_module("avalonia_bridge.core")

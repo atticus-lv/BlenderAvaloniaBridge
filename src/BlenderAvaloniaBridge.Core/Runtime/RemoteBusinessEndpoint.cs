@@ -5,11 +5,11 @@ namespace BlenderAvaloniaBridge.Runtime;
 
 internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
 {
-    private readonly Func<ProtocolEnvelope, CancellationToken, Task> _sendAsync;
+    private readonly Func<ProtocolPacket, CancellationToken, Task> _sendAsync;
     private readonly ConcurrentDictionary<long, TaskCompletionSource<BusinessResponse>> _pending = new();
     private long _nextMessageId;
 
-    public RemoteBusinessEndpoint(Func<ProtocolEnvelope, CancellationToken, Task> sendAsync)
+    public RemoteBusinessEndpoint(Func<ProtocolPacket, CancellationToken, Task> sendAsync)
     {
         ArgumentNullException.ThrowIfNull(sendAsync);
         _sendAsync = sendAsync;
@@ -29,6 +29,7 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
             Name = request.Name,
             Payload = request.Payload.Clone(),
         };
+        var packet = ProtocolPacket.CreateControl(envelope);
 
         var completion = new TaskCompletionSource<BusinessResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!_pending.TryAdd(messageId, completion))
@@ -48,7 +49,7 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
 
         try
         {
-            await _sendAsync(envelope, cancellationToken);
+            await _sendAsync(packet, cancellationToken);
         }
         catch
         {
@@ -59,7 +60,7 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
         return await completion.Task.WaitAsync(cancellationToken);
     }
 
-    internal void HandleResponse(ProtocolEnvelope envelope)
+    internal void HandleResponse(ProtocolEnvelope envelope, byte[]? payload = null)
     {
         if (envelope.ReplyTo is not long replyTo)
         {
@@ -81,6 +82,7 @@ internal sealed class RemoteBusinessEndpoint : IBusinessEndpoint
                 Ok = envelope.Ok ?? false,
                 Payload = envelope.Payload?.Clone(),
                 Error = envelope.Error,
+                RawPayload = payload ?? Array.Empty<byte>(),
             });
     }
 }

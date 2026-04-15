@@ -29,6 +29,7 @@ namespace BlenderAvaloniaBridge.Protocol;
 [JsonSerializable(typeof(RnaItemRef))]
 [JsonSerializable(typeof(List<RnaItemRef>))]
 [JsonSerializable(typeof(RnaDescribeResult))]
+[JsonSerializable(typeof(BlenderArrayReadResult))]
 [JsonSerializable(typeof(RnaPropertyDescriptor))]
 [JsonSerializable(typeof(OperatorPollResult))]
 [JsonSerializable(typeof(OperatorCallResult))]

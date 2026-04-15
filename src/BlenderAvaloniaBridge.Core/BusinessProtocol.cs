@@ -75,6 +75,7 @@ public sealed class BusinessRequest
         JsonElement? payload = null,
         bool ok = true,
         BusinessError? error = null,
+        byte[]? rawPayload = null,
         int protocolVersion = BlenderBusinessProtocolVersions.ProtocolVersion,
         int schemaVersion = BlenderBusinessProtocolVersions.SchemaVersion,
         long messageId = 0)
@@ -88,6 +89,7 @@ public sealed class BusinessRequest
             Ok = ok,
             Payload = payload?.Clone(),
             Error = error,
+            RawPayload = rawPayload ?? Array.Empty<byte>(),
         };
     }
 }
@@ -114,6 +116,9 @@ public sealed class BusinessResponse
 
     [JsonPropertyName("error")]
     public BusinessError? Error { get; set; }
+
+    [JsonIgnore]
+    public byte[] RawPayload { get; set; } = Array.Empty<byte>();
 }
 
 public sealed class BusinessEvent

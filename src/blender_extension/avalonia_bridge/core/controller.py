@@ -343,12 +343,13 @@ class BridgeController:
         if self._is_business_packet(header):
             response = self.business_handler.handle_packet(dict(header), payload or b"")
             if response is not None:
-                self.send_message(response)
-                response_type = response.get("type", "response")
-                if response.get("ok", False):
+                response_header, response_payload = response
+                self.send_message(response_header, response_payload)
+                response_type = response_header.get("type", "response")
+                if response_header.get("ok", False):
                     self._replace_state(last_error="", last_message=f"{response_type}: ok")
                 else:
-                    self._replace_state(last_error=response.get("message", f"{response_type} failed"))
+                    self._replace_state(last_error=response_header.get("message", f"{response_type} failed"))
             return response
         if packet_type == "frame":
             self._diagnostics.record_frame_packet(header, now_ms)

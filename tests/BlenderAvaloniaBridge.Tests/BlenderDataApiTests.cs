@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using System.Linq;
 using BlenderAvaloniaBridge;
 using Xunit;
 
@@ -61,6 +62,26 @@ public sealed partial class BlenderApiTests
         Assert.Equal("rna.call", endpoint.Requests[0].Name);
         Assert.Equal("new", endpoint.Requests[0].Payload.GetProperty("method").GetString());
         Assert.Equal("Mat_A", endpoint.Requests[0].Payload.GetProperty("kwargs").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Rna_CallAsync_AllowsNullableReturnForVoidLikeMethods()
+    {
+        var endpoint = new RecordingEndpoint(
+            _ => BusinessRequest.Response(
+                1,
+                ToJsonElement(new JsonObject
+                {
+                    ["return"] = null,
+                })));
+        var blenderApi = new BlenderApi(endpoint);
+
+        var result = await blenderApi.Rna.CallAsync<RnaItemRef?>(
+            "bpy.data.materials[\"Mat_A\"]",
+            "asset_generate_preview");
+
+        Assert.Null(result);
+        Assert.Equal("asset_generate_preview", endpoint.Requests[0].Payload.GetProperty("method").GetString());
     }
 
     [Fact]
@@ -140,6 +161,44 @@ public sealed partial class BlenderApiTests
             () => blenderApi.Rna.GetAsync<TestPayload>("bpy.data.objects[\"Cube\"]"));
 
         Assert.Contains("missing_json_type_info_for_type", exception.Message);
+    }
+
+    [Fact]
+    public async Task Rna_ReadArrayAsync_ReturnsMetadataAndRawBytes()
+    {
+        var endpoint = new RecordingEndpoint(
+            _ => new BusinessResponse
+            {
+                ReplyTo = 1,
+                Ok = true,
+                Payload = ToJsonElement(new JsonObject
+                {
+                    ["path"] = "bpy.data.objects[\"Cube\"].location",
+                    ["rnaType"] = "Object",
+                    ["valueType"] = "array_buffer",
+                    ["elementType"] = "float32",
+                    ["count"] = 3,
+                    ["shape"] = new JsonArray(3),
+                }),
+                RawPayload = BitConverter.GetBytes(1.0f)
+                    .Concat(BitConverter.GetBytes(2.0f))
+                    .Concat(BitConverter.GetBytes(3.0f))
+                    .ToArray(),
+            });
+        var blenderApi = new BlenderApi(endpoint);
+
+        var result = await blenderApi.Rna.ReadArrayAsync("bpy.data.objects[\"Cube\"].location");
+
+        Assert.Equal("bpy.data.objects[\"Cube\"].location", result.Path);
+        Assert.Equal("Object", result.RnaType);
+        Assert.Equal("float32", result.ElementType);
+        Assert.Equal(3, result.Count);
+        Assert.Equal([3], result.Shape);
+        Assert.Equal(12, result.RawBytes.Length);
+        Assert.Equal("rna.read_array", endpoint.Requests[0].Name);
+        Assert.Equal(
+            "bpy.data.objects[\"Cube\"].location",
+            endpoint.Requests[0].Payload.GetProperty("path").GetString());
     }
 
     [Fact]

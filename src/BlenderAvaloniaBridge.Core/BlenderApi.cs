@@ -139,6 +139,30 @@ public sealed class RnaDescribeResult
     public List<RnaPropertyDescriptor>? Properties { get; set; }
 }
 
+public sealed class BlenderArrayReadResult
+{
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("rnaType")]
+    public string? RnaType { get; set; }
+
+    [JsonPropertyName("valueType")]
+    public string ValueType { get; set; } = "array_buffer";
+
+    [JsonPropertyName("elementType")]
+    public string ElementType { get; set; } = string.Empty;
+
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+
+    [JsonPropertyName("shape")]
+    public int[] Shape { get; set; } = Array.Empty<int>();
+
+    [JsonIgnore]
+    public byte[] RawBytes { get; set; } = Array.Empty<byte>();
+}
+
 public sealed class OperatorPollResult
 {
     [JsonPropertyName("operator")]
@@ -383,6 +407,8 @@ public interface IBlenderRnaApi
 
     Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default);
 
+    Task<BlenderArrayReadResult> ReadArrayAsync(string path, CancellationToken cancellationToken = default);
+
     Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default);
 
     Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default);
@@ -478,7 +504,7 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
 
     public IBlenderObserveApi Observe { get; protected set; }
 
-    internal async Task<JsonElement> InvokePayloadAsync<TPayload>(
+    internal async Task<BusinessResponse> InvokeResponseAsync<TPayload>(
         string name,
         TPayload payload,
         JsonTypeInfo<TPayload> payloadTypeInfo,
@@ -495,6 +521,16 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
             throw new InvalidOperationException(response.Error?.Message ?? $"Business request '{name}' failed.");
         }
 
+        return response;
+    }
+
+    internal async Task<JsonElement> InvokePayloadAsync<TPayload>(
+        string name,
+        TPayload payload,
+        JsonTypeInfo<TPayload> payloadTypeInfo,
+        CancellationToken cancellationToken)
+    {
+        var response = await InvokeResponseAsync(name, payload, payloadTypeInfo, cancellationToken);
         return response.Payload ?? EmptyPayload;
     }
 
@@ -659,6 +695,7 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
     {
         public Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<BlenderArrayReadResult> ReadArrayAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs) => throw new NotSupportedException();
@@ -720,6 +757,21 @@ public sealed class BlenderRnaApi : IBlenderRnaApi
         return _owner.TypeResolver.DeserializeRequired<T>(valueElement);
     }
 
+    public async Task<BlenderArrayReadResult> ReadArrayAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var response = await _owner.InvokeResponseAsync(
+            "rna.read_array",
+            new RnaPathRequest { Path = path },
+            ProtocolJsonContext.Default.RnaPathRequest,
+            cancellationToken);
+
+        var metadata = response.Payload
+                       ?? throw new InvalidOperationException($"Missing payload in rna.read_array response for '{path}'.");
+        var result = _owner.TypeResolver.DeserializeRequired(metadata, ProtocolJsonContext.Default.BlenderArrayReadResult);
+        result.RawBytes = response.RawPayload ?? Array.Empty<byte>();
+        return result;
+    }
+
     public async Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default)
     {
         _ = await _owner.InvokePayloadAsync(
@@ -774,6 +826,16 @@ public sealed class BlenderRnaApi : IBlenderRnaApi
         if (!payload.TryGetProperty("return", out var returnElement))
         {
             throw new InvalidOperationException($"Missing 'return' in rna.call response for '{path}.{method}'.");
+        }
+
+        if (returnElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            if (default(T) is null)
+            {
+                return default!;
+            }
+
+            throw new InvalidOperationException($"Missing non-null return value in rna.call response for '{path}.{method}'.");
         }
 
         return _owner.TypeResolver.DeserializeRequired<T>(returnElement);
