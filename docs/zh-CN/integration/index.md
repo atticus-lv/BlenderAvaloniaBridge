@@ -4,14 +4,12 @@
 
 如果你只是想先运行仓库自带示例，请看[快速开始](../guide/quick-start.md)。
 
-## 集成边界
-
-一次完整接入通常同时包含两部分改动：
+完整接入通常包含两部分改动：
 
 - Avalonia 程序负责 UI、状态和业务逻辑，并作为 bridge 进程启动
 - Blender 扩展负责启动 bridge、绘制 overlay、转发输入和承载业务通道
 
-因此更常见的工作方式不是只改某一侧，而是两边一起接通后再联调。
+
 
 ## 运行模式
 
@@ -40,15 +38,13 @@ dotnet build .\src\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj 
 src\BlenderAvaloniaBridge.Core\bin\Release\net10.0\BlenderAvaloniaBridge.Core.dll
 ```
 
-推荐在自己的 Avalonia 项目中使用项目引用：
+可以直接引用编译后的 DLL，也可以在自己的 Avalonia 项目中使用项目引用：
 
 ```xml
 <ItemGroup>
   <ProjectReference Include="..\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj" />
 </ItemGroup>
 ```
-
-如果只是临时验证，也可以直接引用编译后的 DLL。
 
 ## 2. 修改 Avalonia 程序入口
 
@@ -137,7 +133,7 @@ controller.start()
 
 ## 4. 配置 Blender 侧运行参数
 
-`window_mode` 有两种：
+`window_mode` 和 bridge SDK的运行模式一致：
 
 - `headless`：默认模式，将 Avalonia 帧画面传输到 Blender 窗口中，通常绘制在 `3D Viewport` 内，并在该区域捕捉鼠标和键盘事件
 - `desktop`：经典桌面窗口模式，只建立 business 连接
@@ -153,7 +149,7 @@ controller.start()
 
 ## 5. 接入扩展生命周期和输入转发
 
-Blender 侧通常需要接入下面几个点：
+Blender 侧需要接入下面几个点：
 
 - 生命周期：在自己的 operator 或 runtime adapter 中调用 `start()`、`stop()`、`tick_once()`
 - 输入转发：当远程输入启用时，在自己的事件处理里调用 `handle_event(context, event)`

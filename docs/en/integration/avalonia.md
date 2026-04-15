@@ -8,44 +8,87 @@ If you have not wired both sides together yet, start with the [Integration Guide
 
 The bridge exposes a path-first `IBlenderDataApi` that maps directly to the built-in Blender business protocol:
 
-- `rna.list`
-- `rna.get`
-- `rna.set`
-- `rna.describe`
-- `rna.call`
-- `ops.poll`
-- `ops.call`
-- `watch.subscribe`
-- `watch.unsubscribe`
-- `watch.read`
+- `rna.list`: list child item references under a Blender collection path
+- `rna.get`: read the current value at a path
+- `rna.set`: write the current value at a path
+- `rna.describe`: inspect type, readonly state, and other property metadata for a path
+- `rna.call`: call a method on an RNA object
+- `ops.poll`: check whether an operator can run in the current context
+- `ops.call`: execute an operator
+- `watch.subscribe`: subscribe to change notifications for a path
+- `watch.unsubscribe`: remove a watch subscription
+- `watch.read`: read the current snapshot for a watch on demand
 
-## Common surface area
+## API overview
 
-The public C# surface keeps common reads, writes, and calls direct:
+The public C# surface is easiest to read in three groups:
 
 ```csharp
-Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default);
-Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default);
-Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default);
-Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default);
-Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs);
-Task<OperatorPollResult> PollOperatorAsync(
-    string operatorName,
-    string operatorContext = "EXEC_DEFAULT",
-    BlenderContextOverride? contextOverride = null,
-    CancellationToken cancellationToken = default);
-Task<OperatorCallResult> CallOperatorAsync(string operatorName, params BlenderNamedArg[] properties);
-Task<IAsyncDisposable> WatchAsync(
-    string watchId,
-    WatchSource source,
-    string path,
-    Func<WatchDirtyEvent, Task> onDirty,
-    CancellationToken cancellationToken = default);
+ListAsync / GetAsync<T> / SetAsync<T> / DescribeAsync
+CallAsync<T> / PollOperatorAsync / CallOperatorAsync
+WatchAsync / ReadWatchAsync
 ```
 
-## Typical data access
+- The first group covers RNA path listing, reading, writing, and description
+- The second group covers RNA method calls and Blender operator calls
+- The third group covers watch subscription and snapshot reads
 
-Typical usage stays close to Blender's Python API:
+Recommended usage
+
+- Use `ListAsync` for list entry points
+- Use `GetAsync<T>` / `SetAsync<T>` for field reads and writes
+- Use `CallAsync<T>` for RNA method calls
+- Use `PollOperatorAsync` + `CallOperatorAsync` for operators
+- Use `WatchAsync` for change notifications
+
+## What `RnaItemRef` represents
+
+`ListAsync` returns addressable `RnaItemRef` values. Common stable fields include:
+
+1. Blender-side RNA / ID properties
+
+   - `Name`
+
+   - `RnaType`
+
+   - `IdType`
+
+   - `SessionUid`
+
+2. bridge internal handling
+
+   - `Path` reference information
+
+   - `Label` reference information
+
+   - `Kind` fixed type marker
+
+Treat them as reference handles for follow-up reads and writes, not as fully expanded business objects.
+
+You can continue using `Path` for:
+
+- child-property reads: `$"{item.Path}.name"`
+- child-property writes: `$"{item.Path}.location"`
+- object references inside operator context overrides
+
+For example, if an object list page also needs `type` or current active-object state, fetch those explicitly through the generic API:
+
+```csharp
+var items = await blender.ListAsync("bpy.context.scene.objects", ct);
+var activeObject = await blender.GetAsync<RnaItemRef>("bpy.context.active_object", ct);
+
+foreach (var item in items)
+{
+    var objectType = await blender.GetAsync<string>($"{item.Path}.type", ct);
+    var isActiveObject = item.Path == activeObject.Path;
+}
+```
+
+The bridge core exposes generic business primitives by default and does not pre-populate sample-specific summary fields for list items.
+
+## Data access
+
+Recommended usage stays close to Blender's Python API:
 
 ```csharp
 public sealed class MaterialService
@@ -74,7 +117,12 @@ public sealed class MaterialService
 }
 ```
 
+If you start from an `RnaItemRef` list, field details usually continue through `item.Path` with `GetAsync<T>` / `SetAsync<T>`.
+
 ## Operator calls
+
+- Use `CallAsync<T>` for RNA object methods
+- Use `PollOperatorAsync` and `CallOperatorAsync` for Blender operators
 
 Operator calls use tuple kwargs and optional strongly typed context override data instead of anonymous objects:
 
@@ -111,40 +159,23 @@ await using var watch = await blender.WatchAsync(
     });
 ```
 
-## AOT and trimming notes
+If you only need to reload a full list, calling `ListAsync(...)` again is usually enough.
 
-The built-in business SDK is designed to be AOT-safe:
+If you need to keep a detail view in sync, the usual follow-up is path-based `GetAsync(...)`.
 
-- no anonymous-object kwargs or operator property bags
-- no reflection fallback for `System.Text.Json`
-- no arbitrary CLR object graph in business payloads
+If you need more granular page state updates, combine `dirtyRefs` and `ReadWatchAsync(...)` to control refresh scope yourself.
 
-Supported value shapes are intentionally limited to the stable RNA surface:
+## Value model notes
+
+Supported value models:
 
 - scalars: `bool`, `int`, `long`, `double`, `string`
 - arrays: `bool[]`, `int[]`, `long[]`, `double[]`, `string[]`
 - RNA references: `RnaItemRef`
 - `null`
 
-For custom DTOs used with `GetAsync<T>`, `SetAsync<T>`, or `CallAsync<T>`, register your own source-generated resolver at startup:
+For custom DTOs used with `GetAsync<T>`, `SetAsync<T>`, or `CallAsync<T>`, register your own source-generated resolver at startup.
 
-```csharp
-using System.Text.Json.Serialization;
-using BlenderAvaloniaBridge;
+If type information is missing, runtime deserialization fails with `missing_json_type_info_for_type`.
 
-var options = new BlenderBridgeOptions();
-options.DataApi.TypeInfoResolvers.Add(AppJsonContext.Default);
-
-[JsonSerializable(typeof(MyDto))]
-public partial class AppJsonContext : JsonSerializerContext
-{
-}
-```
-
-Resolver lookup order is:
-
-1. built-in bridge protocol types
-2. resolvers registered through `BlenderBridgeOptions.DataApi.TypeInfoResolvers`
-3. explicit failure with `missing_json_type_info_for_type`
-
-If you need full Blender-side freedom, keep the default endpoint for standard RNA and operator traffic and add a separate custom business endpoint only for application-specific commands.
+If you need full Blender-side freedom, keep the default endpoint for standard RNA / operator traffic and move application-specific commands into a separate custom business endpoint.
