@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Sockets;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Transport;
 using BlenderAvaloniaBridge.Runtime.FrameTransport;
@@ -142,6 +143,11 @@ internal sealed class BridgeClient
                     _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
                 }
             }
+        }
+        catch (Exception ex) when (IsTransportDisconnect(ex))
+        {
+            // Blender owns the transport lifetime. If the host closes the socket while the bridge
+            // is still flushing frames or business traffic, treat that as a normal shutdown.
         }
         finally
         {
@@ -328,6 +334,32 @@ internal sealed class BridgeClient
     private static bool IsBusinessEvent(ProtocolEnvelope envelope)
     {
         return envelope.Type == "business_event";
+    }
+
+    internal static bool IsTransportDisconnect(Exception exception)
+    {
+        return exception switch
+        {
+            EndOfStreamException => true,
+            ObjectDisposedException => true,
+            IOException ioException when ioException.InnerException is SocketException socketException
+                => IsSocketDisconnect(socketException.SocketErrorCode),
+            SocketException socketException => IsSocketDisconnect(socketException.SocketErrorCode),
+            AggregateException aggregateException when aggregateException.InnerExceptions.Count == 1
+                => IsTransportDisconnect(aggregateException.InnerException!),
+            _ => false,
+        };
+    }
+
+    private static bool IsSocketDisconnect(SocketError socketError)
+    {
+        return socketError is SocketError.ConnectionAborted
+            or SocketError.ConnectionReset
+            or SocketError.Disconnecting
+            or SocketError.Interrupted
+            or SocketError.NotConnected
+            or SocketError.OperationAborted
+            or SocketError.Shutdown;
     }
 
     private async Task RunMessageLoopWithoutFramesAsync(CancellationToken cancellationToken)
