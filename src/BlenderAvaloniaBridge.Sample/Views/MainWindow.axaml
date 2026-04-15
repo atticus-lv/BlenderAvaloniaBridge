@@ -1,9 +1,20 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
+        xmlns:views="using:BlenderAvaloniaBridge.Sample.Views"
         x:Class="BlenderAvaloniaBridge.Sample.Views.MainWindow"
         Width="1180"
         Height="860"
         MinWidth="960"
         MinHeight="680"
         Title="Blender Avalonia Bridge Demo"
-        Background="#FF0F172A" />
+        Background="#FF0F172A"
+        d:DesignWidth="1180"
+        d:DesignHeight="860"
+        mc:Ignorable="d">
+  <Design.PreviewWith>
+    <views:MainView DataContext="{x:Static design:SampleDesignData.MainView}" />
+  </Design.PreviewWith>
+</Window>

@@ -1,9 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
              xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.SortableListDemoPageView"
-             x:DataType="viewModels:SortableListDemoPageViewModel">
+             x:DataType="viewModels:SortableListDemoPageViewModel"
+             d:DataContext="{x:Static design:SampleDesignData.SortableListPage}"
+             d:DesignWidth="1040"
+             d:DesignHeight="760"
+             mc:Ignorable="d">
   <ScrollViewer>
     <StackPanel Margin="22"
                 Spacing="18">

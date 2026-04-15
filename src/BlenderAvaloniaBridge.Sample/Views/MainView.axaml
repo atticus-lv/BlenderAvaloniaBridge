@@ -1,11 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:animation="using:Avalonia.Animation"
+             xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
              xmlns:pages="using:BlenderAvaloniaBridge.Sample.Views.Pages"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels"
              xmlns:pageViewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.MainView"
-             x:DataType="viewModels:MainViewModel">
+             x:DataType="viewModels:MainViewModel"
+             d:DataContext="{x:Static design:SampleDesignData.MainView}"
+             d:DesignWidth="1180"
+             d:DesignHeight="860"
+             mc:Ignorable="d">
   <UserControl.DataTemplates>
     <DataTemplate DataType="pageViewModels:ButtonsDemoPageViewModel">
       <pages:ButtonsDemoPageView />
