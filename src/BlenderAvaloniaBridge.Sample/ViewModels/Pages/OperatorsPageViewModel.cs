@@ -46,7 +46,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
 
     protected override Task OnActivatedAsync()
     {
-        if (BlenderDataApi is null)
+        if (BlenderApi is null)
         {
             SetDisconnectedStatus();
             return Task.CompletedTask;
@@ -55,7 +55,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
         return RefreshObjectsAsync();
     }
 
-    protected override void OnBlenderDataApiChanged()
+    protected override void OnBlenderApiChanged()
     {
         UpdateCommandStates();
     }
@@ -102,24 +102,24 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(DeleteSelectedCoreAsync);
     }
 
-    private bool CanUseBridge() => BlenderDataApi is not null;
+    private bool CanUseBridge() => BlenderApi is not null;
 
-    private bool CanRunAddCube() => BlenderDataApi is not null && CanAddCubeOperator;
+    private bool CanRunAddCube() => BlenderApi is not null && CanAddCubeOperator;
 
-    private bool CanRunDuplicate() => BlenderDataApi is not null && CurrentObject is not null && CanDuplicateOperator;
+    private bool CanRunDuplicate() => BlenderApi is not null && CurrentObject is not null && CanDuplicateOperator;
 
-    private bool CanRunViewSelected() => BlenderDataApi is not null && CurrentObject is not null && CanViewSelectedOperator;
+    private bool CanRunViewSelected() => BlenderApi is not null && CurrentObject is not null && CanViewSelectedOperator;
 
-    private bool CanRunDeleteSelected() => BlenderDataApi is not null && CurrentObject is not null && CanDeleteOperator;
+    private bool CanRunDeleteSelected() => BlenderApi is not null && CurrentObject is not null && CanDeleteOperator;
 
     private async Task RefreshObjectsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
         RnaItemRef? currentObject;
 
         try
         {
-            currentObject = await blender.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.CurrentObjectPath);
+            currentObject = await blender.Rna.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.CurrentObjectPath);
         }
         catch (InvalidOperationException)
         {
@@ -132,9 +132,9 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task PollOperatorsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
 
-        var addCube = await blender.PollOperatorAsync("mesh.primitive_cube_add");
+        var addCube = await blender.Ops.PollAsync("mesh.primitive_cube_add");
         CanAddCubeOperator = addCube.CanExecute;
         AddCubePollText = BuildPollText(addCube);
 
@@ -152,9 +152,9 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
         }
 
         var contextOverride = BlenderSampleDataHelpers.BuildSelectionContextOverride(rnaRef.Path);
-        var duplicate = await blender.PollOperatorAsync("object.duplicate_move", contextOverride: contextOverride);
-        var viewSelected = await blender.PollOperatorAsync("view3d.view_selected", contextOverride: contextOverride);
-        var delete = await blender.PollOperatorAsync("object.delete", contextOverride: contextOverride);
+        var duplicate = await blender.Ops.PollAsync("object.duplicate_move", contextOverride: contextOverride);
+        var viewSelected = await blender.Ops.PollAsync("view3d.view_selected", contextOverride: contextOverride);
+        var delete = await blender.Ops.PollAsync("object.delete", contextOverride: contextOverride);
 
         CanDuplicateOperator = duplicate.CanExecute;
         CanViewSelectedOperator = viewSelected.CanExecute;
@@ -168,7 +168,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task AddCubeCoreAsync()
     {
-        var result = await RequireBlenderDataApi().CallOperatorAsync("mesh.primitive_cube_add", ("size", 2.0));
+        var result = await RequireBlenderApi().Ops.CallAsync("mesh.primitive_cube_add", ("size", 2.0));
         StatusText = $"{result.OperatorName}: {FormatOperatorResult(result)}";
         await RefreshObjectsCoreAsync();
     }
@@ -180,7 +180,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        var result = await RequireBlenderDataApi().CallOperatorAsync(
+        var result = await RequireBlenderApi().Ops.CallAsync(
             "object.duplicate_move",
             new BlenderOperatorCall
             {
@@ -198,7 +198,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        var result = await RequireBlenderDataApi().CallOperatorAsync(
+        var result = await RequireBlenderApi().Ops.CallAsync(
             "view3d.view_selected",
             new BlenderOperatorCall
             {
@@ -216,7 +216,7 @@ public partial class OperatorsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        var result = await RequireBlenderDataApi().CallOperatorAsync(
+        var result = await RequireBlenderApi().Ops.CallAsync(
             "object.delete",
             new BlenderOperatorCall
             {

@@ -7,10 +7,10 @@ using Xunit;
 
 namespace BlenderAvaloniaBridge.Tests;
 
-public sealed partial class BlenderDataApiTests
+public sealed partial class BlenderApiTests
 {
     [Fact]
-    public async Task CallOperatorAsync_ParamsNamedArgs_SerializesProperties()
+    public async Task Ops_CallAsync_ParamsNamedArgs_SerializesProperties()
     {
         var endpoint = new RecordingEndpoint(
             _ => BusinessRequest.Response(
@@ -20,9 +20,9 @@ public sealed partial class BlenderDataApiTests
                     ["operator"] = "mesh.primitive_cube_add",
                     ["result"] = new JsonArray("FINISHED"),
                 })));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
 
-        var result = await api.CallOperatorAsync(
+        var result = await blenderApi.Ops.CallAsync(
             "mesh.primitive_cube_add",
             ("size", 2.0));
 
@@ -34,7 +34,7 @@ public sealed partial class BlenderDataApiTests
     }
 
     [Fact]
-    public async Task CallAsync_ParamsNamedArgs_SerializesKwargs()
+    public async Task Rna_CallAsync_ParamsNamedArgs_SerializesKwargs()
     {
         var endpoint = new RecordingEndpoint(
             _ => BusinessRequest.Response(
@@ -50,9 +50,9 @@ public sealed partial class BlenderDataApiTests
                         ["rnaType"] = "Material",
                     }
                 })));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
 
-        var material = await api.CallAsync<RnaItemRef>(
+        var material = await blenderApi.Rna.CallAsync<RnaItemRef>(
             "bpy.data.materials",
             "new",
             ("name", "Mat_A"));
@@ -64,7 +64,7 @@ public sealed partial class BlenderDataApiTests
     }
 
     [Fact]
-    public async Task CallOperatorAsync_WithContextOverride_SerializesExpectedWireShape()
+    public async Task Ops_CallAsync_WithContextOverride_SerializesExpectedWireShape()
     {
         var endpoint = new RecordingEndpoint(
             _ => BusinessRequest.Response(
@@ -74,9 +74,9 @@ public sealed partial class BlenderDataApiTests
                     ["operator"] = "object.duplicate_move",
                     ["result"] = new JsonArray("FINISHED"),
                 })));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
 
-        await api.CallOperatorAsync(
+        await blenderApi.Ops.CallAsync(
             "object.duplicate_move",
             new BlenderOperatorCall
             {
@@ -97,7 +97,7 @@ public sealed partial class BlenderDataApiTests
     }
 
     [Fact]
-    public async Task GetAsync_UsesRegisteredTypeInfoResolver()
+    public async Task Rna_GetAsync_UsesRegisteredTypeInfoResolver()
     {
         var endpoint = new RecordingEndpoint(
             _ => BusinessRequest.Response(
@@ -110,18 +110,18 @@ public sealed partial class BlenderDataApiTests
                         ["index"] = 3,
                     }
                 })));
-        var options = new BlenderDataApiOptions();
+        var options = new BlenderApiOptions();
         options.TypeInfoResolvers.Add(TestJsonContext.Default);
-        var api = new BlenderDataApi(endpoint, options);
+        var blenderApi = new BlenderApi(endpoint, options);
 
-        var result = await api.GetAsync<TestPayload>("bpy.data.objects[\"Cube\"]");
+        var result = await blenderApi.Rna.GetAsync<TestPayload>("bpy.data.objects[\"Cube\"]");
 
         Assert.Equal("Cube", result.Name);
         Assert.Equal(3, result.Index);
     }
 
     [Fact]
-    public async Task GetAsync_ThrowsWhenTypeInfoResolverIsMissing()
+    public async Task Rna_GetAsync_ThrowsWhenTypeInfoResolverIsMissing()
     {
         var endpoint = new RecordingEndpoint(
             _ => BusinessRequest.Response(
@@ -134,22 +134,22 @@ public sealed partial class BlenderDataApiTests
                         ["index"] = 3,
                     }
                 })));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => api.GetAsync<TestPayload>("bpy.data.objects[\"Cube\"]"));
+            () => blenderApi.Rna.GetAsync<TestPayload>("bpy.data.objects[\"Cube\"]"));
 
         Assert.Contains("missing_json_type_info_for_type", exception.Message);
     }
 
     [Fact]
-    public async Task WatchAsync_SubscribesAndDispatchesDirtyEvents()
+    public async Task Observe_WatchAsync_SubscribesAndDispatchesDirtyEvents()
     {
         var endpoint = new RecordingEndpoint(_ => BusinessRequest.Response(1, ToJsonElement(new JsonObject())));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
         var received = new TaskCompletionSource<WatchDirtyEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await using var subscription = await api.WatchAsync(
+        await using var subscription = await blenderApi.Observe.WatchAsync(
             "materials",
             WatchSource.Depsgraph,
             "bpy.data.materials",
@@ -162,7 +162,7 @@ public sealed partial class BlenderDataApiTests
         Assert.Single(endpoint.Requests);
         Assert.Equal("watch.subscribe", endpoint.Requests[0].Name);
 
-        await ((IBusinessEventSink)api).HandleEventAsync(
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(
             new BusinessEvent
             {
                 Name = "watch.dirty",
@@ -181,14 +181,14 @@ public sealed partial class BlenderDataApiTests
     }
 
     [Fact]
-    public async Task WatchAsync_DirtyEventDispatch_DoesNotAwaitCallbackCompletion()
+    public async Task Observe_WatchAsync_DirtyEventDispatch_DoesNotAwaitCallbackCompletion()
     {
         var endpoint = new RecordingEndpoint(_ => BusinessRequest.Response(1, ToJsonElement(new JsonObject())));
-        var api = new BlenderDataApi(endpoint);
+        var blenderApi = new BlenderApi(endpoint);
         var callbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var allowCallbackCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await using var subscription = await api.WatchAsync(
+        await using var subscription = await blenderApi.Observe.WatchAsync(
             "live-transform",
             WatchSource.Depsgraph,
             "bpy.data.objects[\"Cube\"]",
@@ -198,7 +198,7 @@ public sealed partial class BlenderDataApiTests
                 await allowCallbackCompletion.Task;
             });
 
-        var handleTask = ((IBusinessEventSink)api).HandleEventAsync(
+        var handleTask = ((IBusinessEventSink)blenderApi).HandleEventAsync(
             new BusinessEvent
             {
                 Name = "watch.dirty",

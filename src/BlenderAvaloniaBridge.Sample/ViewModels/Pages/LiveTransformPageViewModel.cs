@@ -58,11 +58,11 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     [ObservableProperty]
     private string _scaleZ = "1";
 
-    public bool CanEnableLiveWatch => BlenderDataApi is not null && CurrentObject is not null;
+    public bool CanEnableLiveWatch => BlenderApi is not null && CurrentObject is not null;
 
     protected override async Task OnActivatedAsync()
     {
-        if (BlenderDataApi is null)
+        if (BlenderApi is null)
         {
             SetDisconnectedStatus();
             return;
@@ -81,7 +81,7 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         await StopWatchAsync();
     }
 
-    protected override void OnBlenderDataApiChanged()
+    protected override void OnBlenderApiChanged()
     {
         RefreshObjectsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEnableLiveWatch));
@@ -109,16 +109,16 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(RefreshObjectsCoreAsync);
     }
 
-    private bool CanUseBridge() => BlenderDataApi is not null;
+    private bool CanUseBridge() => BlenderApi is not null;
 
     private async Task RefreshObjectsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
         RnaItemRef? currentObject;
 
         try
         {
-            currentObject = await blender.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.CurrentObjectPath);
+            currentObject = await blender.Rna.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.CurrentObjectPath);
         }
         catch (InvalidOperationException)
         {
@@ -168,14 +168,14 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
     {
         await StopWatchAsync();
 
-        if (!IsActive || BlenderDataApi is null || !IsLiveWatchEnabled)
+        if (!IsActive || BlenderApi is null || !IsLiveWatchEnabled)
         {
             return;
         }
 
         var watchId = $"live-transform-{rnaRef.SessionUid?.ToString() ?? rnaRef.Name}";
         Volatile.Write(ref _currentWatchPath, rnaRef.Path);
-        _watchSubscription = await BlenderDataApi.WatchAsync(
+        _watchSubscription = await BlenderApi.Observe.WatchAsync(
             watchId,
             WatchSource.Depsgraph,
             rnaRef.Path,
@@ -238,10 +238,10 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task LoadTransformSnapshotAsync(RnaItemRef rnaRef)
     {
-        var blender = RequireBlenderDataApi();
-        var location = await blender.GetAsync<double[]>($"{rnaRef.Path}.location");
-        var rotation = await blender.GetAsync<double[]>($"{rnaRef.Path}.rotation_euler");
-        var scale = await blender.GetAsync<double[]>($"{rnaRef.Path}.scale");
+        var blender = RequireBlenderApi();
+        var location = await blender.Rna.GetAsync<double[]>($"{rnaRef.Path}.location");
+        var rotation = await blender.Rna.GetAsync<double[]>($"{rnaRef.Path}.rotation_euler");
+        var scale = await blender.Rna.GetAsync<double[]>($"{rnaRef.Path}.scale");
         ApplyVector(location, "0", out var locationX, out var locationY, out var locationZ);
         ApplyVector(rotation, "0", out var rotationX, out var rotationY, out var rotationZ);
         ApplyVector(scale, "1", out var scaleX, out var scaleY, out var scaleZ);

@@ -190,13 +190,13 @@ public sealed class WatchSnapshot
     public JsonElement? Payload { get; set; }
 }
 
-public sealed class BlenderDataApiOptions
+public sealed class BlenderApiOptions
 {
     public IList<IJsonTypeInfoResolver> TypeInfoResolvers { get; } = new List<IJsonTypeInfoResolver>();
 
-    internal BlenderDataApiOptions Clone()
+    internal BlenderApiOptions Clone()
     {
-        var clone = new BlenderDataApiOptions();
+        var clone = new BlenderApiOptions();
         foreach (var resolver in TypeInfoResolvers)
         {
             clone.TypeInfoResolvers.Add(resolver);
@@ -377,7 +377,7 @@ internal sealed class BlenderValueJsonConverter : JsonConverter<BlenderValue>
     }
 }
 
-public interface IBlenderDataApi
+public interface IBlenderRnaApi
 {
     Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default);
 
@@ -394,20 +394,26 @@ public interface IBlenderDataApi
         string method,
         BlenderMethodCall call,
         CancellationToken cancellationToken = default);
+}
 
-    Task<OperatorPollResult> PollOperatorAsync(
+public interface IBlenderOpsApi
+{
+    Task<OperatorPollResult> PollAsync(
         string operatorName,
         string operatorContext = "EXEC_DEFAULT",
         BlenderContextOverride? contextOverride = null,
         CancellationToken cancellationToken = default);
 
-    Task<OperatorCallResult> CallOperatorAsync(string operatorName, params BlenderNamedArg[] properties);
+    Task<OperatorCallResult> CallAsync(string operatorName, params BlenderNamedArg[] properties);
 
-    Task<OperatorCallResult> CallOperatorAsync(
+    Task<OperatorCallResult> CallAsync(
         string operatorName,
         BlenderOperatorCall call,
         CancellationToken cancellationToken = default);
+}
 
+public interface IBlenderObserveApi
+{
     Task<IAsyncDisposable> WatchAsync(
         string watchId,
         WatchSource source,
@@ -415,7 +421,7 @@ public interface IBlenderDataApi
         Func<WatchDirtyEvent, Task> onDirty,
         CancellationToken cancellationToken = default);
 
-    Task<WatchSnapshot> ReadWatchAsync(string watchId, CancellationToken cancellationToken = default);
+    Task<WatchSnapshot> ReadAsync(string watchId, CancellationToken cancellationToken = default);
 }
 
 internal interface IBusinessEventSink
@@ -430,7 +436,7 @@ internal interface IWatchActivitySource
     bool HasActiveWatches { get; }
 }
 
-public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatchActivitySource
+public class BlenderApi : IBusinessEventSink, IWatchActivitySource
 {
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private readonly IBusinessEndpoint _businessEndpoint;
@@ -447,161 +453,54 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatch
 
     private event Action<bool>? _activeWatchStateChanged;
 
-    public BlenderDataApi(IBusinessEndpoint businessEndpoint, BlenderDataApiOptions? options = null)
+    public BlenderApi(IBusinessEndpoint businessEndpoint, BlenderApiOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(businessEndpoint);
         _businessEndpoint = businessEndpoint;
         _typeResolver = new BlenderJsonTypeResolver(options);
+        Rna = new BlenderRnaApi(this);
+        Ops = new BlenderOpsApi(this);
+        Observe = new BlenderObserveApi(this);
     }
 
-    public async Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default)
+    protected BlenderApi()
     {
-        var payload = await InvokePayloadAsync(
-            "rna.list",
-            new RnaPathRequest { Path = path },
-            ProtocolJsonContext.Default.RnaPathRequest,
+        _businessEndpoint = new UnsupportedBusinessEndpoint();
+        _typeResolver = BlenderJsonTypeResolver.Default;
+        Rna = new UnsupportedBlenderRnaApi();
+        Ops = new UnsupportedBlenderOpsApi();
+        Observe = new UnsupportedBlenderObserveApi();
+    }
+
+    public IBlenderRnaApi Rna { get; protected set; }
+
+    public IBlenderOpsApi Ops { get; protected set; }
+
+    public IBlenderObserveApi Observe { get; protected set; }
+
+    internal async Task<JsonElement> InvokePayloadAsync<TPayload>(
+        string name,
+        TPayload payload,
+        JsonTypeInfo<TPayload> payloadTypeInfo,
+        CancellationToken cancellationToken)
+    {
+        var response = await _businessEndpoint.InvokeAsync(
+            new BusinessRequest(
+                name,
+                JsonSerializer.SerializeToElement(payload, payloadTypeInfo)),
             cancellationToken);
 
-        if (!payload.TryGetProperty("items", out var itemsElement))
+        if (!response.Ok)
         {
-            return Array.Empty<RnaItemRef>();
+            throw new InvalidOperationException(response.Error?.Message ?? $"Business request '{name}' failed.");
         }
 
-        return _typeResolver.Deserialize(itemsElement, ProtocolJsonContext.Default.ListRnaItemRef) ?? (IReadOnlyList<RnaItemRef>)Array.Empty<RnaItemRef>();
+        return response.Payload ?? EmptyPayload;
     }
 
-    public async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default)
-    {
-        var payload = await InvokePayloadAsync(
-            "rna.get",
-            new RnaPathRequest { Path = path },
-            ProtocolJsonContext.Default.RnaPathRequest,
-            cancellationToken);
+    internal BlenderJsonTypeResolver TypeResolver => _typeResolver;
 
-        if (!payload.TryGetProperty("value", out var valueElement))
-        {
-            throw new InvalidOperationException($"Missing 'value' in rna.get response for '{path}'.");
-        }
-
-        return _typeResolver.DeserializeRequired<T>(valueElement);
-    }
-
-    public async Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default)
-    {
-        _ = await InvokePayloadAsync(
-            "rna.set",
-            new RnaSetRequest
-            {
-                Path = path,
-                Value = _typeResolver.Serialize(value),
-            },
-            ProtocolJsonContext.Default.RnaSetRequest,
-            cancellationToken);
-    }
-
-    public async Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default)
-    {
-        var payload = await InvokePayloadAsync(
-            "rna.describe",
-            new RnaPathRequest { Path = path },
-            ProtocolJsonContext.Default.RnaPathRequest,
-            cancellationToken);
-
-        return _typeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.RnaDescribeResult);
-    }
-
-    public Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs)
-    {
-        return CallAsync<T>(
-            path,
-            method,
-            new BlenderMethodCall
-            {
-                Kwargs = kwargs,
-            });
-    }
-
-    public async Task<T> CallAsync<T>(
-        string path,
-        string method,
-        BlenderMethodCall call,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(call);
-
-        var payload = await InvokePayloadAsync(
-            "rna.call",
-            new RnaCallRequest
-            {
-                Path = path,
-                Method = method,
-                Args = ToJsonElementList(call.Args),
-                Kwargs = ToJsonElementDictionary(call.Kwargs),
-            },
-            ProtocolJsonContext.Default.RnaCallRequest,
-            cancellationToken);
-
-        if (!payload.TryGetProperty("return", out var returnElement))
-        {
-            throw new InvalidOperationException($"Missing 'return' in rna.call response for '{path}.{method}'.");
-        }
-
-        return _typeResolver.DeserializeRequired<T>(returnElement);
-    }
-
-    public async Task<OperatorPollResult> PollOperatorAsync(
-        string operatorName,
-        string operatorContext = "EXEC_DEFAULT",
-        BlenderContextOverride? contextOverride = null,
-        CancellationToken cancellationToken = default)
-    {
-        var payload = await InvokePayloadAsync(
-            "ops.poll",
-            new OpsPollRequest
-            {
-                Operator = operatorName,
-                OperatorContext = operatorContext,
-                ContextOverride = ToContextOverrideDictionary(contextOverride),
-            },
-            ProtocolJsonContext.Default.OpsPollRequest,
-            cancellationToken);
-
-        return _typeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.OperatorPollResult);
-    }
-
-    public Task<OperatorCallResult> CallOperatorAsync(string operatorName, params BlenderNamedArg[] properties)
-    {
-        return CallOperatorAsync(
-            operatorName,
-            new BlenderOperatorCall
-            {
-                Properties = properties,
-            });
-    }
-
-    public async Task<OperatorCallResult> CallOperatorAsync(
-        string operatorName,
-        BlenderOperatorCall call,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(call);
-
-        var payload = await InvokePayloadAsync(
-            "ops.call",
-            new OpsCallRequest
-            {
-                Operator = operatorName,
-                Properties = ToJsonElementDictionary(call.Properties),
-                OperatorContext = call.OperatorContext,
-                ContextOverride = ToContextOverrideDictionary(call.ContextOverride),
-            },
-            ProtocolJsonContext.Default.OpsCallRequest,
-            cancellationToken);
-
-        return _typeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.OperatorCallResult);
-    }
-
-    public async Task<IAsyncDisposable> WatchAsync(
+    internal async Task<IAsyncDisposable> WatchAsync(
         string watchId,
         WatchSource source,
         string path,
@@ -641,7 +540,7 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatch
         return registration;
     }
 
-    public async Task<WatchSnapshot> ReadWatchAsync(string watchId, CancellationToken cancellationToken = default)
+    internal async Task<WatchSnapshot> ReadWatchAsync(string watchId, CancellationToken cancellationToken = default)
     {
         var payload = await InvokePayloadAsync(
             "watch.read",
@@ -691,122 +590,6 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatch
         _activeWatchStateChanged?.Invoke(!_registrations.IsEmpty);
     }
 
-    private async Task<JsonElement> InvokePayloadAsync<TPayload>(
-        string name,
-        TPayload payload,
-        JsonTypeInfo<TPayload> payloadTypeInfo,
-        CancellationToken cancellationToken)
-    {
-        var response = await _businessEndpoint.InvokeAsync(
-            new BusinessRequest(
-                name,
-                JsonSerializer.SerializeToElement(payload, payloadTypeInfo)),
-            cancellationToken);
-
-        if (!response.Ok)
-        {
-            throw new InvalidOperationException(response.Error?.Message ?? $"Business request '{name}' failed.");
-        }
-
-        return response.Payload ?? EmptyPayload;
-    }
-
-    private Dictionary<string, JsonElement>? ToContextOverrideDictionary(BlenderContextOverride? contextOverride)
-    {
-        if (contextOverride is null)
-        {
-            return null;
-        }
-
-        var payload = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-        AddPathOverride(payload, "active_object", contextOverride.ActiveObject);
-        AddPathListOverride(payload, "selected_objects", contextOverride.SelectedObjects);
-        AddPathOverride(payload, "object", contextOverride.Object);
-        AddPathOverride(payload, "scene", contextOverride.Scene);
-        AddPathOverride(payload, "view_layer", contextOverride.ViewLayer);
-        AddPathOverride(payload, "collection", contextOverride.Collection);
-        AddPathOverride(payload, "window", contextOverride.Window);
-        AddPathOverride(payload, "screen", contextOverride.Screen);
-        AddPathOverride(payload, "area", contextOverride.Area);
-        AddPathOverride(payload, "region", contextOverride.Region);
-
-        return payload.Count == 0 ? null : payload;
-    }
-
-    private void AddPathOverride(Dictionary<string, JsonElement> payload, string key, string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        payload[key] = CreatePathRef(path);
-    }
-
-    private void AddPathListOverride(Dictionary<string, JsonElement> payload, string key, IReadOnlyList<string>? paths)
-    {
-        if (paths is null || paths.Count == 0)
-        {
-            return;
-        }
-
-        var items = new List<JsonElement>(paths.Count);
-        foreach (var path in paths)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                continue;
-            }
-
-            items.Add(CreatePathRef(path));
-        }
-
-        if (items.Count > 0)
-        {
-            payload[key] = _typeResolver.SerializeKnown(items);
-        }
-    }
-
-    private JsonElement CreatePathRef(string path)
-    {
-        return _typeResolver.SerializeKnown(new PathRef { Path = path });
-    }
-
-    private List<JsonElement>? ToJsonElementList(IReadOnlyList<BlenderValue>? values)
-    {
-        if (values is null || values.Count == 0)
-        {
-            return null;
-        }
-
-        var result = new List<JsonElement>(values.Count);
-        foreach (var value in values)
-        {
-            result.Add(value.RawJsonOrSerialized(_typeResolver));
-        }
-
-        return result;
-    }
-
-    private Dictionary<string, JsonElement>? ToJsonElementDictionary(IReadOnlyList<BlenderNamedArg>? namedArgs)
-    {
-        if (namedArgs is null || namedArgs.Count == 0)
-        {
-            return null;
-        }
-
-        var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-        foreach (var namedArg in namedArgs)
-        {
-            if (!result.TryAdd(namedArg.Name, namedArg.Value.RawJsonOrSerialized(_typeResolver)))
-            {
-                throw new InvalidOperationException($"Duplicate named argument '{namedArg.Name}'.");
-            }
-        }
-
-        return result;
-    }
-
     private static string ToWireValue(WatchSource source)
     {
         return source switch
@@ -820,11 +603,11 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatch
 
     private sealed class WatchRegistration : IAsyncDisposable
     {
-        private readonly BlenderDataApi _owner;
+        private readonly BlenderApi _owner;
         private readonly Func<WatchDirtyEvent, Task> _onDirty;
         private int _disposed;
 
-        public WatchRegistration(BlenderDataApi owner, string watchId, Func<WatchDirtyEvent, Task> onDirty)
+        public WatchRegistration(BlenderApi owner, string watchId, Func<WatchDirtyEvent, Task> onDirty)
         {
             _owner = owner;
             WatchId = watchId;
@@ -863,6 +646,335 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatch
             await _owner.ReleaseWatchAsync(WatchId);
         }
     }
+
+    private sealed class UnsupportedBusinessEndpoint : IBusinessEndpoint
+    {
+        public ValueTask<BusinessResponse> InvokeAsync(BusinessRequest request, CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException("This BlenderApi instance does not have a business endpoint.");
+        }
+    }
+
+    private sealed class UnsupportedBlenderRnaApi : IBlenderRnaApi
+    {
+        public Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs) => throw new NotSupportedException();
+        public Task<T> CallAsync<T>(string path, string method, BlenderMethodCall call, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class UnsupportedBlenderOpsApi : IBlenderOpsApi
+    {
+        public Task<OperatorPollResult> PollAsync(string operatorName, string operatorContext = "EXEC_DEFAULT", BlenderContextOverride? contextOverride = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<OperatorCallResult> CallAsync(string operatorName, params BlenderNamedArg[] properties) => throw new NotSupportedException();
+        public Task<OperatorCallResult> CallAsync(string operatorName, BlenderOperatorCall call, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class UnsupportedBlenderObserveApi : IBlenderObserveApi
+    {
+        public Task<IAsyncDisposable> WatchAsync(string watchId, WatchSource source, string path, Func<WatchDirtyEvent, Task> onDirty, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<WatchSnapshot> ReadAsync(string watchId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+}
+
+public sealed class BlenderRnaApi : IBlenderRnaApi
+{
+    private readonly BlenderApi _owner;
+
+    public BlenderRnaApi(BlenderApi owner)
+    {
+        _owner = owner;
+    }
+
+    public async Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var payload = await _owner.InvokePayloadAsync(
+            "rna.list",
+            new RnaPathRequest { Path = path },
+            ProtocolJsonContext.Default.RnaPathRequest,
+            cancellationToken);
+
+        if (!payload.TryGetProperty("items", out var itemsElement))
+        {
+            return Array.Empty<RnaItemRef>();
+        }
+
+        return _owner.TypeResolver.Deserialize(itemsElement, ProtocolJsonContext.Default.ListRnaItemRef) ?? (IReadOnlyList<RnaItemRef>)Array.Empty<RnaItemRef>();
+    }
+
+    public async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default)
+    {
+        var payload = await _owner.InvokePayloadAsync(
+            "rna.get",
+            new RnaPathRequest { Path = path },
+            ProtocolJsonContext.Default.RnaPathRequest,
+            cancellationToken);
+
+        if (!payload.TryGetProperty("value", out var valueElement))
+        {
+            throw new InvalidOperationException($"Missing 'value' in rna.get response for '{path}'.");
+        }
+
+        return _owner.TypeResolver.DeserializeRequired<T>(valueElement);
+    }
+
+    public async Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default)
+    {
+        _ = await _owner.InvokePayloadAsync(
+            "rna.set",
+            new RnaSetRequest
+            {
+                Path = path,
+                Value = _owner.TypeResolver.Serialize(value),
+            },
+            ProtocolJsonContext.Default.RnaSetRequest,
+            cancellationToken);
+    }
+
+    public async Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var payload = await _owner.InvokePayloadAsync(
+            "rna.describe",
+            new RnaPathRequest { Path = path },
+            ProtocolJsonContext.Default.RnaPathRequest,
+            cancellationToken);
+
+        return _owner.TypeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.RnaDescribeResult);
+    }
+
+    public Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs)
+    {
+        return CallAsync<T>(
+            path,
+            method,
+            new BlenderMethodCall
+            {
+                Kwargs = kwargs,
+            });
+    }
+
+    public async Task<T> CallAsync<T>(string path, string method, BlenderMethodCall call, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+
+        var payload = await _owner.InvokePayloadAsync(
+            "rna.call",
+            new RnaCallRequest
+            {
+                Path = path,
+                Method = method,
+                Args = ToJsonElementList(call.Args),
+                Kwargs = ToJsonElementDictionary(call.Kwargs),
+            },
+            ProtocolJsonContext.Default.RnaCallRequest,
+            cancellationToken);
+
+        if (!payload.TryGetProperty("return", out var returnElement))
+        {
+            throw new InvalidOperationException($"Missing 'return' in rna.call response for '{path}.{method}'.");
+        }
+
+        return _owner.TypeResolver.DeserializeRequired<T>(returnElement);
+    }
+
+    private List<JsonElement>? ToJsonElementList(IReadOnlyList<BlenderValue>? values)
+    {
+        if (values is null || values.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new List<JsonElement>(values.Count);
+        foreach (var value in values)
+        {
+            result.Add(value.RawJsonOrSerialized(_owner.TypeResolver));
+        }
+
+        return result;
+    }
+
+    private Dictionary<string, JsonElement>? ToJsonElementDictionary(IReadOnlyList<BlenderNamedArg>? namedArgs)
+    {
+        if (namedArgs is null || namedArgs.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var namedArg in namedArgs)
+        {
+            if (!result.TryAdd(namedArg.Name, namedArg.Value.RawJsonOrSerialized(_owner.TypeResolver)))
+            {
+                throw new InvalidOperationException($"Duplicate named argument '{namedArg.Name}'.");
+            }
+        }
+
+        return result;
+    }
+}
+
+public sealed class BlenderOpsApi : IBlenderOpsApi
+{
+    private readonly BlenderApi _owner;
+
+    public BlenderOpsApi(BlenderApi owner)
+    {
+        _owner = owner;
+    }
+
+    public async Task<OperatorPollResult> PollAsync(
+        string operatorName,
+        string operatorContext = "EXEC_DEFAULT",
+        BlenderContextOverride? contextOverride = null,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await _owner.InvokePayloadAsync(
+            "ops.poll",
+            new OpsPollRequest
+            {
+                Operator = operatorName,
+                OperatorContext = operatorContext,
+                ContextOverride = ToContextOverrideDictionary(contextOverride),
+            },
+            ProtocolJsonContext.Default.OpsPollRequest,
+            cancellationToken);
+
+        return _owner.TypeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.OperatorPollResult);
+    }
+
+    public Task<OperatorCallResult> CallAsync(string operatorName, params BlenderNamedArg[] properties)
+    {
+        return CallAsync(
+            operatorName,
+            new BlenderOperatorCall
+            {
+                Properties = properties,
+            });
+    }
+
+    public async Task<OperatorCallResult> CallAsync(
+        string operatorName,
+        BlenderOperatorCall call,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+
+        var payload = await _owner.InvokePayloadAsync(
+            "ops.call",
+            new OpsCallRequest
+            {
+                Operator = operatorName,
+                Properties = ToJsonElementDictionary(call.Properties),
+                OperatorContext = call.OperatorContext,
+                ContextOverride = ToContextOverrideDictionary(call.ContextOverride),
+            },
+            ProtocolJsonContext.Default.OpsCallRequest,
+            cancellationToken);
+
+        return _owner.TypeResolver.DeserializeRequired(payload, ProtocolJsonContext.Default.OperatorCallResult);
+    }
+
+    private Dictionary<string, JsonElement>? ToContextOverrideDictionary(BlenderContextOverride? contextOverride)
+    {
+        if (contextOverride is null)
+        {
+            return null;
+        }
+
+        var payload = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        AddPathOverride(payload, "active_object", contextOverride.ActiveObject);
+        AddPathListOverride(payload, "selected_objects", contextOverride.SelectedObjects);
+        AddPathOverride(payload, "object", contextOverride.Object);
+        AddPathOverride(payload, "scene", contextOverride.Scene);
+        AddPathOverride(payload, "view_layer", contextOverride.ViewLayer);
+        AddPathOverride(payload, "collection", contextOverride.Collection);
+        AddPathOverride(payload, "window", contextOverride.Window);
+        AddPathOverride(payload, "screen", contextOverride.Screen);
+        AddPathOverride(payload, "area", contextOverride.Area);
+        AddPathOverride(payload, "region", contextOverride.Region);
+
+        return payload.Count == 0 ? null : payload;
+    }
+
+    private Dictionary<string, JsonElement>? ToJsonElementDictionary(IReadOnlyList<BlenderNamedArg>? namedArgs)
+    {
+        if (namedArgs is null || namedArgs.Count == 0)
+        {
+            return null;
+        }
+
+        var result = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var namedArg in namedArgs)
+        {
+            if (!result.TryAdd(namedArg.Name, namedArg.Value.RawJsonOrSerialized(_owner.TypeResolver)))
+            {
+                throw new InvalidOperationException($"Duplicate named argument '{namedArg.Name}'.");
+            }
+        }
+
+        return result;
+    }
+
+    private void AddPathOverride(Dictionary<string, JsonElement> payload, string key, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        payload[key] = _owner.TypeResolver.SerializeKnown(new PathRef { Path = path });
+    }
+
+    private void AddPathListOverride(Dictionary<string, JsonElement> payload, string key, IReadOnlyList<string>? paths)
+    {
+        if (paths is null || paths.Count == 0)
+        {
+            return;
+        }
+
+        var items = new List<JsonElement>(paths.Count);
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            items.Add(_owner.TypeResolver.SerializeKnown(new PathRef { Path = path }));
+        }
+
+        if (items.Count > 0)
+        {
+            payload[key] = _owner.TypeResolver.SerializeKnown(items);
+        }
+    }
+}
+
+public sealed class BlenderObserveApi : IBlenderObserveApi
+{
+    private readonly BlenderApi _owner;
+
+    public BlenderObserveApi(BlenderApi owner)
+    {
+        _owner = owner;
+    }
+
+    public Task<IAsyncDisposable> WatchAsync(
+        string watchId,
+        WatchSource source,
+        string path,
+        Func<WatchDirtyEvent, Task> onDirty,
+        CancellationToken cancellationToken = default)
+    {
+        return _owner.WatchAsync(watchId, source, path, onDirty, cancellationToken);
+    }
+
+    public Task<WatchSnapshot> ReadAsync(string watchId, CancellationToken cancellationToken = default)
+    {
+        return _owner.ReadWatchAsync(watchId, cancellationToken);
+    }
 }
 
 internal sealed class BlenderJsonTypeResolver
@@ -872,7 +984,7 @@ internal sealed class BlenderJsonTypeResolver
 
     public static BlenderJsonTypeResolver Default { get; } = new();
 
-    public BlenderJsonTypeResolver(BlenderDataApiOptions? options = null)
+    public BlenderJsonTypeResolver(BlenderApiOptions? options = null)
     {
         _resolvers = new List<IJsonTypeInfoResolver> { ProtocolJsonContext.Default };
         if (options is not null)

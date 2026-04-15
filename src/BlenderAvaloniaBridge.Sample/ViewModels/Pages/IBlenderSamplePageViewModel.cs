@@ -2,7 +2,7 @@ using BlenderAvaloniaBridge;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
-public interface IBlenderSamplePageViewModel : IBlenderDataApiSink, IBlenderBridgeStatusSink
+public interface IBlenderSamplePageViewModel : IBlenderApiSink, IBlenderBridgeStatusSink
 {
     Task ActivateAsync();
 

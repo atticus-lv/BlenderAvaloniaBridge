@@ -19,7 +19,7 @@ internal sealed class HeadlessUiHost
     private IBlenderBridgeStatusSink? _statusSink;
     private IBlenderBridgeMessageHost? _messageHost;
     private IBusinessEndpointSink? _businessEndpointSink;
-    private IBlenderDataApiSink? _blenderDataApiSink;
+    private IBlenderApiSink? _blenderApiSink;
     private InputDispatcher? _inputDispatcher;
     private Window? _window;
     private int _width;
@@ -72,7 +72,7 @@ internal sealed class HeadlessUiHost
             _statusSink = ResolveStatusSink(_window);
             _messageHost = ResolveMessageHost(_window);
             _businessEndpointSink = ResolveBusinessEndpointSink(_window);
-            _blenderDataApiSink = ResolveBlenderDataApiSink(_window);
+            _blenderApiSink = ResolveBlenderApiSink(_window);
             _inputDispatcher = new InputDispatcher(_statusSink);
             _window.Show();
             _window.SetRenderScaling(_renderScaling);
@@ -203,13 +203,13 @@ internal sealed class HeadlessUiHost
         ExtendContinuousFrames(_options.ContinuousFrameWindow);
     }
 
-    public Task AttachBusinessApiAsync(IBusinessEndpoint businessEndpoint, IBlenderDataApi blenderDataApi)
+    public Task AttachBusinessApiAsync(IBusinessEndpoint businessEndpoint, BlenderApi blenderApi)
     {
         return _runtimeThread.InvokeAsync(() =>
         {
-            _messageHost?.AttachBlenderDataApi(blenderDataApi);
+            _messageHost?.AttachBlenderApi(blenderApi);
             _businessEndpointSink?.AttachBusinessEndpoint(businessEndpoint);
-            _blenderDataApiSink?.AttachBlenderDataApi(blenderDataApi);
+            _blenderApiSink?.AttachBlenderApi(blenderApi);
             return true;
         });
     }
@@ -257,9 +257,9 @@ internal sealed class HeadlessUiHost
         return ResolveFromWindow<IBusinessEndpointSink>(window);
     }
 
-    private static IBlenderDataApiSink? ResolveBlenderDataApiSink(Window window)
+    private static IBlenderApiSink? ResolveBlenderApiSink(Window window)
     {
-        return ResolveFromWindow<IBlenderDataApiSink>(window);
+        return ResolveFromWindow<IBlenderApiSink>(window);
     }
 
     private static IBlenderBridgeMessageHost? ResolveMessageHost(Window window)
@@ -345,7 +345,7 @@ internal sealed class HeadlessUiHost
                 _statusSink = null;
                 _messageHost = null;
                 _businessEndpointSink = null;
-                _blenderDataApiSink = null;
+                _blenderApiSink = null;
                 _inputDispatcher = null;
                 _animationFrameQueued = false;
                 _watchRenderingActive = false;

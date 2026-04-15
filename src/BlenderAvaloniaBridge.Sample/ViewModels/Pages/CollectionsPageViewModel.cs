@@ -29,7 +29,7 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
 
     protected override Task OnActivatedAsync()
     {
-        if (BlenderDataApi is null)
+        if (BlenderApi is null)
         {
             SetDisconnectedStatus();
             return Task.CompletedTask;
@@ -38,7 +38,7 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
         return RefreshCollectionsAsync();
     }
 
-    protected override void OnBlenderDataApiChanged()
+    protected override void OnBlenderApiChanged()
     {
         RefreshCollectionsCommand.NotifyCanExecuteChanged();
     }
@@ -66,13 +66,13 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(SelectionChangedCoreAsync);
     }
 
-    private bool CanUseBridge() => BlenderDataApi is not null;
+    private bool CanUseBridge() => BlenderApi is not null;
 
     private async Task RefreshCollectionsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
         var previousSelection = SelectedCollectionNode?.Item;
-        var sceneCollection = await blender.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.SceneCollectionPath);
+        var sceneCollection = await blender.Rna.GetAsync<RnaItemRef>(BlenderSampleDataHelpers.SceneCollectionPath);
         var roots = await BuildCollectionTreeAsync(blender, sceneCollection);
         foreach (var root in roots)
         {
@@ -129,8 +129,8 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task LoadSelectedCollectionAsync(RnaItemRef collection)
     {
-        var blender = RequireBlenderDataApi();
-        var objects = await blender.ListAsync($"{collection.Path}.objects");
+        var blender = RequireBlenderApi();
+        var objects = await blender.Rna.ListAsync($"{collection.Path}.objects");
 
         CollectionObjects.Clear();
         foreach (var item in objects)
@@ -161,25 +161,25 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
     }
 
     private static async Task<IReadOnlyList<CollectionTreeItem>> BuildCollectionTreeAsync(
-        IBlenderDataApi blender,
+        BlenderApi blender,
         RnaItemRef sceneCollection)
     {
         return new[] { await BuildTreeItemAsync(blender, sceneCollection) };
     }
 
     private static async Task<CollectionTreeItem> BuildTreeItemAsync(
-        IBlenderDataApi blender,
+        BlenderApi blender,
         RnaItemRef collection)
     {
         var item = CollectionTreeItem.CreateCollection(collection);
 
-        var children = await blender.ListAsync($"{collection.Path}.children");
+        var children = await blender.Rna.ListAsync($"{collection.Path}.children");
         foreach (var child in children.OrderBy(static child => child.Name, StringComparer.OrdinalIgnoreCase))
         {
             item.Children.Add(await BuildTreeItemAsync(blender, child));
         }
 
-        var objects = await blender.ListAsync($"{collection.Path}.objects");
+        var objects = await blender.Rna.ListAsync($"{collection.Path}.objects");
         foreach (var obj in objects.OrderBy(static obj => obj.Name, StringComparer.OrdinalIgnoreCase))
         {
             item.Children.Add(CollectionTreeItem.CreateObject(obj));

@@ -12,17 +12,17 @@ internal static class BlenderSampleDataHelpers
     internal const string SceneCollectionPath = "bpy.context.scene.collection";
 
     internal static async Task<IReadOnlyList<BlenderObjectListItem>> LoadSceneObjectItemsAsync(
-        IBlenderDataApi blenderDataApi,
+        BlenderApi blenderApi,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(blenderDataApi);
+        ArgumentNullException.ThrowIfNull(blenderApi);
 
-        var items = await blenderDataApi.ListAsync(SceneObjectsPath, cancellationToken);
+        var items = await blenderApi.Rna.ListAsync(SceneObjectsPath, cancellationToken);
         RnaItemRef? activeObject = null;
 
         try
         {
-            activeObject = await blenderDataApi.GetAsync<RnaItemRef>(ActiveObjectPath, cancellationToken);
+            activeObject = await blenderApi.Rna.GetAsync<RnaItemRef>(ActiveObjectPath, cancellationToken);
         }
         catch (InvalidOperationException)
         {
@@ -31,7 +31,7 @@ internal static class BlenderSampleDataHelpers
 
         var loadTasks = items.Select(async item =>
         {
-            var objectType = await blenderDataApi.GetAsync<string>($"{item.Path}.type", cancellationToken);
+            var objectType = await blenderApi.Rna.GetAsync<string>($"{item.Path}.type", cancellationToken);
             var isActiveObject = activeObject is not null && ReferenceMatches(item, activeObject);
             return new BlenderObjectListItem(item, item.Label, objectType, isActiveObject);
         });

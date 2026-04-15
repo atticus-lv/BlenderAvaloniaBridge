@@ -43,7 +43,7 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
 
     protected override Task OnActivatedAsync()
     {
-        if (BlenderDataApi is null)
+        if (BlenderApi is null)
         {
             SetDisconnectedStatus();
             return Task.CompletedTask;
@@ -52,7 +52,7 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
         return RefreshObjectsAsync();
     }
 
-    protected override void OnBlenderDataApiChanged()
+    protected override void OnBlenderApiChanged()
     {
         RefreshObjectsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(HasSelectedObject));
@@ -92,11 +92,11 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
         return RunPageOperationAsync(CommitLocationCoreAsync);
     }
 
-    private bool CanUseBridge() => BlenderDataApi is not null;
+    private bool CanUseBridge() => BlenderApi is not null;
 
     private async Task RefreshObjectsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
         BridgeStatusText = "Refreshing scene objects...";
 
         var previousSelection = SelectedObject?.RnaRef;
@@ -148,18 +148,18 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
 
     private async Task CommitNameCoreAsync()
     {
-        if (_isApplyingRemoteState || BlenderDataApi is null || SelectedObject is null)
+        if (_isApplyingRemoteState || BlenderApi is null || SelectedObject is null)
         {
             return;
         }
 
-        await BlenderDataApi.SetAsync($"{SelectedObject.RnaRef.Path}.name", ObjectName);
+        await BlenderApi.Rna.SetAsync($"{SelectedObject.RnaRef.Path}.name", ObjectName);
         await RefreshObjectsCoreAsync();
     }
 
     private async Task CommitLocationCoreAsync()
     {
-        if (_isApplyingRemoteState || BlenderDataApi is null || SelectedObject is null)
+        if (_isApplyingRemoteState || BlenderApi is null || SelectedObject is null)
         {
             return;
         }
@@ -172,15 +172,15 @@ public partial class BlenderObjectsPageViewModel : BlenderBridgePageViewModelBas
             return;
         }
 
-        await BlenderDataApi.SetAsync($"{SelectedObject.RnaRef.Path}.location", new[] { x, y, z });
+        await BlenderApi.Rna.SetAsync($"{SelectedObject.RnaRef.Path}.location", new[] { x, y, z });
         await LoadSelectedObjectPropertiesAsync(SelectedObject.RnaRef);
     }
 
     private async Task LoadSelectedObjectPropertiesAsync(RnaItemRef rnaRef)
     {
-        var blender = RequireBlenderDataApi();
-        var objectName = await blender.GetAsync<string>($"{rnaRef.Path}.name");
-        var location = await blender.GetAsync<double[]>($"{rnaRef.Path}.location");
+        var blender = RequireBlenderApi();
+        var objectName = await blender.Rna.GetAsync<string>($"{rnaRef.Path}.name");
+        var location = await blender.Rna.GetAsync<double[]>($"{rnaRef.Path}.location");
 
         _isApplyingRemoteState = true;
         ObjectName = objectName;

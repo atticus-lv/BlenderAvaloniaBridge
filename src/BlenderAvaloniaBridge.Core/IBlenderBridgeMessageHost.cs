@@ -4,7 +4,7 @@ namespace BlenderAvaloniaBridge;
 
 public interface IBlenderBridgeMessageHost
 {
-    void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi);
+    void AttachBlenderApi(BlenderApi? blenderApi);
 
     Task HandleBridgeMessageAsync(ProtocolEnvelope envelope);
 }

@@ -15,7 +15,7 @@ internal sealed class BridgeClient
     private readonly ISharedFrameWriterFactory _sharedFrameWriterFactory;
     private readonly FrameDispatchScheduler _frameScheduler;
     private readonly RemoteBusinessEndpoint _businessEndpoint;
-    private readonly BlenderDataApi _blenderDataApi;
+    private readonly BlenderApi _blenderApi;
     private readonly SemaphoreSlim _frameSignal = new(0, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _frameSchedulerGate = new();
@@ -41,13 +41,13 @@ internal sealed class BridgeClient
         _sharedFrameWriterFactory = sharedFrameWriterFactory ?? SharedFrameWriterFactory.Instance;
         _frameScheduler = new FrameDispatchScheduler(_options.ActiveFrameInterval, _options.IdleHeartbeatInterval);
         _businessEndpoint = new RemoteBusinessEndpoint(WriteBusinessEnvelopeAsync);
-        _blenderDataApi = new BlenderDataApi(_businessEndpoint, _options.DataApi);
+        _blenderApi = new BlenderApi(_businessEndpoint, _options.Api);
         if (_uiSession.SupportsFrames)
         {
             _uiSession.FrameRequested += OnUiFrameRequested;
         }
 
-        ((IWatchActivitySource)_blenderDataApi).ActiveWatchStateChanged += OnActiveWatchStateChanged;
+        ((IWatchActivitySource)_blenderApi).ActiveWatchStateChanged += OnActiveWatchStateChanged;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -71,7 +71,7 @@ internal sealed class BridgeClient
             await WritePacketAsync(_uiSession.CreateInitAck(NextSequence()), cancellationToken);
             if (_options.SupportsBusiness)
             {
-                await _uiSession.AttachBusinessApiAsync(_businessEndpoint, _blenderDataApi);
+                await _uiSession.AttachBusinessApiAsync(_businessEndpoint, _blenderApi);
             }
             if (canStreamFrames)
             {
@@ -104,7 +104,7 @@ internal sealed class BridgeClient
         }
         finally
         {
-            ((IWatchActivitySource)_blenderDataApi).ActiveWatchStateChanged -= OnActiveWatchStateChanged;
+            ((IWatchActivitySource)_blenderApi).ActiveWatchStateChanged -= OnActiveWatchStateChanged;
             try
             {
                 await _uiSession.SetWatchRenderingActiveAsync(false);
@@ -150,7 +150,7 @@ internal sealed class BridgeClient
 
         if (IsBusinessEvent(envelope))
         {
-            await ((IBusinessEventSink)_blenderDataApi).HandleEventAsync(
+            await ((IBusinessEventSink)_blenderApi).HandleEventAsync(
                 new BusinessEvent
                 {
                     ProtocolVersion = envelope.ProtocolVersion ?? BlenderBusinessProtocolVersions.ProtocolVersion,

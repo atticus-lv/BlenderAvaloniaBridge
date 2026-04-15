@@ -17,7 +17,7 @@ public abstract partial class BlenderBridgePageViewModelBase : ObservableObject,
         _statusText = disconnectedStatusText;
     }
 
-    protected IBlenderDataApi? BlenderDataApi { get; private set; }
+    protected BlenderApi? BlenderApi { get; private set; }
 
     protected bool IsActive => _isActive;
 
@@ -27,21 +27,21 @@ public abstract partial class BlenderBridgePageViewModelBase : ObservableObject,
     [ObservableProperty]
     private string _bridgeStatusText = "Bridge disconnected";
 
-    public void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi)
+    public void AttachBlenderApi(BlenderApi? blenderApi)
     {
         _ = RunOnUiThreadAsync(async () =>
         {
-            BlenderDataApi = blenderDataApi;
-            BridgeStatusText = blenderDataApi is null ? "Bridge disconnected" : "Bridge connected";
-            StatusText = blenderDataApi is null ? _disconnectedStatusText : _connectedStatusText;
-            OnBlenderDataApiChanged();
+            BlenderApi = blenderApi;
+            BridgeStatusText = blenderApi is null ? "Bridge disconnected" : "Bridge connected";
+            StatusText = blenderApi is null ? _disconnectedStatusText : _connectedStatusText;
+            OnBlenderApiChanged();
 
             if (_isActive)
             {
                 await RunPageOperationAsync(async () =>
                 {
                     await OnDeactivatedAsync();
-                    if (BlenderDataApi is not null)
+                    if (BlenderApi is not null)
                     {
                         await OnActivatedAsync();
                     }
@@ -71,7 +71,7 @@ public abstract partial class BlenderBridgePageViewModelBase : ObservableObject,
         return RunPageOperationAsync(OnDeactivatedAsync);
     }
 
-    protected virtual void OnBlenderDataApiChanged()
+    protected virtual void OnBlenderApiChanged()
     {
     }
 
@@ -92,15 +92,15 @@ public abstract partial class BlenderBridgePageViewModelBase : ObservableObject,
 
     protected void SetConnectedIdleStatus(string statusText)
     {
-        if (BlenderDataApi is not null)
+        if (BlenderApi is not null)
         {
             StatusText = statusText;
         }
     }
 
-    protected IBlenderDataApi RequireBlenderDataApi()
+    protected BlenderApi RequireBlenderApi()
     {
-        return BlenderDataApi ?? throw new InvalidOperationException("Bridge is not attached.");
+        return BlenderApi ?? throw new InvalidOperationException("Bridge is not attached.");
     }
 
     protected Task RunOnUiThreadAsync(Func<Task> operation)

@@ -36,7 +36,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 
     protected override async Task OnActivatedAsync()
     {
-        if (BlenderDataApi is null)
+        if (BlenderApi is null)
         {
             SetDisconnectedStatus();
             return;
@@ -51,7 +51,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         await StopWatchAsync();
     }
 
-    protected override void OnBlenderDataApiChanged()
+    protected override void OnBlenderApiChanged()
     {
         RefreshMaterialsCommand.NotifyCanExecuteChanged();
         CreateMaterialCommand.NotifyCanExecuteChanged();
@@ -72,7 +72,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 
     partial void OnUseNodesChanged(bool value)
     {
-        if (_isApplyingRemoteState || SelectedMaterial is null || BlenderDataApi is null)
+        if (_isApplyingRemoteState || SelectedMaterial is null || BlenderApi is null)
         {
             return;
         }
@@ -107,13 +107,13 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
         return RunPageOperationAsync(CommitUseNodesCoreAsync);
     }
 
-    private bool CanUseBridge() => BlenderDataApi is not null;
+    private bool CanUseBridge() => BlenderApi is not null;
 
     private async Task RefreshMaterialsCoreAsync()
     {
-        var blender = RequireBlenderDataApi();
+        var blender = RequireBlenderApi();
         var previousSelection = SelectedMaterial;
-        var items = await blender.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
+        var items = await blender.Rna.ListAsync(BlenderSampleDataHelpers.MaterialsPath);
         var nextSelection = previousSelection is null
             ? items.FirstOrDefault()
             : items.FirstOrDefault(item => BlenderSampleDataHelpers.ReferenceMatches(item, previousSelection))
@@ -163,7 +163,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
     private async Task CreateMaterialCoreAsync()
     {
         var requestedName = string.IsNullOrWhiteSpace(NewMaterialName) ? "Material" : NewMaterialName.Trim();
-        var created = await RequireBlenderDataApi().CallAsync<RnaItemRef>(
+        var created = await RequireBlenderApi().Rna.CallAsync<RnaItemRef>(
             BlenderSampleDataHelpers.MaterialsPath,
             "new",
             ("name", requestedName));
@@ -189,7 +189,7 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        await RequireBlenderDataApi().SetAsync($"{SelectedMaterial.Path}.name", MaterialName);
+        await RequireBlenderApi().Rna.SetAsync($"{SelectedMaterial.Path}.name", MaterialName);
         await RefreshMaterialsCoreAsync();
     }
 
@@ -200,15 +200,15 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
             return;
         }
 
-        await RequireBlenderDataApi().SetAsync($"{SelectedMaterial.Path}.use_nodes", UseNodes);
+        await RequireBlenderApi().Rna.SetAsync($"{SelectedMaterial.Path}.use_nodes", UseNodes);
         SetConnectedIdleStatus($"Updated use_nodes for {SelectedMaterial.Name}.");
     }
 
     private async Task LoadSelectedMaterialAsync(RnaItemRef material)
     {
-        var blender = RequireBlenderDataApi();
-        var materialName = await blender.GetAsync<string>($"{material.Path}.name");
-        var useNodes = await blender.GetAsync<bool>($"{material.Path}.use_nodes");
+        var blender = RequireBlenderApi();
+        var materialName = await blender.Rna.GetAsync<string>($"{material.Path}.name");
+        var useNodes = await blender.Rna.GetAsync<bool>($"{material.Path}.use_nodes");
 
         await RunOnUiThreadAsync(() =>
         {
@@ -224,12 +224,12 @@ public partial class MaterialsPageViewModel : BlenderBridgePageViewModelBase
 
     private async Task EnsureWatchAsync()
     {
-        if (_watchSubscription is not null || BlenderDataApi is null || !IsActive)
+        if (_watchSubscription is not null || BlenderApi is null || !IsActive)
         {
             return;
         }
 
-        _watchSubscription = await BlenderDataApi.WatchAsync(
+        _watchSubscription = await BlenderApi.Observe.WatchAsync(
             "materials-page",
             WatchSource.Depsgraph,
             BlenderSampleDataHelpers.MaterialsPath,

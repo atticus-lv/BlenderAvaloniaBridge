@@ -5,7 +5,7 @@ using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
-public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink, IBlenderDataApiSink
+public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink, IBlenderApiSink
 {
     private readonly ButtonsDemoPageViewModel _buttonsPage = new();
     private readonly SortableListDemoPageViewModel _sortableListPage = new();
@@ -56,11 +56,11 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
 
     public string SidebarToggleText => IsSidebarOpen ? "<" : ">";
 
-    public void AttachBlenderDataApi(IBlenderDataApi? blenderDataApi)
+    public void AttachBlenderApi(BlenderApi? blenderApi)
     {
         foreach (var page in _blenderPages)
         {
-            page.AttachBlenderDataApi(blenderDataApi);
+            page.AttachBlenderApi(blenderApi);
         }
     }
 

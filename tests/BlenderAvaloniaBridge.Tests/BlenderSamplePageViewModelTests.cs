@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using BlenderAvaloniaBridge;
+using BlenderAvaloniaBridge.Sample.Helpers;
 using BlenderAvaloniaBridge.Sample.ViewModels;
 using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 using Xunit;
@@ -41,17 +42,22 @@ public sealed class BlenderSamplePageViewModelTests
     public async Task BlenderObjectsPage_Activate_LoadsObjectsAndProperties()
     {
         var viewModel = new BlenderObjectsPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             ListAsyncImpl = (path, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(
                 [
                     CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 7, isActive: true),
                 ]),
-            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
-                path.EndsWith(".name", StringComparison.Ordinal) ? "Cube" : new[] { 1.0, 2.0, 3.0 }),
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(path switch
+            {
+                BlenderSampleDataHelpers.ActiveObjectPath => CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 7, isActive: true),
+                var value when value.EndsWith(".name", StringComparison.Ordinal) => "Cube",
+                var value when value.EndsWith(".type", StringComparison.Ordinal) => "MESH",
+                _ => new[] { 1.0, 2.0, 3.0 },
+            }),
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
 
         await WaitForAsync(() => viewModel.Objects.Count == 1 && viewModel.ObjectName == "Cube");
@@ -66,15 +72,20 @@ public sealed class BlenderSamplePageViewModelTests
     public async Task BlenderObjectsPage_CommitNameFailure_StoresErrorStatus()
     {
         var viewModel = new BlenderObjectsPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             ListAsyncImpl = (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>([CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 7, isActive: true)]),
-            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
-                path.EndsWith(".name", StringComparison.Ordinal) ? "Cube" : new[] { 0.0, 0.0, 0.0 }),
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(path switch
+            {
+                BlenderSampleDataHelpers.ActiveObjectPath => CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 7, isActive: true),
+                var value when value.EndsWith(".name", StringComparison.Ordinal) => "Cube",
+                var value when value.EndsWith(".type", StringComparison.Ordinal) => "MESH",
+                _ => new[] { 0.0, 0.0, 0.0 },
+            }),
             SetAsyncImpl = (_, _, _) => throw new InvalidOperationException("name set failed"),
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
         await WaitForAsync(() => viewModel.SelectedObject is not null);
 
@@ -88,7 +99,7 @@ public sealed class BlenderSamplePageViewModelTests
     public async Task LiveTransformPage_OnlySubscribesWhenCheckboxIsEnabled()
     {
         var viewModel = new LiveTransformPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             GetAsyncImpl = (path, _) => Task.FromResult<object?>(
                 path == "bpy.context.object" ? CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 3, isActive: true) :
@@ -97,28 +108,28 @@ public sealed class BlenderSamplePageViewModelTests
                 new[] { 4.0, 5.0, 6.0 }),
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
         await WaitForAsync(() => viewModel.CurrentObject is not null);
 
-        Assert.Equal(0, api.WatchSubscribeCount);
+        Assert.Equal(0, blenderApi.WatchSubscribeCount);
 
         viewModel.IsLiveWatchEnabled = true;
-        await WaitForAsync(() => api.WatchSubscribeCount == 1);
+        await WaitForAsync(() => blenderApi.WatchSubscribeCount == 1);
 
-        var getCountBeforeDirty = api.GetPaths.Count;
-        await api.TriggerWatchDirtyAsync("live-transform-3");
-        await WaitForAsync(() => api.GetPaths.Count > getCountBeforeDirty);
+        var getCountBeforeDirty = blenderApi.GetPaths.Count;
+        await blenderApi.TriggerWatchDirtyAsync("live-transform-3");
+        await WaitForAsync(() => blenderApi.GetPaths.Count > getCountBeforeDirty);
 
         viewModel.IsLiveWatchEnabled = false;
-        await WaitForAsync(() => api.WatchDisposeCount == 1);
+        await WaitForAsync(() => blenderApi.WatchDisposeCount == 1);
     }
 
     [Fact]
     public async Task MaterialsPage_CreateMaterialAndDirtyEvent_ReloadsList()
     {
         var viewModel = new MaterialsPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             ListAsyncImpl = (path, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>(
                 [
@@ -149,24 +160,24 @@ public sealed class BlenderSamplePageViewModelTests
             },
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
         await WaitForAsync(() => viewModel.Materials.Count == 1);
 
         viewModel.NewMaterialName = "Mat_New";
         await viewModel.CreateMaterialAsync();
-        Assert.Equal(1, api.WatchSubscribeCount);
+        Assert.Equal(1, blenderApi.WatchSubscribeCount);
 
-        var listCallCount = api.ListedPaths.Count;
-        await api.TriggerWatchDirtyAsync("materials-page");
-        await WaitForAsync(() => api.ListedPaths.Count > listCallCount);
+        var listCallCount = blenderApi.ListedPaths.Count;
+        await blenderApi.TriggerWatchDirtyAsync("materials-page");
+        await WaitForAsync(() => blenderApi.ListedPaths.Count > listCallCount);
     }
 
     [Fact]
     public async Task CollectionsPage_SelectCollection_LoadsChildrenAndObjects()
     {
         var viewModel = new CollectionsPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             GetAsyncImpl = (path, _) => path switch
             {
@@ -215,7 +226,7 @@ public sealed class BlenderSamplePageViewModelTests
             }),
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
         await WaitForAsync(() =>
             viewModel.CollectionTreeRoots.Count == 1 &&
@@ -245,7 +256,7 @@ public sealed class BlenderSamplePageViewModelTests
     public async Task OperatorsPage_PollsAndUsesContextOverrideForSelectionOperators()
     {
         var viewModel = new OperatorsPageViewModel();
-        var api = new TestBlenderDataApi
+        var blenderApi = new TestBlenderApi
         {
             GetAsyncImpl = (path, _) => Task.FromResult<object?>(
                 path == "bpy.context.object" ? CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 17, isActive: true) : null),
@@ -273,15 +284,15 @@ public sealed class BlenderSamplePageViewModelTests
             },
         };
 
-        viewModel.AttachBlenderDataApi(api);
+        viewModel.AttachBlenderApi(blenderApi);
         await viewModel.ActivateAsync();
         await WaitForAsync(() => viewModel.CurrentObject is not null && viewModel.CanDuplicateOperator);
 
         await viewModel.DuplicateAsync();
 
         Assert.Equal("Ready", viewModel.DuplicatePollText);
-        Assert.Contains(api.OperatorPollCalls, call => call.operatorName == "object.duplicate_move");
-        Assert.Contains(api.OperatorCallRecords, call => call.operatorName == "object.duplicate_move");
+        Assert.Contains(blenderApi.OperatorPollCalls, call => call.operatorName == "object.duplicate_move");
+        Assert.Contains(blenderApi.OperatorCallRecords, call => call.operatorName == "object.duplicate_move");
     }
 
     private static RnaItemRef CreateObject(string name, string path, long sessionUid, bool isActive = false)
@@ -312,8 +323,22 @@ public sealed class BlenderSamplePageViewModelTests
         }
     }
 
-    private sealed class TestBlenderDataApi : IBlenderDataApi
+    private sealed class TestBlenderApi : BlenderApi
     {
+        public TestBlenderApi()
+            : base(new ThrowingBusinessEndpoint())
+        {
+            base.Rna = new TestBlenderRnaApi(this);
+            base.Ops = new TestBlenderOpsApi(this);
+            base.Observe = new TestBlenderObserveApi(this);
+        }
+
+        public new TestBlenderRnaApi Rna => (TestBlenderRnaApi)base.Rna;
+
+        public new TestBlenderOpsApi Ops => (TestBlenderOpsApi)base.Ops;
+
+        public new TestBlenderObserveApi Observe => (TestBlenderObserveApi)base.Observe;
+
         public Func<string, CancellationToken, Task<IReadOnlyList<RnaItemRef>>>? ListAsyncImpl { get; init; }
 
         public Func<string, CancellationToken, Task<object?>>? GetAsyncImpl { get; init; }
@@ -342,88 +367,6 @@ public sealed class BlenderSamplePageViewModelTests
 
         private Func<WatchDirtyEvent, Task>? _watchCallback;
 
-        public Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default)
-        {
-            ListedPaths.Add(path);
-            return ListAsyncImpl?.Invoke(path, cancellationToken) ?? Task.FromResult<IReadOnlyList<RnaItemRef>>(Array.Empty<RnaItemRef>());
-        }
-
-        public async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default)
-        {
-            GetPaths.Add(path);
-            return (T)(await (GetAsyncImpl?.Invoke(path, cancellationToken) ?? Task.FromResult<object?>(default(T))) ?? throw new InvalidOperationException("No value."));
-        }
-
-        public Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default)
-        {
-            SetCalls.Add((path, value));
-            return SetAsyncImpl?.Invoke(path, value, cancellationToken) ?? Task.CompletedTask;
-        }
-
-        public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public async Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs)
-        {
-            return (T)(await (CallAsyncImpl?.Invoke(path, method, kwargs, CancellationToken.None) ?? Task.FromResult<object?>(default(T))) ?? throw new InvalidOperationException("No call result."));
-        }
-
-        public Task<T> CallAsync<T>(string path, string method, BlenderMethodCall call, CancellationToken cancellationToken = default)
-        {
-            var kwargs = call.Kwargs ?? Array.Empty<BlenderNamedArg>();
-            return CallAsync<T>(path, method, kwargs.ToArray());
-        }
-
-        public Task<OperatorPollResult> PollOperatorAsync(string operatorName, string operatorContext = "EXEC_DEFAULT", BlenderContextOverride? contextOverride = null, CancellationToken cancellationToken = default)
-        {
-            OperatorPollCalls.Add((operatorName, operatorContext, contextOverride));
-            return PollOperatorImpl?.Invoke(operatorName, operatorContext, contextOverride, cancellationToken)
-                   ?? Task.FromResult(
-                       new OperatorPollResult
-                       {
-                           OperatorName = operatorName,
-                           CanExecute = true,
-                       });
-        }
-
-        public Task<OperatorCallResult> CallOperatorAsync(string operatorName, params BlenderNamedArg[] properties)
-        {
-            return CallOperatorAsync(
-                operatorName,
-                new BlenderOperatorCall
-                {
-                    Properties = properties,
-                });
-        }
-
-        public Task<OperatorCallResult> CallOperatorAsync(string operatorName, BlenderOperatorCall call, CancellationToken cancellationToken = default)
-        {
-            OperatorCallRecords.Add((operatorName, call));
-            return CallOperatorImpl?.Invoke(operatorName, call, cancellationToken)
-                   ?? Task.FromResult(
-                       new OperatorCallResult
-                       {
-                           OperatorName = operatorName,
-                           Result = ["FINISHED"],
-                       });
-        }
-
-        public Task<IAsyncDisposable> WatchAsync(string watchId, WatchSource source, string path, Func<WatchDirtyEvent, Task> onDirty, CancellationToken cancellationToken = default)
-        {
-            WatchSubscribeCount++;
-            _watchCallback = onDirty;
-            return Task.FromResult<IAsyncDisposable>(new TrackingAsyncDisposable(this));
-        }
-
-        public Task<WatchSnapshot> ReadWatchAsync(string watchId, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new WatchSnapshot
-            {
-                WatchId = watchId,
-                Revision = 1,
-                Source = WatchSource.Depsgraph,
-            });
-        }
-
         public Task TriggerWatchDirtyAsync(string watchId)
         {
             return _watchCallback?.Invoke(
@@ -437,9 +380,9 @@ public sealed class BlenderSamplePageViewModelTests
 
         private sealed class TrackingAsyncDisposable : IAsyncDisposable
         {
-            private readonly TestBlenderDataApi _owner;
+            private readonly TestBlenderApi _owner;
 
-            public TrackingAsyncDisposable(TestBlenderDataApi owner)
+            public TrackingAsyncDisposable(TestBlenderApi owner)
             {
                 _owner = owner;
             }
@@ -448,6 +391,126 @@ public sealed class BlenderSamplePageViewModelTests
             {
                 _owner.WatchDisposeCount++;
                 return ValueTask.CompletedTask;
+            }
+        }
+
+        public sealed class TestBlenderRnaApi : IBlenderRnaApi
+        {
+            private readonly TestBlenderApi _owner;
+
+            public TestBlenderRnaApi(TestBlenderApi owner)
+            {
+                _owner = owner;
+            }
+
+            public Task<IReadOnlyList<RnaItemRef>> ListAsync(string path, CancellationToken cancellationToken = default)
+            {
+                _owner.ListedPaths.Add(path);
+                return _owner.ListAsyncImpl?.Invoke(path, cancellationToken) ?? Task.FromResult<IReadOnlyList<RnaItemRef>>(Array.Empty<RnaItemRef>());
+            }
+
+            public async Task<T> GetAsync<T>(string path, CancellationToken cancellationToken = default)
+            {
+                _owner.GetPaths.Add(path);
+                return (T)(await (_owner.GetAsyncImpl?.Invoke(path, cancellationToken) ?? Task.FromResult<object?>(default(T))) ?? throw new InvalidOperationException("No value."));
+            }
+
+            public Task SetAsync<T>(string path, T value, CancellationToken cancellationToken = default)
+            {
+                _owner.SetCalls.Add((path, value));
+                return _owner.SetAsyncImpl?.Invoke(path, value, cancellationToken) ?? Task.CompletedTask;
+            }
+
+            public Task<RnaDescribeResult> DescribeAsync(string path, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+            public async Task<T> CallAsync<T>(string path, string method, params BlenderNamedArg[] kwargs)
+            {
+                return (T)(await (_owner.CallAsyncImpl?.Invoke(path, method, kwargs, CancellationToken.None) ?? Task.FromResult<object?>(default(T))) ?? throw new InvalidOperationException("No call result."));
+            }
+
+            public Task<T> CallAsync<T>(string path, string method, BlenderMethodCall call, CancellationToken cancellationToken = default)
+            {
+                var kwargs = call.Kwargs ?? Array.Empty<BlenderNamedArg>();
+                return CallAsync<T>(path, method, kwargs.ToArray());
+            }
+        }
+
+        public sealed class TestBlenderOpsApi : IBlenderOpsApi
+        {
+            private readonly TestBlenderApi _owner;
+
+            public TestBlenderOpsApi(TestBlenderApi owner)
+            {
+                _owner = owner;
+            }
+
+            public Task<OperatorPollResult> PollAsync(string operatorName, string operatorContext = "EXEC_DEFAULT", BlenderContextOverride? contextOverride = null, CancellationToken cancellationToken = default)
+            {
+                _owner.OperatorPollCalls.Add((operatorName, operatorContext, contextOverride));
+                return _owner.PollOperatorImpl?.Invoke(operatorName, operatorContext, contextOverride, cancellationToken)
+                       ?? Task.FromResult(
+                           new OperatorPollResult
+                           {
+                               OperatorName = operatorName,
+                               CanExecute = true,
+                           });
+            }
+
+            public Task<OperatorCallResult> CallAsync(string operatorName, params BlenderNamedArg[] properties)
+            {
+                return CallAsync(
+                    operatorName,
+                    new BlenderOperatorCall
+                    {
+                        Properties = properties,
+                    });
+            }
+
+            public Task<OperatorCallResult> CallAsync(string operatorName, BlenderOperatorCall call, CancellationToken cancellationToken = default)
+            {
+                _owner.OperatorCallRecords.Add((operatorName, call));
+                return _owner.CallOperatorImpl?.Invoke(operatorName, call, cancellationToken)
+                       ?? Task.FromResult(
+                           new OperatorCallResult
+                           {
+                               OperatorName = operatorName,
+                               Result = ["FINISHED"],
+                           });
+            }
+        }
+
+        public sealed class TestBlenderObserveApi : IBlenderObserveApi
+        {
+            private readonly TestBlenderApi _owner;
+
+            public TestBlenderObserveApi(TestBlenderApi owner)
+            {
+                _owner = owner;
+            }
+
+            public Task<IAsyncDisposable> WatchAsync(string watchId, WatchSource source, string path, Func<WatchDirtyEvent, Task> onDirty, CancellationToken cancellationToken = default)
+            {
+                _owner.WatchSubscribeCount++;
+                _owner._watchCallback = onDirty;
+                return Task.FromResult<IAsyncDisposable>(new TrackingAsyncDisposable(_owner));
+            }
+
+            public Task<WatchSnapshot> ReadAsync(string watchId, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(new WatchSnapshot
+                {
+                    WatchId = watchId,
+                    Revision = 1,
+                    Source = WatchSource.Depsgraph,
+                });
+            }
+        }
+
+        private sealed class ThrowingBusinessEndpoint : IBusinessEndpoint
+        {
+            public ValueTask<BusinessResponse> InvokeAsync(BusinessRequest request, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException("TestBlenderApi uses domain test doubles directly.");
             }
         }
     }
