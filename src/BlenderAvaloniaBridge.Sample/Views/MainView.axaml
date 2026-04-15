@@ -45,7 +45,7 @@
           Background="#FF0B1220">
     <SplitView IsPaneOpen="{Binding IsSidebarOpen}"
                DisplayMode="CompactInline"
-               CompactPaneLength="78"
+               CompactPaneLength="86"
                OpenPaneLength="208"
                PanePlacement="Left"
                UseLightDismissOverlayMode="False"
