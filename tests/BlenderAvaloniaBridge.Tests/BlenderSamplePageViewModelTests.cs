@@ -34,7 +34,7 @@ public sealed class BlenderSamplePageViewModelTests
 
         viewModel.ShowOperatorsPageCommand.Execute(null);
         await WaitForAsync(() => viewModel.IsOperatorsPageSelected);
-        Assert.Equal("Operators", viewModel.CurrentPageTitle);
+        Assert.Equal("Operator Playground", viewModel.CurrentPageTitle);
     }
 
     [Fact]
@@ -247,7 +247,8 @@ public sealed class BlenderSamplePageViewModelTests
         var viewModel = new OperatorsPageViewModel();
         var api = new TestBlenderDataApi
         {
-            ListAsyncImpl = (_, _) => Task.FromResult<IReadOnlyList<RnaItemRef>>([CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 17, isActive: true)]),
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
+                path == "bpy.context.object" ? CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 17, isActive: true) : null),
             PollOperatorImpl = (operatorName, _, contextOverride, _) => Task.FromResult(
                 new OperatorPollResult
                 {
@@ -274,7 +275,7 @@ public sealed class BlenderSamplePageViewModelTests
 
         viewModel.AttachBlenderDataApi(api);
         await viewModel.ActivateAsync();
-        await WaitForAsync(() => viewModel.SelectedObject is not null && viewModel.CanDuplicateOperator);
+        await WaitForAsync(() => viewModel.CurrentObject is not null && viewModel.CanDuplicateOperator);
 
         await viewModel.DuplicateAsync();
 

@@ -118,7 +118,7 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
     [RelayCommand]
     private void ShowOperatorsPage()
     {
-        NavigateTo(_operatorsPage, "Operators");
+        NavigateTo(_operatorsPage, "Operator Playground");
     }
 
     partial void OnCurrentPageChanged(ObservableObject value)

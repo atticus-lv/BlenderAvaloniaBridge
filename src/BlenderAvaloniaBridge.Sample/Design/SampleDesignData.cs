@@ -182,11 +182,7 @@ public static class SampleDesignData
     {
         public DesignOperatorsPageViewModel()
         {
-            var active = CreateObjectItem("Cube", "MESH", true, 601, "bpy.data.objects[\"Cube\"]");
-            Objects.Add(active);
-            Objects.Add(CreateObjectItem("Camera", "CAMERA", false, 602, "bpy.data.objects[\"Camera\"]"));
-
-            SelectedObject = active;
+            CurrentObject = CreateRnaRef("Cube", "bpy.data.objects[\"Cube\"]", "Object", "OBJECT", 601);
             SelectedReferenceText = "Cube | bpy.data.objects[\"Cube\"]";
             CanAddCubeOperator = true;
             CanDuplicateOperator = true;

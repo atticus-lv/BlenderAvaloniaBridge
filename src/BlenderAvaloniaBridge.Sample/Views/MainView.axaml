@@ -259,11 +259,11 @@
                                  FontWeight="Bold"
                                  Foreground="#FFFFF7ED" />
                     </Border>
-                    <StackPanel Grid.Column="1"
-                                IsVisible="{Binding IsSidebarOpen}">
-                      <TextBlock Classes="nav-title"
-                                 Text="Operators" />
-                    </StackPanel>
+                     <StackPanel Grid.Column="1"
+                                 IsVisible="{Binding IsSidebarOpen}">
+                       <TextBlock Classes="nav-title"
+                                  Text="Operator Playground" />
+                     </StackPanel>
                   </Grid>
                 </Border>
               </Button>

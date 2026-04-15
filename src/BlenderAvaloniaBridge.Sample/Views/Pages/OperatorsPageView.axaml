@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:design="using:BlenderAvaloniaBridge.Sample.Design"
-             xmlns:models="using:BlenderAvaloniaBridge.Sample.Models"
              xmlns:viewModels="using:BlenderAvaloniaBridge.Sample.ViewModels.Pages"
              x:Class="BlenderAvaloniaBridge.Sample.Views.Pages.OperatorsPageView"
              x:DataType="viewModels:OperatorsPageViewModel"
@@ -18,13 +17,13 @@
             ColumnSpacing="12">
         <StackPanel Spacing="4">
           <TextBlock Classes="page-title"
-                     Text="Operators" />
+                     Text="Operator Playground" />
           <TextBlock Classes="page-subtitle"
-                     Text="Preview poll state and run a few common operator workflows." />
+                     Text="Preview poll state for the current Blender context object and run a few common operators." />
         </StackPanel>
 
         <Button Grid.Column="1"
-                Content="Refresh Objects"
+                Content="Refresh Context Object"
                 Padding="14,8"
                 Command="{Binding RefreshObjectsCommand}" />
         <Button Grid.Column="2"
@@ -40,23 +39,11 @@
               RowSpacing="10">
           <TextBlock Grid.Row="0"
                      Classes="field-label"
-                     Text="Selection" />
-          <ComboBox Grid.Row="0"
-                    Grid.Column="1"
-                    ItemsSource="{Binding Objects}"
-                    SelectedItem="{Binding SelectedObject, Mode=TwoWay}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="models:BlenderObjectListItem">
-                <Grid ColumnDefinitions="*,Auto"
-                      ColumnSpacing="10">
-                  <TextBlock Text="{Binding Label}" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding ObjectType}"
-                             Classes="body-subtle" />
-                </Grid>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+                     Text="Source" />
+          <TextBlock Grid.Row="0"
+                     Grid.Column="1"
+                     Text="bpy.context.object"
+                     Classes="reference-text" />
 
           <TextBlock Grid.Row="1"
                      Classes="field-label"
@@ -77,6 +64,9 @@
             <TextBlock Text="{Binding AddCubePollText}"
                        TextWrapping="Wrap"
                        Classes="body-muted" />
+            <TextBlock Text="Adds a new mesh cube using Blender's default operator context."
+                       TextWrapping="Wrap"
+                       Classes="body-subtle" />
             <Button Content="mesh.primitive_cube_add"
                     Command="{Binding AddCubeCommand}" />
           </StackPanel>
@@ -90,6 +80,9 @@
             <TextBlock Text="{Binding DuplicatePollText}"
                        TextWrapping="Wrap"
                        Classes="body-muted" />
+            <TextBlock Text="Duplicates the current context object with an explicit selection override."
+                       TextWrapping="Wrap"
+                       Classes="body-subtle" />
             <Button Content="object.duplicate_move"
                     Command="{Binding DuplicateCommand}" />
           </StackPanel>
@@ -105,6 +98,9 @@
             <TextBlock Text="{Binding ViewSelectedPollText}"
                        TextWrapping="Wrap"
                        Classes="body-muted" />
+            <TextBlock Text="Frames the current context object in the active 3D view when polling allows it."
+                       TextWrapping="Wrap"
+                       Classes="body-subtle" />
             <Button Content="view3d.view_selected"
                     Command="{Binding ViewSelectedCommand}" />
           </StackPanel>
@@ -118,6 +114,9 @@
             <TextBlock Text="{Binding DeletePollText}"
                        TextWrapping="Wrap"
                        Classes="body-muted" />
+            <TextBlock Text="Deletes the current context object through the standard object.delete operator."
+                       TextWrapping="Wrap"
+                       Classes="body-subtle" />
             <Button Content="object.delete"
                     Command="{Binding DeleteSelectedCommand}" />
           </StackPanel>
