@@ -112,21 +112,7 @@ public abstract partial class BlenderBridgePageViewModelBase : ObservableObject,
             return operation();
         }
 
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Dispatcher.UIThread.Post(async () =>
-        {
-            try
-            {
-                await operation();
-                completion.SetResult();
-            }
-            catch (Exception ex)
-            {
-                completion.SetException(ex);
-            }
-        });
-
-        return completion.Task;
+        return Dispatcher.UIThread.InvokeAsync(operation);
     }
 
     protected async Task RunPageOperationAsync(Func<Task> operation)

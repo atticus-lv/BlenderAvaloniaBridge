@@ -17,6 +17,10 @@ internal interface IBridgeUiSession
 
     Task DeliverBridgeMessageAsync(ProtocolEnvelope envelope);
 
+    Task NotifyBusinessUiActivityAsync();
+
+    Task SetWatchRenderingActiveAsync(bool isActive);
+
     Task<FrameCaptureResult> CaptureFrameAsync(int seq);
 
     ProtocolPacket CreateInitAck(int seq);

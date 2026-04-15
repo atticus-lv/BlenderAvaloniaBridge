@@ -18,12 +18,14 @@ internal sealed class BridgeClient
     private readonly BlenderDataApi _blenderDataApi;
     private readonly SemaphoreSlim _frameSignal = new(0, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly object _frameSchedulerGate = new();
     private ISharedFrameWriter? _sharedMemoryWriter;
     private int _sharedFrameSize;
     private int _sharedSlotCount;
     private int _sequence;
     private double? _lastUiApplyMs;
     private long? _lastInputAppliedAtUnixMs;
+    private volatile bool _hasActiveWatches;
 
     internal BridgeClient(
         LengthPrefixedConnection connection,
@@ -44,6 +46,8 @@ internal sealed class BridgeClient
         {
             _uiSession.FrameRequested += OnUiFrameRequested;
         }
+
+        ((IWatchActivitySource)_blenderDataApi).ActiveWatchStateChanged += OnActiveWatchStateChanged;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -81,67 +85,16 @@ internal sealed class BridgeClient
                 return;
             }
 
-            while (true)
+            using var frameLoopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var frameLoopTask = RunFrameLoopAsync(frameLoopCts.Token);
+            try
             {
-                var delay = _frameScheduler.GetDelayUntilNextFrame(DateTimeOffset.UtcNow);
-                if (delay is TimeSpan wait)
-                {
-                    using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    var readTask = _connection.ReadAsync(readCts.Token);
-                    var signalTask = _frameSignal.WaitAsync(cancellationToken);
-                    var timerTask = Task.Delay(wait, cancellationToken);
-                    var completed = await Task.WhenAny(readTask, signalTask, timerTask);
-
-                    if (completed == timerTask)
-                    {
-                        readCts.Cancel();
-                        await IgnoreCanceledReadAsync(readTask);
-                        await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
-                        _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
-                        continue;
-                    }
-
-                    if (completed == signalTask)
-                    {
-                        readCts.Cancel();
-                        await IgnoreCanceledReadAsync(readTask);
-                        continue;
-                    }
-
-                    var scheduled = await readTask;
-                    if (scheduled is null)
-                    {
-                        break;
-                    }
-
-                    await ApplyEnvelopeAsync(scheduled.Header);
-                    _frameScheduler.NotifyMessageApplied(scheduled.Header, DateTimeOffset.UtcNow);
-                    continue;
-                }
-
-                var nextReadTask = _connection.ReadAsync(cancellationToken);
-                var nextSignalTask = _frameSignal.WaitAsync(cancellationToken);
-                var idleCompleted = await Task.WhenAny(nextReadTask, nextSignalTask);
-
-                if (idleCompleted == nextSignalTask)
-                {
-                    continue;
-                }
-
-                var next = await nextReadTask;
-                if (next is null)
-                {
-                    break;
-                }
-
-                await ApplyEnvelopeAsync(next.Header);
-                _frameScheduler.NotifyMessageApplied(next.Header, DateTimeOffset.UtcNow);
-
-                if (_frameScheduler.IsFrameDue(DateTimeOffset.UtcNow))
-                {
-                    await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
-                    _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
-                }
+                await RunMessageLoopWithFramesAsync(cancellationToken);
+            }
+            finally
+            {
+                frameLoopCts.Cancel();
+                await IgnoreCanceledTaskAsync(frameLoopTask);
             }
         }
         catch (Exception ex) when (IsTransportDisconnect(ex))
@@ -151,6 +104,14 @@ internal sealed class BridgeClient
         }
         finally
         {
+            ((IWatchActivitySource)_blenderDataApi).ActiveWatchStateChanged -= OnActiveWatchStateChanged;
+            try
+            {
+                await _uiSession.SetWatchRenderingActiveAsync(false);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
             if (_uiSession.SupportsFrames)
             {
                 _uiSession.FrameRequested -= OnUiFrameRequested;
@@ -182,6 +143,8 @@ internal sealed class BridgeClient
         if (IsBusinessResponse(envelope))
         {
             _businessEndpoint.HandleResponse(envelope);
+            await _uiSession.NotifyBusinessUiActivityAsync();
+            NotifyBusinessUiActivity();
             return;
         }
 
@@ -195,6 +158,8 @@ internal sealed class BridgeClient
                     Name = envelope.Name ?? string.Empty,
                     Payload = envelope.Payload?.Clone(),
                 });
+            await _uiSession.NotifyBusinessUiActivityAsync();
+            NotifyBusinessUiActivity();
             return;
         }
 
@@ -282,6 +247,17 @@ internal sealed class BridgeClient
         }
     }
 
+    private static async Task IgnoreCanceledTaskAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private void ClearPendingInputMetrics()
     {
         _lastUiApplyMs = null;
@@ -296,16 +272,141 @@ internal sealed class BridgeClient
 
     private void OnUiFrameRequested()
     {
-        _frameScheduler.NotifyUiInvalidated(DateTimeOffset.UtcNow);
-        if (_frameSignal.CurrentCount == 0)
+        NotifyUiInvalidated();
+    }
+
+    private void NotifyBusinessUiActivity()
+    {
+        if (!_uiSession.SupportsFrames)
         {
-            _frameSignal.Release();
+            return;
+        }
+
+        NotifyUiInvalidated();
+    }
+
+    private void OnActiveWatchStateChanged(bool hasActiveWatches)
+    {
+        if (!_uiSession.SupportsFrames)
+        {
+            return;
+        }
+
+        _hasActiveWatches = hasActiveWatches;
+        _ = _uiSession.SetWatchRenderingActiveAsync(hasActiveWatches);
+        if (hasActiveWatches)
+        {
+            NotifyBusinessUiActivity();
         }
     }
 
     private Task WriteBusinessEnvelopeAsync(ProtocolEnvelope envelope, CancellationToken cancellationToken)
     {
         return WritePacketAsync(ProtocolPacket.CreateControl(envelope), cancellationToken);
+    }
+
+    private async Task RunMessageLoopWithFramesAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var packet = await _connection.ReadAsync(cancellationToken);
+            if (packet is null)
+            {
+                break;
+            }
+
+            await ApplyEnvelopeAsync(packet.Header);
+            lock (_frameSchedulerGate)
+            {
+                _frameScheduler.NotifyMessageApplied(packet.Header, DateTimeOffset.UtcNow);
+            }
+
+            SignalFrameLoop();
+        }
+    }
+
+    private async Task RunFrameLoopAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            TimeSpan? delay;
+            var scheduledByActiveWatchClock = false;
+            lock (_frameSchedulerGate)
+            {
+                delay = _frameScheduler.GetDelayUntilNextFrame(DateTimeOffset.UtcNow);
+            }
+
+            if (_hasActiveWatches && delay is null)
+            {
+                delay = _options.ActiveFrameInterval;
+                scheduledByActiveWatchClock = true;
+            }
+
+            if (delay is null)
+            {
+                await _frameSignal.WaitAsync(cancellationToken);
+                continue;
+            }
+
+            if (delay.Value > TimeSpan.Zero)
+            {
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var signalTask = _frameSignal.WaitAsync(waitCts.Token);
+                var timerTask = Task.Delay(delay.Value, waitCts.Token);
+                var completed = await Task.WhenAny(signalTask, timerTask);
+                waitCts.Cancel();
+                await IgnoreCanceledTaskAsync(signalTask);
+                await IgnoreCanceledTaskAsync(timerTask);
+
+                if (completed == signalTask)
+                {
+                    continue;
+                }
+            }
+
+            if (_hasActiveWatches)
+            {
+                await _uiSession.NotifyBusinessUiActivityAsync();
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (!scheduledByActiveWatchClock)
+            {
+                lock (_frameSchedulerGate)
+                {
+                    if (!_frameScheduler.IsFrameDue(now))
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
+            lock (_frameSchedulerGate)
+            {
+                _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+            }
+        }
+    }
+
+    private void NotifyUiInvalidated()
+    {
+        lock (_frameSchedulerGate)
+        {
+            _frameScheduler.NotifyUiInvalidated(DateTimeOffset.UtcNow);
+        }
+
+        SignalFrameLoop();
+    }
+
+    private void SignalFrameLoop()
+    {
+        if (_frameSignal.CurrentCount == 0)
+        {
+            _frameSignal.Release();
+        }
     }
 
     private async Task WritePacketAsync(ProtocolPacket packet, CancellationToken cancellationToken)

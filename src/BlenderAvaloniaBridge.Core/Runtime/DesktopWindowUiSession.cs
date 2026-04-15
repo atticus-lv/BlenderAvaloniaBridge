@@ -85,6 +85,16 @@ internal sealed class DesktopWindowUiSession : IBridgeUiSession
         });
     }
 
+    public Task NotifyBusinessUiActivityAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task SetWatchRenderingActiveAsync(bool isActive)
+    {
+        return Task.CompletedTask;
+    }
+
     public Task<FrameCaptureResult> CaptureFrameAsync(int seq)
     {
         throw new NotSupportedException($"Frame capture is not supported in {nameof(DesktopWindowUiSession)}.");

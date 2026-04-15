@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using System.Diagnostics;
 using BlenderAvaloniaBridge.Protocol;
 
@@ -25,6 +26,7 @@ internal sealed class HeadlessUiHost
     private int _height;
     private double _renderScaling;
     private DateTimeOffset _continuousFramesUntil = DateTimeOffset.MinValue;
+    private bool _watchRenderingActive;
     private bool _animationFrameQueued;
 
     public bool SupportsFrames => _options.SupportsFrames;
@@ -119,6 +121,36 @@ internal sealed class HeadlessUiHost
         });
     }
 
+    public Task NotifyBusinessUiActivityAsync()
+    {
+        return _runtimeThread.InvokeAsync(() =>
+        {
+            if (_window is null)
+            {
+                return true;
+            }
+
+            _window.InvalidateVisual();
+            _window.InvalidateMeasure();
+            ExtendContinuousFrames(_options.ContinuousFrameWindow);
+            return true;
+        });
+    }
+
+    public Task SetWatchRenderingActiveAsync(bool isActive)
+    {
+        return _runtimeThread.InvokeAsync(() =>
+        {
+            _watchRenderingActive = isActive;
+            if (isActive)
+            {
+                ExtendContinuousFrames(_options.ContinuousFrameWindow);
+            }
+
+            return true;
+        });
+    }
+
     public async Task<FrameCaptureResult> CaptureFrameAsync(int seq)
     {
         await InitializeAsync();
@@ -129,6 +161,7 @@ internal sealed class HeadlessUiHost
             WriteableBitmap? bitmap = null;
             for (var i = 0; i < 3 && bitmap is null; i++)
             {
+                Dispatcher.UIThread.RunJobs();
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
                 bitmap = window.GetLastRenderedFrame();
             }
@@ -208,7 +241,7 @@ internal sealed class HeadlessUiHost
         _animationFrameQueued = false;
         FrameRequested?.Invoke();
 
-        if (DateTimeOffset.UtcNow < _continuousFramesUntil)
+        if (_watchRenderingActive || DateTimeOffset.UtcNow < _continuousFramesUntil)
         {
             QueueAnimationFrame();
         }

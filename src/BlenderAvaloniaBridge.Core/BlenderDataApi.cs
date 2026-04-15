@@ -423,12 +423,29 @@ internal interface IBusinessEventSink
     Task HandleEventAsync(BusinessEvent businessEvent);
 }
 
-public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink
+internal interface IWatchActivitySource
+{
+    event Action<bool>? ActiveWatchStateChanged;
+
+    bool HasActiveWatches { get; }
+}
+
+public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink, IWatchActivitySource
 {
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private readonly IBusinessEndpoint _businessEndpoint;
     private readonly BlenderJsonTypeResolver _typeResolver;
     private readonly ConcurrentDictionary<string, WatchRegistration> _registrations = new(StringComparer.Ordinal);
+
+    event Action<bool>? IWatchActivitySource.ActiveWatchStateChanged
+    {
+        add => _activeWatchStateChanged += value;
+        remove => _activeWatchStateChanged -= value;
+    }
+
+    bool IWatchActivitySource.HasActiveWatches => !_registrations.IsEmpty;
+
+    private event Action<bool>? _activeWatchStateChanged;
 
     public BlenderDataApi(IBusinessEndpoint businessEndpoint, BlenderDataApiOptions? options = null)
     {
@@ -620,6 +637,7 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink
             throw;
         }
 
+        NotifyActiveWatchStateIfNeeded();
         return registration;
     }
 
@@ -664,7 +682,13 @@ public sealed class BlenderDataApi : IBlenderDataApi, IBusinessEventSink
                 new WatchIdRequest { WatchId = watchId },
                 ProtocolJsonContext.Default.WatchIdRequest,
                 CancellationToken.None);
+            NotifyActiveWatchStateIfNeeded();
         }
+    }
+
+    private void NotifyActiveWatchStateIfNeeded()
+    {
+        _activeWatchStateChanged?.Invoke(!_registrations.IsEmpty);
     }
 
     private async Task<JsonElement> InvokePayloadAsync<TPayload>(

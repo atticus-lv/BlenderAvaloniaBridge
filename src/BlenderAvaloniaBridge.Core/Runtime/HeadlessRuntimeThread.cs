@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.ExceptionServices;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Headless;
 
@@ -119,7 +120,14 @@ internal sealed class HeadlessRuntimeThread : IDisposable
 
         foreach (var action in _workQueue.GetConsumingEnumerable())
         {
-            action();
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"Headless runtime action failed: {ex}");
+            }
         }
     }
 

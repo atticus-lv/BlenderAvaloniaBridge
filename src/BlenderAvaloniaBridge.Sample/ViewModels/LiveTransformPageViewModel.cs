@@ -218,9 +218,9 @@ public partial class LiveTransformPageViewModel : BlenderBridgePageViewModelBase
             watchId,
             WatchSource.Depsgraph,
             rnaRef.Path,
-            async _ =>
+            async _dirtyEvent =>
             {
-                await RunOnUiThreadAsync(() =>
+                _ = RunOnUiThreadAsync(() =>
                 {
                     BridgeStatusText = "Live transform dirty event received";
                     return Task.CompletedTask;
