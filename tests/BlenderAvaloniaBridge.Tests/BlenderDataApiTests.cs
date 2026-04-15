@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Linq;
+using System.Collections.Concurrent;
 using BlenderAvaloniaBridge;
 using Xunit;
 
@@ -298,9 +299,146 @@ public sealed partial class BlenderApiTests
         allowCallbackCompletion.TrySetResult();
     }
 
+    [Fact]
+    public async Task Observe_WatchAsync_DirtyEventDispatch_IsSerialPerWatch()
+    {
+        var endpoint = new RecordingEndpoint(_ => BusinessRequest.Response(1, ToJsonElement(new JsonObject())));
+        var blenderApi = new BlenderApi(endpoint);
+        var firstCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowFirstCallbackCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completedRevisions = new ConcurrentQueue<long>();
+        var activeCallbacks = 0;
+        var maxConcurrentCallbacks = 0;
+
+        await using var subscription = await blenderApi.Observe.WatchAsync(
+            "serial-watch",
+            WatchSource.Depsgraph,
+            "bpy.data.objects[\"Cube\"]",
+            async watchDirtyEvent =>
+            {
+                var concurrentCallbacks = Interlocked.Increment(ref activeCallbacks);
+                UpdateMaxConcurrent(ref maxConcurrentCallbacks, concurrentCallbacks);
+                try
+                {
+                    if (watchDirtyEvent.Revision == 1)
+                    {
+                        firstCallbackStarted.TrySetResult();
+                        await allowFirstCallbackCompletion.Task;
+                    }
+                    else if (watchDirtyEvent.Revision == 2)
+                    {
+                        secondCallbackStarted.TrySetResult();
+                    }
+
+                    completedRevisions.Enqueue(watchDirtyEvent.Revision);
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref activeCallbacks);
+                }
+            });
+
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(CreateWatchDirtyEvent("serial-watch", 1));
+        await firstCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(CreateWatchDirtyEvent("serial-watch", 2));
+
+        Assert.False(secondCallbackStarted.Task.IsCompleted);
+
+        allowFirstCallbackCompletion.TrySetResult();
+        await secondCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForConditionAsync(() => completedRevisions.Count == 2);
+
+        Assert.Equal(1, maxConcurrentCallbacks);
+        Assert.Equal([1L, 2L], completedRevisions.ToArray());
+    }
+
+    [Fact]
+    public async Task Observe_WatchAsync_DirtyEventDispatch_UsesLatestWinsWhileCallbackIsBusy()
+    {
+        var endpoint = new RecordingEndpoint(_ => BusinessRequest.Response(1, ToJsonElement(new JsonObject())));
+        var blenderApi = new BlenderApi(endpoint);
+        var firstCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var latestCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowFirstCallbackCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completedRevisions = new ConcurrentQueue<long>();
+
+        await using var subscription = await blenderApi.Observe.WatchAsync(
+            "latest-watch",
+            WatchSource.Depsgraph,
+            "bpy.data.objects[\"Cube\"]",
+            async watchDirtyEvent =>
+            {
+                if (watchDirtyEvent.Revision == 1)
+                {
+                    firstCallbackStarted.TrySetResult();
+                    await allowFirstCallbackCompletion.Task;
+                }
+                else if (watchDirtyEvent.Revision == 3)
+                {
+                    latestCallbackStarted.TrySetResult();
+                }
+
+                completedRevisions.Enqueue(watchDirtyEvent.Revision);
+            });
+
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(CreateWatchDirtyEvent("latest-watch", 1));
+        await firstCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(CreateWatchDirtyEvent("latest-watch", 2));
+        await ((IBusinessEventSink)blenderApi).HandleEventAsync(CreateWatchDirtyEvent("latest-watch", 3));
+
+        allowFirstCallbackCompletion.TrySetResult();
+        await latestCallbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await WaitForConditionAsync(() => completedRevisions.Count == 2);
+
+        Assert.Equal([1L, 3L], completedRevisions.ToArray());
+    }
+
     private static JsonElement ToJsonElement(JsonNode node)
     {
         return JsonDocument.Parse(node.ToJsonString()).RootElement.Clone();
+    }
+
+    private static BusinessEvent CreateWatchDirtyEvent(string watchId, long revision)
+    {
+        return new BusinessEvent
+        {
+            Name = "watch.dirty",
+            Payload = ToJsonElement(new JsonObject
+            {
+                ["watchId"] = watchId,
+                ["revision"] = revision,
+                ["source"] = "depsgraph",
+            })
+        };
+    }
+
+    private static async Task WaitForConditionAsync(Func<bool> predicate)
+    {
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (!predicate())
+        {
+            await Task.Delay(10, timeoutCts.Token);
+        }
+    }
+
+    private static void UpdateMaxConcurrent(ref int currentMax, int candidate)
+    {
+        while (true)
+        {
+            var snapshot = currentMax;
+            if (candidate <= snapshot)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref currentMax, candidate, snapshot) == snapshot)
+            {
+                return;
+            }
+        }
     }
 
     public sealed class TestPayload

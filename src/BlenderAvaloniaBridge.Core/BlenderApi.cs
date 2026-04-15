@@ -641,6 +641,9 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
     {
         private readonly BlenderApi _owner;
         private readonly Func<WatchDirtyEvent, Task> _onDirty;
+        private readonly object _gate = new();
+        private WatchDirtyEvent? _pendingDirtyEvent;
+        private bool _isDispatching;
         private int _disposed;
 
         public WatchRegistration(BlenderApi owner, string watchId, Func<WatchDirtyEvent, Task> onDirty)
@@ -659,17 +662,63 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
                 return;
             }
 
-            _ = Task.Run(async () =>
+            WatchDirtyEvent? nextDirtyEvent = null;
+            lock (_gate)
+            {
+                if (Volatile.Read(ref _disposed) != 0)
+                {
+                    return;
+                }
+
+                // watch.dirty is an invalidation signal, so when events pile up for the same
+                // watch we only need to retain the latest revision that still needs delivery.
+                _pendingDirtyEvent = watchDirtyEvent;
+                if (_isDispatching)
+                {
+                    return;
+                }
+
+                _isDispatching = true;
+                nextDirtyEvent = _pendingDirtyEvent;
+                _pendingDirtyEvent = null;
+            }
+
+            _ = Task.Run(() => ProcessQueueAsync(nextDirtyEvent!));
+        }
+
+        private async Task ProcessQueueAsync(WatchDirtyEvent initialDirtyEvent)
+        {
+            var currentDirtyEvent = initialDirtyEvent;
+            while (true)
             {
                 try
                 {
-                    await _onDirty(watchDirtyEvent);
+                    await _onDirty(currentDirtyEvent);
                 }
                 catch
                 {
                     // Watch callbacks are user-provided and must not block or tear down the transport loop.
                 }
-            });
+
+                lock (_gate)
+                {
+                    if (Volatile.Read(ref _disposed) != 0)
+                    {
+                        _pendingDirtyEvent = null;
+                        _isDispatching = false;
+                        return;
+                    }
+
+                    if (_pendingDirtyEvent is null)
+                    {
+                        _isDispatching = false;
+                        return;
+                    }
+
+                    currentDirtyEvent = _pendingDirtyEvent;
+                    _pendingDirtyEvent = null;
+                }
+            }
         }
 
         public async ValueTask DisposeAsync()
@@ -677,6 +726,11 @@ public class BlenderApi : IBusinessEventSink, IWatchActivitySource
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
             {
                 return;
+            }
+
+            lock (_gate)
+            {
+                _pendingDirtyEvent = null;
             }
 
             await _owner.ReleaseWatchAsync(WatchId);
