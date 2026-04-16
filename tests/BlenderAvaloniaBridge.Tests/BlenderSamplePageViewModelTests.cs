@@ -126,6 +126,44 @@ public sealed class BlenderSamplePageViewModelTests
     }
 
     [Fact]
+    public async Task MainViewModel_LiveTransform_RemainsSubscribedAfterRapidNavigation()
+    {
+        var viewModel = new MainViewModel();
+        var blenderApi = new TestBlenderApi
+        {
+            GetAsyncImpl = (path, _) => Task.FromResult<object?>(
+                path == "bpy.context.object" ? CreateObject("Cube", "bpy.data.objects[\"Cube\"]", 3, isActive: true) :
+                path.EndsWith(".scale", StringComparison.Ordinal) ? new[] { 1.0, 1.0, 1.0 } :
+                path.EndsWith(".rotation_euler", StringComparison.Ordinal) ? new[] { 0.1, 0.2, 0.3 } :
+                new[] { 4.0, 5.0, 6.0 }),
+        };
+
+        viewModel.AttachBlenderApi(blenderApi);
+        viewModel.ShowLiveTransformPageCommand.Execute(null);
+        await WaitForAsync(() => viewModel.IsLiveTransformPageSelected);
+
+        var liveViewModel = await WaitForCurrentPageAsync<LiveTransformPageViewModel>(viewModel);
+        await WaitForAsync(() => liveViewModel.CanEnableLiveWatch);
+
+        liveViewModel.IsLiveWatchEnabled = true;
+        await WaitForAsync(() => blenderApi.ActiveWatchCount == 1);
+
+        for (var i = 0; i < 3; i++)
+        {
+            viewModel.ShowMaterialsPageCommand.Execute(null);
+            viewModel.ShowLiveTransformPageCommand.Execute(null);
+        }
+
+        await WaitForAsync(() => viewModel.IsLiveTransformPageSelected);
+        liveViewModel = await WaitForCurrentPageAsync<LiveTransformPageViewModel>(viewModel);
+        await WaitForAsync(() => liveViewModel.CanEnableLiveWatch && blenderApi.ActiveWatchCount == 1);
+
+        var getCountBeforeDirty = blenderApi.GetPaths.Count;
+        await blenderApi.TriggerWatchDirtyAsync("live-transform-3");
+        await WaitForAsync(() => blenderApi.GetPaths.Count >= getCountBeforeDirty + 3);
+    }
+
+    [Fact]
     public async Task CollectionsPage_SelectCollection_LoadsChildrenAndObjects()
     {
         var viewModel = new CollectionsPageViewModel();
@@ -321,6 +359,8 @@ public sealed class BlenderSamplePageViewModelTests
 
         public int WatchDisposeCount { get; private set; }
 
+        public int ActiveWatchCount { get; private set; }
+
         private Func<WatchDirtyEvent, Task>? _watchCallback;
 
         public Task TriggerWatchDirtyAsync(string watchId)
@@ -337,15 +377,29 @@ public sealed class BlenderSamplePageViewModelTests
         private sealed class TrackingAsyncDisposable : IAsyncDisposable
         {
             private readonly TestBlenderApi _owner;
+            private readonly Func<WatchDirtyEvent, Task> _callback;
+            private int _disposed;
 
-            public TrackingAsyncDisposable(TestBlenderApi owner)
+            public TrackingAsyncDisposable(TestBlenderApi owner, Func<WatchDirtyEvent, Task> callback)
             {
                 _owner = owner;
+                _callback = callback;
             }
 
             public ValueTask DisposeAsync()
             {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                {
+                    return ValueTask.CompletedTask;
+                }
+
                 _owner.WatchDisposeCount++;
+                _owner.ActiveWatchCount = Math.Max(0, _owner.ActiveWatchCount - 1);
+                if (ReferenceEquals(_owner._watchCallback, _callback))
+                {
+                    _owner._watchCallback = null;
+                }
+
                 return ValueTask.CompletedTask;
             }
         }
@@ -460,8 +514,9 @@ public sealed class BlenderSamplePageViewModelTests
             public Task<IAsyncDisposable> WatchAsync(string watchId, WatchSource source, string path, Func<WatchDirtyEvent, Task> onDirty, CancellationToken cancellationToken = default)
             {
                 _owner.WatchSubscribeCount++;
+                _owner.ActiveWatchCount++;
                 _owner._watchCallback = onDirty;
-                return Task.FromResult<IAsyncDisposable>(new TrackingAsyncDisposable(_owner));
+                return Task.FromResult<IAsyncDisposable>(new TrackingAsyncDisposable(_owner, onDirty));
             }
 
             public Task<WatchSnapshot> ReadAsync(string watchId, CancellationToken cancellationToken = default)
@@ -481,6 +536,26 @@ public sealed class BlenderSamplePageViewModelTests
             {
                 throw new NotSupportedException("TestBlenderApi uses domain test doubles directly.");
             }
+        }
+    }
+
+    private static async Task<TPage> WaitForCurrentPageAsync<TPage>(MainViewModel viewModel)
+        where TPage : class
+    {
+        var timeoutAt = DateTime.UtcNow.AddSeconds(5);
+        while (true)
+        {
+            if (viewModel.CurrentPage is TPage typedPage)
+            {
+                return typedPage;
+            }
+
+            if (DateTime.UtcNow >= timeoutAt)
+            {
+                throw new TimeoutException("Timed out waiting for expected current page.");
+            }
+
+            await Task.Delay(25);
         }
     }
 }

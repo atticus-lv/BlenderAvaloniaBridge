@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Sample.ViewModels.Pages;
 using Material.Icons;
+using System.Threading;
 
 namespace BlenderAvaloniaBridge.Sample.ViewModels;
 
@@ -17,6 +18,8 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
     private readonly CollectionsPageViewModel _collectionsPage = new();
     private readonly OperatorsPageViewModel _operatorsPage = new();
     private readonly IBlenderSamplePageViewModel[] _blenderPages;
+    private readonly SemaphoreSlim _navigationTransitionGate = new(1, 1);
+    private int _navigationVersion;
 
     [ObservableProperty]
     private bool _isSidebarOpen = true;
@@ -149,16 +152,23 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
         var previousPage = CurrentPage;
         CurrentPage = page;
         CurrentPageTitle = title;
-        _ = TransitionPagesAsync(previousPage, page);
+        var navigationVersion = Interlocked.Increment(ref _navigationVersion);
+        _ = TransitionPagesAsync(previousPage, page, navigationVersion);
     }
 
-    private static async Task TransitionPagesAsync(ObservableObject? previousPage, ObservableObject nextPage)
+    private async Task TransitionPagesAsync(ObservableObject? previousPage, ObservableObject nextPage, int navigationVersion)
     {
+        await _navigationTransitionGate.WaitAsync();
         try
         {
             if (previousPage is IBlenderSamplePageViewModel previousBlenderPage)
             {
                 await previousBlenderPage.DeactivateAsync();
+            }
+
+            if (navigationVersion != Volatile.Read(ref _navigationVersion) || !ReferenceEquals(CurrentPage, nextPage))
+            {
+                return;
             }
 
             if (nextPage is IBlenderSamplePageViewModel nextBlenderPage)
@@ -169,6 +179,10 @@ public partial class MainViewModel : ObservableObject, IBlenderBridgeStatusSink,
         catch
         {
             // Each page stores its own failure state, so navigation should remain resilient.
+        }
+        finally
+        {
+            _navigationTransitionGate.Release();
         }
     }
 }

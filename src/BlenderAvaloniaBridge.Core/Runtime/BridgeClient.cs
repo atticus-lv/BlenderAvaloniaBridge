@@ -16,7 +16,7 @@ internal sealed class BridgeClient
     private readonly FrameDispatchScheduler _frameScheduler;
     private readonly RemoteBusinessEndpoint _businessEndpoint;
     private readonly BlenderApi _blenderApi;
-    private readonly SemaphoreSlim _frameSignal = new(0, 1);
+    private readonly LatestWinsSignal _frameSignal = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _frameSchedulerGate = new();
     private ISharedFrameWriter? _sharedMemoryWriter;
@@ -75,8 +75,10 @@ internal sealed class BridgeClient
             }
             if (canStreamFrames)
             {
-                await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
-                _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                if (await TryWriteCurrentFrameAsync(cancellationToken))
+                {
+                    _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                }
             }
 
             if (!canStreamFrames)
@@ -354,7 +356,7 @@ internal sealed class BridgeClient
             if (delay.Value > TimeSpan.Zero)
             {
                 using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var signalTask = _frameSignal.WaitAsync(waitCts.Token);
+                var signalTask = _frameSignal.WaitAsync(waitCts.Token).AsTask();
                 var timerTask = Task.Delay(delay.Value, waitCts.Token);
                 var completed = await Task.WhenAny(signalTask, timerTask);
                 waitCts.Cancel();
@@ -384,7 +386,16 @@ internal sealed class BridgeClient
                 }
             }
 
-            await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
+            if (!await TryWriteCurrentFrameAsync(cancellationToken))
+            {
+                lock (_frameSchedulerGate)
+                {
+                    _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                }
+
+                continue;
+            }
+
             lock (_frameSchedulerGate)
             {
                 _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
@@ -404,10 +415,7 @@ internal sealed class BridgeClient
 
     private void SignalFrameLoop()
     {
-        if (_frameSignal.CurrentCount == 0)
-        {
-            _frameSignal.Release();
-        }
+        _frameSignal.Signal();
     }
 
     private async Task WritePacketAsync(ProtocolPacket packet, CancellationToken cancellationToken)
@@ -426,6 +434,20 @@ internal sealed class BridgeClient
     private int NextSequence()
     {
         return Interlocked.Increment(ref _sequence);
+    }
+
+    private async Task<bool> TryWriteCurrentFrameAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (IsRecoverableFrameFailure(ex))
+        {
+            Trace.WriteLine($"Bridge frame capture skipped after recoverable failure: {ex}");
+            return false;
+        }
     }
 
     private static bool IsBusinessResponse(ProtocolEnvelope envelope)
@@ -449,6 +471,22 @@ internal sealed class BridgeClient
             SocketException socketException => IsSocketDisconnect(socketException.SocketErrorCode),
             AggregateException aggregateException when aggregateException.InnerExceptions.Count == 1
                 => IsTransportDisconnect(aggregateException.InnerException!),
+            _ => false,
+        };
+    }
+
+    internal static bool IsRecoverableFrameFailure(Exception exception)
+    {
+        return exception switch
+        {
+            InvalidOperationException invalidOperationException
+                when invalidOperationException.Message.Contains("Headless renderer did not produce a frame.", StringComparison.Ordinal)
+                => true,
+            InvalidOperationException invalidOperationException
+                when invalidOperationException.Message.Contains("Headless window is not initialized.", StringComparison.Ordinal)
+                => true,
+            AggregateException aggregateException when aggregateException.InnerExceptions.Count == 1
+                => IsRecoverableFrameFailure(aggregateException.InnerException!),
             _ => false,
         };
     }
