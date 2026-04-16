@@ -104,12 +104,21 @@ class _DarwinSharedMemoryBackend(_SharedMemoryBackend):
                 pass
 
 
+class _UnsupportedSharedMemoryBackend(_SharedMemoryBackend):
+    def __init__(self, platform_name):
+        super().__init__()
+        self._platform_name = platform_name
+
+    def create(self, frame_size, slot_count=2):
+        raise RuntimeError(f"Shared memory mapping is not supported on platform '{self._platform_name}'.")
+
+
 def _create_backend():
     if sys.platform == "win32":
         return _WindowsSharedMemoryBackend()
     if sys.platform == "darwin":
         return _DarwinSharedMemoryBackend()
-    raise RuntimeError(f"Shared memory mapping is not supported on platform '{sys.platform}'.")
+    return _UnsupportedSharedMemoryBackend(sys.platform)
 
 
 class SharedMemoryBridge:
