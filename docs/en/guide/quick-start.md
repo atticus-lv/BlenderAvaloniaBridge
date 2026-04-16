@@ -8,17 +8,29 @@ For integration, see [Integration Overview](../integration/index.md).
 
 Make sure `.NET 10 SDK` is installed, then run this from the repository root:
 
+Windows `win-x64`:
+
 ```bash
-dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release -o ./artifacts/publish/net10 --configfile ./NuGet.Config
+dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release /p:PublishProfile=aot-win-x64 --configfile ./NuGet.Config
+```
+
+macOS `osx-arm64`:
+
+```bash
+dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release /p:PublishProfile=aot-osx-arm64 --configfile ./NuGet.Config
 ```
 
 The generated bridge folder is created at:
 
 ```text
-artifacts/publish/net10/
+artifacts/publish/aot/win-x64/
+artifacts/publish/aot/osx-arm64/
 ```
 
-This command produces a regular publish output, not an AOT publish output.
+Available AOT publish profiles in this repository:
+
+- `aot-win-x64`
+- `aot-osx-arm64`
 
 ## 2. Add the local Blender extension repository
 

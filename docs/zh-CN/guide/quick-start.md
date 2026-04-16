@@ -8,17 +8,29 @@
 
 先确认机器上安装了 `.NET 10 SDK`，然后在仓库根目录运行：
 
+Windows `win-x64`：
+
 ```bash
-dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release -o ./artifacts/publish/net10 --configfile ./NuGet.Config
+dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release /p:PublishProfile=aot-win-x64 --configfile ./NuGet.Config
+```
+
+macOS `osx-arm64`：
+
+```bash
+dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.csproj -c Release /p:PublishProfile=aot-osx-arm64 --configfile ./NuGet.Config
 ```
 
 生成的 bridge 文件夹默认位于：
 
 ```text
-artifacts/publish/net10/
+artifacts/publish/aot/win-x64/
+artifacts/publish/aot/osx-arm64/
 ```
 
-这条命令产出的是普通发布产物，不是 AOT 发布产物。
+当前仓库提供的 AOT publish profile：
+
+- `aot-win-x64`
+- `aot-osx-arm64`
 
 ## 2. 在 Blender 中添加本地扩展仓库
 
