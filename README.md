@@ -6,6 +6,10 @@ Cross-platform toolkit for running an Avalonia UI in a separate process, streami
 
 <https://atticus-lv.github.io/BlenderAvaloniaBridge/>
 
+## License
+
+This project is licensed under the Mozilla Public License 2.0 (`MPL-2.0`).
+
 ## Repo Layout
 
 ```text

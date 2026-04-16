@@ -10,7 +10,7 @@ maintainer = "Atticus"
 copyright = ["2025 Atticus", ]
 
 license = [
-    "SPDX-License-Identifier: Custom",
+    "SPDX: MPL-2.0",
 ]
 
 tags = ["Render"]
