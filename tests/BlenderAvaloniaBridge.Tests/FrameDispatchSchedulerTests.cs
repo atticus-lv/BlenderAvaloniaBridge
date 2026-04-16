@@ -74,4 +74,19 @@ public sealed class FrameDispatchSchedulerTests
         Assert.Equal(TimeSpan.FromMilliseconds(240), scheduler.GetDelayUntilNextFrame(start.AddMilliseconds(10)));
         Assert.True(scheduler.IsFrameDue(start.AddMilliseconds(250)));
     }
+
+    [Fact]
+    public void DeferredPendingFrame_RetriesWithoutClearingPendingState()
+    {
+        var scheduler = new FrameDispatchScheduler(TimeSpan.FromMilliseconds(16), TimeSpan.FromMilliseconds(250));
+        var start = new DateTimeOffset(2026, 4, 13, 0, 0, 0, TimeSpan.Zero);
+        scheduler.NotifyUiInvalidated(start);
+
+        var retryAt = start.AddMilliseconds(5);
+        scheduler.DeferPendingFrame(retryAt, TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(16), scheduler.GetDelayUntilNextFrame(retryAt));
+        Assert.False(scheduler.IsFrameDue(retryAt));
+        Assert.True(scheduler.IsFrameDue(retryAt.AddMilliseconds(16)));
+    }
 }

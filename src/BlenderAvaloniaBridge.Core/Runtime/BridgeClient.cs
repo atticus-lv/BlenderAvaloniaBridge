@@ -390,7 +390,7 @@ internal sealed class BridgeClient
             {
                 lock (_frameSchedulerGate)
                 {
-                    _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                    _frameScheduler.DeferPendingFrame(DateTimeOffset.UtcNow, GetRecoverableFrameRetryDelay());
                 }
 
                 continue;
@@ -448,6 +448,13 @@ internal sealed class BridgeClient
             Trace.WriteLine($"Bridge frame capture skipped after recoverable failure: {ex}");
             return false;
         }
+    }
+
+    private TimeSpan GetRecoverableFrameRetryDelay()
+    {
+        return _options.ActiveFrameInterval > TimeSpan.Zero
+            ? _options.ActiveFrameInterval
+            : TimeSpan.FromMilliseconds(16);
     }
 
     private static bool IsBusinessResponse(ProtocolEnvelope envelope)

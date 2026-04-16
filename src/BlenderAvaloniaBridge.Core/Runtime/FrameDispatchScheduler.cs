@@ -84,6 +84,12 @@ internal sealed class FrameDispatchScheduler
         _lastFrameSentAt = now;
     }
 
+    public void DeferPendingFrame(DateTimeOffset now, TimeSpan retryDelay)
+    {
+        _pendingFrame = true;
+        _nextFrameAt = now + (retryDelay > TimeSpan.Zero ? retryDelay : TimeSpan.Zero);
+    }
+
     private static bool RequiresFrame(ProtocolEnvelope envelope)
     {
         return !string.Equals(envelope.Type, "focus", StringComparison.OrdinalIgnoreCase) || envelope.Focus == true;
