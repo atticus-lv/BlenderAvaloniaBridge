@@ -133,7 +133,7 @@ public partial class CollectionsPageViewModel : BlenderBridgePageViewModelBase
         var objects = await blender.Rna.ListAsync($"{collection.Path}.objects");
 
         CollectionObjects.Clear();
-        foreach (var item in objects)
+        foreach (var item in objects.OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase))
         {
             CollectionObjects.Add(item);
         }
