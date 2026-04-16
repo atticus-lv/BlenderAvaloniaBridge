@@ -4,9 +4,15 @@
 
 Cross-platform toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia. Windows and macOS headless shared-memory bridges are supported.
 
+![Blender Avalonia Bridge preview](docs/statics/images/mat.png)
+
 ## Documentation
 
-<https://atticus-lv.github.io/BlenderAvaloniaBridge/>
+<p>
+  <a href="https://atticus-lv.github.io/BlenderAvaloniaBridge/">
+    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-Read%20the%20Manual-1f6feb?style=for-the-badge">
+  </a>
+</p>
 
 ## License
 
