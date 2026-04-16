@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import threading
 from collections import deque
 from pathlib import Path
@@ -10,6 +11,16 @@ from typing import TypedDict
 
 
 CommandLine = list[str]
+
+
+def _write_console_error(message: str) -> None:
+    text = str(message or "").rstrip()
+    if not text:
+        return
+    try:
+        print(f"[AvaloniaBridge] {text}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 
 class ProcessExitReport(TypedDict):
@@ -177,8 +188,10 @@ class ProcessManager:
                 return
             try:
                 for line in stderr:
+                    line_text = line.rstrip()
                     with self._stderr_lock:
-                        self._stderr_lines.append(line.rstrip())
+                        self._stderr_lines.append(line_text)
+                    _write_console_error(line_text)
             except Exception:
                 pass
 
@@ -197,7 +210,9 @@ class ProcessManager:
                 if remaining:
                     with self._stderr_lock:
                         for line in remaining.splitlines():
-                            self._stderr_lines.append(line.rstrip())
+                            line_text = line.rstrip()
+                            self._stderr_lines.append(line_text)
+                            _write_console_error(line_text)
         except Exception:
             pass
         finally:

@@ -1,3 +1,4 @@
+import io
 import unittest
 
 from _test_support import import_module
@@ -110,6 +111,41 @@ class ControllerStateTests(unittest.TestCase):
 
         self.assertEqual(rect["y"], rect["content_y"])
         self.assertEqual(rect["content_y"] + rect["content_height"], rect["title_bar_y"])
+
+    def test_controller_logs_transport_errors_to_console(self):
+        core = import_module("avalonia_bridge.core")
+        controller = core.BridgeController(
+            core.BridgeConfig(executable_path="C:/bridge.exe"),
+        )
+        stderr_capture = io.StringIO()
+
+        with unittest.mock.patch("sys.stderr", stderr_capture):
+            controller._on_error(RuntimeError("socket closed unexpectedly"))
+
+        self.assertIn("[AvaloniaBridge] socket closed unexpectedly", stderr_capture.getvalue())
+        self.assertEqual("socket closed unexpectedly", controller.state_snapshot().last_error)
+
+    def test_controller_logs_process_exit_summary_to_console(self):
+        core = import_module("avalonia_bridge.core")
+
+        class FakeProcessManager:
+            def poll_exit(self):
+                return {
+                    "returncode": 1,
+                    "stderr": "System.InvalidOperationException: boom\nat Program.Main()",
+                }
+
+        controller = core.BridgeController(
+            core.BridgeConfig(executable_path="C:/bridge.exe"),
+            process_manager=FakeProcessManager(),
+        )
+        stderr_capture = io.StringIO()
+
+        with unittest.mock.patch("sys.stderr", stderr_capture):
+            controller._check_process_health()
+
+        self.assertIn("[AvaloniaBridge] Avalonia exited (1): at Program.Main()", stderr_capture.getvalue())
+        self.assertEqual("Avalonia exited (1): at Program.Main()", controller.state_snapshot().last_error)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 import threading
 import time
 from collections import deque
@@ -25,6 +26,16 @@ from .view3d_overlay_host import BridgePresentationHost
 PacketHeader = dict[str, object]
 StateCallback = Callable[[BridgeStateSnapshot], None]
 ServerFactory = Callable[..., BridgeServer]
+
+
+def _write_console_error(message: str) -> None:
+    text = str(message or "").rstrip()
+    if not text:
+        return
+    try:
+        print(f"[AvaloniaBridge] {text}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 
 class BridgeController:
@@ -325,6 +336,7 @@ class BridgeController:
         message = str(exc)
         if exc.__class__.__name__ == "ProtocolViolationError":
             message = f"Protocol violation: {message}"
+        _write_console_error(message)
         self._replace_state(last_error=message)
         self._request_redraw()
 
@@ -349,7 +361,9 @@ class BridgeController:
                 if response_header.get("ok", False):
                     self._replace_state(last_error="", last_message=f"{response_type}: ok")
                 else:
-                    self._replace_state(last_error=self._business_error_message(response_header, response_type))
+                    message = self._business_error_message(response_header, response_type)
+                    _write_console_error(message)
+                    self._replace_state(last_error=message)
             return response
         if packet_type == "frame":
             self._diagnostics.record_frame_packet(header, now_ms)
@@ -363,7 +377,9 @@ class BridgeController:
                 self._diagnostics.record_timing("shared_memory_read_ms", (time.perf_counter() - read_started) * 1000.0)
                 self._replace_state(last_message=f"Frame slot {int(header.get('slot', 0))} received")
             except Exception as exc:
-                self._replace_state(last_error=f"Shared memory read failed: {exc}")
+                message = f"Shared memory read failed: {exc}"
+                _write_console_error(message)
+                self._replace_state(last_error=message)
         elif packet_type == "init":
             self._remote_window_mode = header.get("window_mode", "unknown")
             self._remote_supports_business = bool(header.get("supports_business", True))
@@ -377,7 +393,9 @@ class BridgeController:
                 remote_supports_input=self._remote_supports_input,
             )
         elif packet_type == "error":
-            self._replace_state(last_error=header.get("message", "Avalonia reported an error"))
+            message = header.get("message", "Avalonia reported an error")
+            _write_console_error(message)
+            self._replace_state(last_error=message)
         if packet_type not in {"frame", "frame_ready"}:
             self._request_redraw()
         return None
@@ -471,6 +489,7 @@ class BridgeController:
             message = f"Avalonia exited ({return_code}): {last_line[:300]}"
         else:
             message = f"Avalonia exited ({return_code})"
+        _write_console_error(message)
         self.release_capture_input(last_message="")
         self._replace_state(
             process_running=False,

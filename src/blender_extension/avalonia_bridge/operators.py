@@ -1,7 +1,18 @@
 import bpy
+import sys
 
 from .preferences import get_preferences
 from .runtime import ProcessLaunchError, get_runtime
+
+
+def _write_console(message: str) -> None:
+    text = str(message or "").strip()
+    if not text:
+        return
+    try:
+        print(f"[AvaloniaBridge] {text}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
 
 
 class AVALONIA_BRIDGE_OT_start_ui_bridge(bpy.types.Operator):
@@ -79,6 +90,10 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
             "EVT_TWEAK_R",
         }
         if not state.process_running:
+            snapshot = runtime.state_snapshot(context)
+            reason = snapshot.last_error or snapshot.last_message or "Bridge process is no longer running."
+            _write_console(f"UI bridge modal cancelled: {reason}")
+            self.report({"WARNING"}, f"Bridge stopped: {reason[:200]}")
             self.cancel(context)
             return {"CANCELLED"}
 

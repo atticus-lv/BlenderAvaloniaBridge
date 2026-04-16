@@ -1,3 +1,4 @@
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -71,6 +72,24 @@ class ProcessTests(unittest.TestCase):
 
         self.assertEqual("/custom/dotnet", args[0])
         self.assertEqual(str(executable), args[1])
+
+    def test_process_manager_forwards_stderr_lines_to_console(self):
+        process = import_module("avalonia_bridge.core.process")
+
+        class FakeProcess:
+            def __init__(self):
+                self.stderr = io.StringIO("first failure line\nsecond failure line\n")
+
+        manager = process.ProcessManager()
+        fake_process = FakeProcess()
+        stderr_capture = io.StringIO()
+
+        with unittest.mock.patch("sys.stderr", stderr_capture):
+            manager._start_stderr_drain(fake_process)
+            manager._stderr_thread.join(timeout=1)
+
+        self.assertIn("[AvaloniaBridge] first failure line", stderr_capture.getvalue())
+        self.assertIn("[AvaloniaBridge] second failure line", stderr_capture.getvalue())
 
 
 if __name__ == "__main__":
