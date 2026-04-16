@@ -4,7 +4,7 @@ By default, the Blender side uses `DefaultBusinessEndpoint` to process `business
 
 ## What the default endpoint supports
 
-The built-in endpoint is now the generic Blender data bridge. It handles these names:
+`DefaultBusinessEndpoint` carries the built-in Blender data bridge and handles these names:
 
 - `rna.list`
 - `rna.get`
@@ -25,6 +25,10 @@ Every `business_request`, `business_response`, and `business_event` now carries 
 - `schemaVersion`
 
 Current defaults are `protocolVersion = 1` and `schemaVersion = 1`.
+
+On the C# side, the current `BlenderApi` surface for `Rna`, `Ops`, and `Observe` depends on these default business names.
+
+If the Blender side replaces the endpoint with a custom one and does not keep these names compatible, the built-in `BlenderApi` can no longer be used directly.
 
 ## Interface contract
 
@@ -76,13 +80,8 @@ controller = BridgeController(
 )
 ```
 
-## When to keep the default implementation
+## Current limitation
 
-Keep `DefaultBusinessEndpoint` if you want the built-in RNA, operator, and watch bridge and only need to add a few app-specific commands.
-
-This is usually the best split:
-
-- use `DefaultBusinessEndpoint` for standard Blender API traffic
-- add a custom endpoint only for private commands such as `ping`, app actions, or domain-specific workflows
-
-On the C# side, the default endpoint is surfaced through `BlenderApi` with `Rna`, `Ops`, and `Observe` domains, so most applications do not need any Python-side glue code at all.
+- With `DefaultBusinessEndpoint`, the built-in `BlenderApi` works directly
+- If you replace it with a custom endpoint, the built-in `BlenderApi` stops working unless the custom endpoint keeps `rna.*`, `ops.*`, and `watch.*` compatible
+- When only adding a few app-specific commands, keep `DefaultBusinessEndpoint` and extend on top of it

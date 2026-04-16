@@ -26,24 +26,9 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 它不是一个“只在 Blender Python 里堆面板”的方案。
 
-如果你只是要做一个很简单的 Blender 面板或小工具，直接用传统 addon 开发通常更轻。
+如果你只是要做一个很简单的 Blender 面板或小工具，直接用传统 addon 开发更轻。
 
 这个 bridge 更适合“Blender 负责宿主与桥接，Avalonia 程序负责 UI 和业务”的分工模式。
-
-
-
-## 运行模式
-
-当前支持两种 `window_mode`：
-
-- `headless`：默认模式，将 Avalonia 画面绘制到 Blender 中，在显示区域内捕捉鼠标和键盘事件
-- `desktop`：经典桌面窗口模式，只建立 business 连接
-
-选择建议：
-
-- 想把 UI 直接嵌进 Blender，优先用 `headless`
-- 想先验证业务通信或先做桌面端 UI，优先用 `desktop`
-
 
 ### 优势
 
@@ -57,7 +42,7 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 #### 3. 适合把复杂业务放在独立进程
 
-把业务逻辑放在 .NET 侧，通常更适合处理大量数据、复杂计算或已有后端式模块。
+把业务逻辑放在 .NET 侧，更适合处理大量数据、复杂计算或已有后端式模块。
 
 #### 4. 适合减少 Python 业务源码分发
 
@@ -65,11 +50,10 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 
 
-### 已知限制
+### Headless 模式下的已知限制
 
-- 目前 headless 共享内存桥接支持 Windows 和 macOS 平台
-- 不支持布局动画，例如 `SplitView` 的 pane 动画会直接切换状态
-- 不支持 transitions 动画，例如位置位移动画可能会卡顿并直接跳到最终状态
+- 当前只支持 Windows 和 macOS 平台
+- 部分 UI 场景可能出现画面卡顿或缺帧问题
 - 不支持外部拖拽，因为 Blender 会先捕获 drop 事件
 
 

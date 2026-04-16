@@ -2,7 +2,7 @@
 
 本页只说明如何运行仓库自带的示例。
 
-如果你要把 bridge 接入已有项目，请直接看[集成指南](../integration/index.md)。
+接入已有项目请看[集成概览](../integration/index.md)。
 
 ## 1. 发布 Avalonia Sample AOT
 

@@ -2,7 +2,7 @@
 
 This page only covers how to run the sample that ships with this repository.
 
-If you want to integrate the bridge into an existing project, go to the [Integration Guide](../integration/index.md).
+For integration, see [Integration Overview](../integration/index.md).
 
 ## 1. Publish the Avalonia Sample AOT
 

@@ -4,7 +4,7 @@
 
 ## 默认 endpoint 做了什么
 
-现在内置 endpoint 已经是通用 Blender 数据桥接层，默认支持这些业务名：
+`DefaultBusinessEndpoint` 承载当前内置的 Blender 数据桥接能力，默认支持这些业务名：
 
 - `rna.list`
 - `rna.get`
@@ -25,6 +25,10 @@ watch 失效通知会通过名为 `watch.dirty` 的 `business_event` 发出。
 - `schemaVersion`
 
 当前默认值固定为 `protocolVersion = 1`、`schemaVersion = 1`。
+
+当前 C# 侧 `BlenderApi` 的 `Rna`、`Ops`、`Observe` 也建立在这组默认业务名之上。
+
+如果 Blender 侧直接替换成自定义 endpoint，而不继续兼容这些业务名，当前内置 `BlenderApi` 不能直接使用。
 
 ## 接口约定
 
@@ -76,13 +80,8 @@ controller = BridgeController(
 )
 ```
 
-## 什么时候保留默认实现
+## 当前限制
 
-如果你希望继续使用现成的 RNA、operator、watch 桥接能力，只额外补少量应用私有命令，优先继续用 `DefaultBusinessEndpoint`。
-
-通常推荐这样拆分：
-
-- `DefaultBusinessEndpoint` 继续处理标准 Blender API 流量
-- 自定义 endpoint 只负责 `ping`、应用命令或领域专用流程
-
-在 C# 侧，默认 endpoint 会直接映射成带 `Rna`、`Ops`、`Observe` 三个领域入口的 `BlenderApi`，所以大多数场景其实不需要再写 Python glue code。
+- 使用 `DefaultBusinessEndpoint` 时，可以直接使用当前内置 `BlenderApi`
+- 直接替换为自定义 endpoint 后，当前内置 `BlenderApi` 不再可用，除非自定义 endpoint 继续兼容 `rna.*`、`ops.*`、`watch.*`
+- 只增加少量应用私有命令时，应继续保留 `DefaultBusinessEndpoint`，并在其上扩展

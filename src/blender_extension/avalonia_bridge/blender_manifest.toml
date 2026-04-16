@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "avalonia_bridge"
 type = "add-on"
-version = "0.1.0"
+version = "0.1.1"
 
 name = "Avalonia Bridge"
 tagline = "Avalonia Bridge"
@@ -15,7 +15,7 @@ license = [
 
 tags = ["Render"]
 blender_version_min = "5.0.0"
-platforms = ["windows-x64", "macos-arm64", "macos-x64", ]
+platforms = ["windows-x64", "macos-arm64", ]
 
 
 [permissions]
