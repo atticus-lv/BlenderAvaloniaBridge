@@ -1,0 +1,45 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Restore .NET dependencies
+        run: dotnet restore BlenderAvaloniaBridge.slnx
+
+      - name: Run .NET tests
+        run: dotnet test tests/BlenderAvaloniaBridge.Tests/BlenderAvaloniaBridge.Tests.csproj --configuration Release --no-restore
+
+      - name: Run Python addon tests
+        run: python -m unittest discover -s tests/blender_extension/avalonia_bridge -p "test_*.py"
