@@ -54,7 +54,13 @@ controller.start()
 - `headless`：`BridgeController(..., host=View3DOverlayHost(...))`
 - `desktop` / business-only：`BridgeController(..., host=None)`
 
-## 3. 生命周期与事件驱动
+## 3. 选择展示宿主
+
+- `View3DOverlayHost` 是 Blender `3D View` 的可选展示宿主
+- 当前示例在 `headless` 模式下使用它把 UI 绘制到 `3D View`
+- 如果不希望绘制到 `3D View`，可以不组装 `View3DOverlayHost`，只保留 business 通道
+- 其他 Blender 展示方式需要在 addon 层自行组装适配
+## 4. 生命周期与事件驱动
 
 Blender 侧分两层接入：
 

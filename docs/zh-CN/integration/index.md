@@ -29,6 +29,12 @@
 
 其中 `window_mode`、`width`、`height` 和 `render_scaling` 会作为 bridge 启动参数影响 Avalonia 端运行方式。
 
+## Core 与 Sample / Addon 的边界
+
+- `BlenderAvaloniaBridge.Core` 和 Blender 侧 `avalonia_bridge/core` 负责桥接基础设施：进程、传输、frame、input、business
+- `BlenderAvaloniaBridge.Sample` 和 Blender addon 壳层负责示例 UI、配置组装与业务代码
+- 集成时通常不需要修改两侧 core，主要在 Avalonia app 层和 Blender addon 层接入
+
 ## 分侧接入
 
 - Avalonia 侧接入：看 [Avalonia 侧接入](./avalonia.md)

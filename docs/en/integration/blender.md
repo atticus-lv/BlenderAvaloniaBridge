@@ -54,7 +54,13 @@ controller.start()
 - `headless`: `BridgeController(..., host=View3DOverlayHost(...))`
 - `desktop` / business-only: `BridgeController(..., host=None)`
 
-## 3. Lifecycle and event driving
+## 3. Choose the presentation host
+
+- `View3DOverlayHost` is the optional presentation host for Blender `3D View`
+- The current sample uses it in `headless` mode to draw the UI into `3D View`
+- If you do not want to draw in `3D View`, do not assemble `View3DOverlayHost` and keep only the business channel
+- Other Blender presentation paths should be assembled at the addon layer
+## 4. Lifecycle and event driving
 
 Blender-side integration has two layers:
 

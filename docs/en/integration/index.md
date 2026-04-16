@@ -29,6 +29,12 @@ The following values are provided on the Blender-side Python runtime when creati
 
 `window_mode`, `width`, `height`, and `render_scaling` affect the Avalonia side through bridge startup parameters.
 
+## Core vs Sample / Addon
+
+- `BlenderAvaloniaBridge.Core` and Blender-side `avalonia_bridge/core` handle bridge infrastructure: process, transport, frame, input, and business
+- `BlenderAvaloniaBridge.Sample` and the Blender addon shell handle sample UI, configuration assembly, and business code
+- Integration usually does not require changes to either core layer and mainly happens in the Avalonia app layer and Blender addon layer
+
 ## By side
 
 - Avalonia-side integration: see [Avalonia-side integration](./avalonia.md)

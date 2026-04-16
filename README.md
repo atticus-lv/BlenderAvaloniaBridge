@@ -2,7 +2,7 @@
 
 ## For Humans
 
-Cross-platform toolkit for running an Avalonia UI in a separate process, streaming frames into Blender, and sending Blender input back to Avalonia. Windows and macOS headless shared-memory bridges are supported.
+Toolkit for integrating an Avalonia app with Blender. Blender acts as the host, and Avalonia owns the UI, state, and business logic.
 
 ![Blender Avalonia Bridge preview](docs/statics/images/mat.png)
 
@@ -34,7 +34,12 @@ This repository is organized into two reusable bridge cores and two application-
 - `src/BlenderAvaloniaBridge.Core`: Avalonia bridge core
 - `src/BlenderAvaloniaBridge.Sample`: Avalonia sample app
 
-Most integration work happens in the Avalonia app layer and Blender addon layer. The two core layers already handle transport, session, frame, input, and business bridge infrastructure.
+The two core layers already handle most bridge infrastructure: transport, session, frame delivery, input forwarding, and business messaging.
+
+Integration usually focuses on:
+
+- Avalonia UI and business logic
+- Blender addon configuration and business-side wiring
 
 ## Key Directories
 
@@ -71,6 +76,12 @@ Important constraints:
 - The built-in `BlenderApi` depends on Blender-side compatibility with `rna.*`, `ops.*`, and `watch.*`
 - `View3DOverlayHost` is optional host-side composition, not mandatory bridge core
 - Blender-side core should stay generic and should not absorb sample-specific business logic
+
+Preferred project summary:
+
+- This repository has four parts: Avalonia bridge core, Avalonia sample app, Blender bridge core, and Blender addon shell.
+- The two core layers already handle most bridge infrastructure.
+- Integration usually focuses on Avalonia-side UI/business code and Blender addon-side wiring.
 
 See `AGENTS.md` for a repository-oriented guide.
 

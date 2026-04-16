@@ -2,10 +2,19 @@
 
 ## Project Model
 
-- Blender addon side owns configuration, process launch, overlay drawing, input forwarding, and business endpoint handling.
-- Avalonia app side owns UI, state, and business logic.
-- `BlenderAvaloniaBridge.Core` is the C# bridge runtime and API surface.
-- `src/blender_extension/avalonia_bridge/core` is the Blender-side bridge core.
+This repository has four parts:
+
+- `src/BlenderAvaloniaBridge.Core`: Avalonia bridge core
+- `src/BlenderAvaloniaBridge.Sample`: Avalonia sample app
+- `src/blender_extension/avalonia_bridge/core`: Blender bridge core
+- `src/blender_extension/avalonia_bridge`: Blender addon shell
+
+The two core layers already handle most bridge infrastructure: transport, session, frame delivery, input forwarding, and business messaging.
+
+Integration usually focuses on:
+
+- Avalonia UI and business logic
+- Blender addon configuration and business-side wiring
 
 ## Runtime Modes
 
