@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Media;
 using BlenderAvaloniaBridge.Runtime;
 using System.Buffers.Binary;
@@ -44,10 +43,8 @@ public sealed class FramePublisherTests
             };
 
             window.Show();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
-            var bitmap = window.GetLastRenderedFrame();
-            Assert.NotNull(bitmap);
-            return FramePublisher.ExtractFrame(bitmap!, 11);
+            var bitmap = HeadlessFrameCapture.Capture(window);
+            return FramePublisher.ExtractFrame(bitmap, 11);
         });
 
         Assert.Equal("frame", frame.FramePacket.Header.Type);
@@ -74,10 +71,8 @@ public sealed class FramePublisherTests
             };
 
             window.Show();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
-            var bitmap = window.GetLastRenderedFrame();
-            Assert.NotNull(bitmap);
-            return FramePublisher.ExtractFrame(bitmap!, 21, 7.5);
+            var bitmap = HeadlessFrameCapture.Capture(window);
+            return FramePublisher.ExtractFrame(bitmap, 21, 7.5);
         });
 
         Assert.Equal(7.5, frame.Metrics.CaptureFrameMs, 3);

@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Media;
 using BlenderAvaloniaBridge;
 using BlenderAvaloniaBridge.Runtime;
@@ -31,8 +30,7 @@ public sealed class HeadlessRuntimeThreadTests
             };
 
             window.Show();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
-            return window.GetLastRenderedFrame();
+            return HeadlessFrameCapture.Capture(window);
         });
 
         Assert.NotNull(bitmap);

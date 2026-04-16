@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
-using System.Runtime.ExceptionServices;
 using System.Diagnostics;
-using Avalonia;
-using Avalonia.Headless;
+using Avalonia.Threading;
 
 namespace BlenderAvaloniaBridge.Runtime;
 
@@ -31,12 +29,15 @@ internal sealed class HeadlessRuntimeThread : IDisposable
             IsBackground = true,
             Name = "BlenderAvaloniaHeadlessRuntime"
         };
+
         if (OperatingSystem.IsWindows())
         {
             _thread.SetApartmentState(ApartmentState.STA);
         }
+
         _thread.Start();
         _ready.Wait();
+
         if (_startupException is not null)
         {
             throw new InvalidOperationException("Failed to initialize Avalonia headless runtime.", _startupException);
@@ -45,6 +46,14 @@ internal sealed class HeadlessRuntimeThread : IDisposable
 
     public Task InvokeAsync(Action action)
     {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (Environment.CurrentManagedThreadId == _thread.ManagedThreadId)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _workQueue.Add(() =>
         {
@@ -58,11 +67,19 @@ internal sealed class HeadlessRuntimeThread : IDisposable
                 tcs.SetException(ex);
             }
         });
+
         return tcs.Task;
     }
 
     public Task<T> InvokeAsync<T>(Func<T> action)
     {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (Environment.CurrentManagedThreadId == _thread.ManagedThreadId)
+        {
+            return Task.FromResult(action());
+        }
+
         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         _workQueue.Add(() =>
         {
@@ -75,6 +92,7 @@ internal sealed class HeadlessRuntimeThread : IDisposable
                 tcs.SetException(ex);
             }
         });
+
         return tcs.Task;
     }
 
@@ -90,6 +108,7 @@ internal sealed class HeadlessRuntimeThread : IDisposable
         {
             throw new TimeoutException("Timed out waiting for Avalonia runtime thread to stop.");
         }
+
         _ready.Dispose();
     }
 
@@ -97,94 +116,35 @@ internal sealed class HeadlessRuntimeThread : IDisposable
     {
         try
         {
-            AppBuilder.Configure<BridgeHeadlessApp>()
-                .UseSkia()
-                .UseHarfBuzz()
-                .UseHeadless(new AvaloniaHeadlessPlatformOptions
-                {
-                    UseHeadlessDrawing = false
-                })
-                .LogToTrace()
-                .SetupWithoutStarting();
+            var dispatcher = Dispatcher.UIThread;
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(dispatcher, DispatcherPriority.Normal));
+            AvaloniaSynchronizationContext.InstallIfNeeded();
+            BridgeHeadlessApp.BuildAvaloniaApp().SetupWithoutStarting();
+            _ready.Set();
 
-            SynchronizationContext.SetSynchronizationContext(new RuntimeSynchronizationContext(this));
+            while (!_workQueue.IsCompleted)
+            {
+                if (_workQueue.TryTake(out var action, millisecondsTimeout: 10))
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.WriteLine($"Headless runtime action failed: {ex}");
+                    }
+                }
+
+                dispatcher.RunJobs();
+            }
+
+            dispatcher.RunJobs();
         }
         catch (Exception ex)
         {
             _startupException = ex;
             _ready.Set();
-            return;
-        }
-
-        _ready.Set();
-
-        foreach (var action in _workQueue.GetConsumingEnumerable())
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                Trace.WriteLine($"Headless runtime action failed: {ex}");
-            }
-        }
-    }
-
-    private sealed class RuntimeSynchronizationContext : SynchronizationContext
-    {
-        private readonly HeadlessRuntimeThread _owner;
-
-        public RuntimeSynchronizationContext(HeadlessRuntimeThread owner)
-        {
-            _owner = owner;
-        }
-
-        public override void Post(SendOrPostCallback d, object? state)
-        {
-            ArgumentNullException.ThrowIfNull(d);
-            _owner._workQueue.Add(() => d(state));
-        }
-
-        public override void Send(SendOrPostCallback d, object? state)
-        {
-            ArgumentNullException.ThrowIfNull(d);
-
-            if (Environment.CurrentManagedThreadId == _owner._thread.ManagedThreadId)
-            {
-                d(state);
-                return;
-            }
-
-            using var completed = new ManualResetEventSlim(false);
-            Exception? capturedException = null;
-
-            _owner._workQueue.Add(() =>
-            {
-                try
-                {
-                    d(state);
-                }
-                catch (Exception ex)
-                {
-                    capturedException = ex;
-                }
-                finally
-                {
-                    completed.Set();
-                }
-            });
-
-            completed.Wait();
-            if (capturedException is not null)
-            {
-                ExceptionDispatchInfo.Capture(capturedException).Throw();
-            }
-        }
-
-        public override SynchronizationContext CreateCopy()
-        {
-            return new RuntimeSynchronizationContext(_owner);
         }
     }
 }
