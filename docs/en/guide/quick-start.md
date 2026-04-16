@@ -4,7 +4,7 @@ This page only covers how to run the sample that ships with this repository.
 
 For integration, see [Integration Overview](../integration/index.md).
 
-## 1. Publish the Avalonia Sample AOT
+## 1. Publish the Avalonia Sample
 
 Make sure `.NET 10 SDK` is installed, then run this from the repository root:
 
@@ -17,6 +17,8 @@ The generated bridge folder is created at:
 ```text
 artifacts/publish/net10/
 ```
+
+This command produces a regular publish output, not an AOT publish output.
 
 ## 2. Add the local Blender extension repository
 

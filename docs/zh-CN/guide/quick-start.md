@@ -4,7 +4,7 @@
 
 接入已有项目请看[集成概览](../integration/index.md)。
 
-## 1. 发布 Avalonia Sample AOT
+## 1. 发布 Avalonia Sample
 
 先确认机器上安装了 `.NET 10 SDK`，然后在仓库根目录运行：
 
@@ -17,6 +17,8 @@ dotnet publish ./src/BlenderAvaloniaBridge.Sample/BlenderAvaloniaBridge.Sample.c
 ```text
 artifacts/publish/net10/
 ```
+
+这条命令产出的是普通发布产物，不是 AOT 发布产物。
 
 ## 2. 在 Blender 中添加本地扩展仓库
 
