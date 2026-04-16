@@ -16,7 +16,7 @@
 - `Label`
 - `Kind`
 
-建议把它理解成可继续寻址的引用，而不是已经展开完成的 DTO。
+它是可继续寻址的引用，不是已经展开完成的 DTO。
 
 ## BlenderArrayReadResult
 
@@ -38,7 +38,7 @@
 
 `BlenderOperatorCall` 是 `blenderApi.Ops` 使用的结构化 operator 请求模型。
 
-适合在下面这些场景使用：
+使用场景：
 
 - 需要命名 kwargs 集合
 - 需要 context override
@@ -62,6 +62,6 @@ bridge 当前支持的值模型包括：
 
 ## 自定义 JSON Resolver
 
-如果你要在 `GetAsync<T>`、`SetAsync<T>` 或 `CallAsync<T>` 中使用自定义 DTO，需要在启动阶段注册自己的 source-generated JSON resolver。
+在 `GetAsync<T>`、`SetAsync<T>` 或 `CallAsync<T>` 中使用自定义 DTO 时，需要在启动阶段注册自己的 source-generated JSON resolver。
 
 如果缺少运行时类型元数据，反序列化会抛出 `missing_json_type_info_for_type`。

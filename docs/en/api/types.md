@@ -16,7 +16,7 @@ Common stable fields include:
 - `Label`
 - `Kind`
 
-Treat it as an addressable reference, not a fully expanded DTO.
+It is an addressable reference, not a fully expanded DTO.
 
 ## BlenderArrayReadResult
 
@@ -38,7 +38,7 @@ It separates array metadata from the raw binary payload:
 
 `BlenderOperatorCall` is the structured operator request model used by `blenderApi.Ops`.
 
-Use it when you need:
+Use cases:
 
 - keyword arguments as a named collection
 - context override data
@@ -62,6 +62,6 @@ Supported bridge value models include:
 
 ## Custom JSON Resolvers
 
-If you use custom DTOs with `GetAsync<T>`, `SetAsync<T>`, or `CallAsync<T>`, register your own source-generated JSON resolver during startup.
+When using custom DTOs with `GetAsync<T>`, `SetAsync<T>`, or `CallAsync<T>`, register your own source-generated JSON resolver during startup.
 
 If runtime type metadata is missing, deserialization fails with `missing_json_type_info_for_type`.

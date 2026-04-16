@@ -10,13 +10,16 @@ const zhSidebar = [
     text: '开始',
     items: [
       { text: '简介', link: '/zh-CN/guide/what-is' },
+      { text: '工作原理', link: '/zh-CN/guide/how-it-works' },
       { text: '快速开始', link: '/zh-CN/guide/quick-start' },
     ],
   },
   {
     text: '集成',
     items: [
-      { text: '集成指南', link: '/zh-CN/integration/' },
+      { text: '集成概览', link: '/zh-CN/integration/' },
+      { text: 'Avalonia 侧接入', link: '/zh-CN/integration/avalonia' },
+      { text: 'Blender 侧接入', link: '/zh-CN/integration/blender' },
     ],
   },
   {
@@ -33,7 +36,6 @@ const zhSidebar = [
     text: '高级',
     items: [
       { text: '自定义 Business Handler', link: '/zh-CN/advanced/custom-business-handler' },
-      { text: '项目架构', link: '/zh-CN/advanced/architecture' },
     ],
   },
 ];
@@ -43,13 +45,16 @@ const enSidebar = [
     text: 'Start',
     items: [
       { text: 'Overview', link: '/en/guide/what-is' },
+      { text: 'How It Works', link: '/en/guide/how-it-works' },
       { text: 'Quick Start', link: '/en/guide/quick-start' },
     ],
   },
   {
     text: 'Integration',
     items: [
-      { text: 'Integration Guide', link: '/en/integration/' },
+      { text: 'Integration Overview', link: '/en/integration/' },
+      { text: 'Avalonia-side integration', link: '/en/integration/avalonia' },
+      { text: 'Blender-side integration', link: '/en/integration/blender' },
     ],
   },
   {
@@ -66,7 +71,6 @@ const enSidebar = [
     text: 'Advanced',
     items: [
       { text: 'Custom Business Handler', link: '/en/advanced/custom-business-handler' },
-      { text: 'Architecture', link: '/en/advanced/architecture' },
     ],
   },
 ];
