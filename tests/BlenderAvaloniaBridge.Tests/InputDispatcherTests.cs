@@ -14,6 +14,190 @@ namespace BlenderAvaloniaBridge.Tests;
 
 public sealed class InputDispatcherTests
 {
+    public static IEnumerable<object[]> ExpandedKeyMappingCases()
+    {
+        yield return ["PERIOD", Key.OemPeriod, PhysicalKey.Period];
+        yield return ["NUMPAD_PERIOD", Key.Decimal, PhysicalKey.NumPadDecimal];
+        yield return ["COMMA", Key.OemComma, PhysicalKey.Comma];
+        yield return ["MINUS", Key.OemMinus, PhysicalKey.Minus];
+        yield return ["PLUS", Key.OemPlus, PhysicalKey.Equal];
+        yield return ["EQUAL", Key.OemPlus, PhysicalKey.Equal];
+        yield return ["SEMI_COLON", Key.OemSemicolon, PhysicalKey.Semicolon];
+        yield return ["QUOTE", Key.OemQuotes, PhysicalKey.Quote];
+        yield return ["SLASH", Key.OemQuestion, PhysicalKey.Slash];
+        yield return ["BACK_SLASH", Key.OemPipe, PhysicalKey.Backslash];
+        yield return ["LEFT_BRACKET", Key.OemOpenBrackets, PhysicalKey.BracketLeft];
+        yield return ["RIGHT_BRACKET", Key.OemCloseBrackets, PhysicalKey.BracketRight];
+        yield return ["ACCENT_GRAVE", Key.OemTilde, PhysicalKey.Backquote];
+        yield return ["LEFT_SHIFT", Key.LeftShift, PhysicalKey.ShiftLeft];
+        yield return ["RIGHT_SHIFT", Key.RightShift, PhysicalKey.ShiftRight];
+        yield return ["LEFT_CTRL", Key.LeftCtrl, PhysicalKey.ControlLeft];
+        yield return ["RIGHT_CTRL", Key.RightCtrl, PhysicalKey.ControlRight];
+        yield return ["LEFT_ALT", Key.LeftAlt, PhysicalKey.AltLeft];
+        yield return ["RIGHT_ALT", Key.RightAlt, PhysicalKey.AltRight];
+        yield return ["OSKEY", Key.LWin, PhysicalKey.MetaLeft];
+        yield return ["APP", Key.Apps, PhysicalKey.ContextMenu];
+        yield return ["INSERT", Key.Insert, PhysicalKey.Insert];
+        yield return ["PAGE_UP", Key.PageUp, PhysicalKey.PageUp];
+        yield return ["PAGE_DOWN", Key.PageDown, PhysicalKey.PageDown];
+        yield return ["LINE_FEED", Key.LineFeed, PhysicalKey.None];
+        yield return ["NUMPAD_SLASH", Key.Divide, PhysicalKey.NumPadDivide];
+        yield return ["NUMPAD_ASTERIX", Key.Multiply, PhysicalKey.NumPadMultiply];
+        yield return ["NUMPAD_MINUS", Key.Subtract, PhysicalKey.NumPadSubtract];
+        yield return ["NUMPAD_PLUS", Key.Add, PhysicalKey.NumPadAdd];
+
+        for (var index = 0; index <= 9; index++)
+        {
+            yield return
+            [
+                $"NUMPAD_{index}",
+                Enum.Parse<Key>($"NumPad{index}"),
+                Enum.Parse<PhysicalKey>($"NumPad{index}")
+            ];
+        }
+
+        for (var index = 1; index <= 24; index++)
+        {
+            yield return
+            [
+                $"F{index}",
+                Enum.Parse<Key>($"F{index}"),
+                Enum.Parse<PhysicalKey>($"F{index}")
+            ];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(ExpandedKeyMappingCases))]
+    public async Task DispatchAsync_ExpandedKeyDown_RaisesExpectedKeyEvent(
+        string bridgeKey,
+        Key expectedKey,
+        PhysicalKey expectedPhysicalKey)
+    {
+        var runtimeThread = HeadlessRuntimeThread.Shared;
+
+        var observed = await runtimeThread.InvokeAsync(() =>
+        {
+            var window = new Window
+            {
+                Width = 100,
+                Height = 100,
+                Content = new Border
+                {
+                    Width = 100,
+                    Height = 100
+                }
+            };
+
+            (Key key, PhysicalKey physicalKey)? keyDown = null;
+            window.KeyDown += (_, e) => keyDown = (e.Key, e.PhysicalKey);
+
+            window.Show();
+            window.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            var dispatcher = new InputDispatcher(statusSink: null);
+            dispatcher.DispatchAsync(
+                window,
+                new ProtocolEnvelope
+                {
+                    Type = "key_down",
+                    Key = bridgeKey
+                }).GetAwaiter().GetResult();
+            Dispatcher.UIThread.RunJobs();
+
+            return keyDown;
+        });
+
+        Assert.True(observed.HasValue);
+        Assert.Equal(expectedKey, observed.Value.key);
+        Assert.Equal(expectedPhysicalKey, observed.Value.physicalKey);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_KeyUp_RaisesExpectedKeyRelease()
+    {
+        var runtimeThread = HeadlessRuntimeThread.Shared;
+
+        var observed = await runtimeThread.InvokeAsync(() =>
+        {
+            var window = new Window
+            {
+                Width = 100,
+                Height = 100,
+                Content = new Border
+                {
+                    Width = 100,
+                    Height = 100
+                }
+            };
+
+            (Key key, PhysicalKey physicalKey)? keyUp = null;
+            window.KeyUp += (_, e) => keyUp = (e.Key, e.PhysicalKey);
+
+            window.Show();
+            window.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            var dispatcher = new InputDispatcher(statusSink: null);
+            dispatcher.DispatchAsync(
+                window,
+                new ProtocolEnvelope
+                {
+                    Type = "key_up",
+                    Key = "LEFT_CTRL"
+                }).GetAwaiter().GetResult();
+            Dispatcher.UIThread.RunJobs();
+
+            return keyUp;
+        });
+
+        Assert.True(observed.HasValue);
+        Assert.Equal(Key.LeftCtrl, observed.Value.key);
+        Assert.Equal(PhysicalKey.ControlLeft, observed.Value.physicalKey);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_Text_RaisesTextInput()
+    {
+        var runtimeThread = HeadlessRuntimeThread.Shared;
+
+        var observed = await runtimeThread.InvokeAsync(() =>
+        {
+            var window = new Window
+            {
+                Width = 100,
+                Height = 100,
+                Content = new Border
+                {
+                    Width = 100,
+                    Height = 100
+                }
+            };
+
+            string? text = null;
+            window.TextInput += (_, e) => text = e.Text;
+
+            window.Show();
+            window.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            var dispatcher = new InputDispatcher(statusSink: null);
+            dispatcher.DispatchAsync(
+                window,
+                new ProtocolEnvelope
+                {
+                    Type = "text",
+                    Text = "."
+                }).GetAwaiter().GetResult();
+            Dispatcher.UIThread.RunJobs();
+
+            return text;
+        });
+
+        Assert.Equal(".", observed);
+    }
+
     [Fact]
     public async Task DispatchAsync_PointerMoveAfterLeftButtonPress_PreservesLeftButtonState()
     {
