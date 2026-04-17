@@ -29,10 +29,13 @@ flowchart TB
 
 This repository is organized into two reusable bridge cores and two application-facing layers.
 
-- `src/blender_extension/avalonia_bridge/core`: Blender bridge core
-- `src/blender_extension/avalonia_bridge`: Blender addon shell
-- `src/BlenderAvaloniaBridge.Core`: Avalonia bridge core
-- `src/BlenderAvaloniaBridge.Sample`: Avalonia sample app
+| Module | Description | Role | Path |
+| --- | --- | --- | --- |
+| **avalonia bridge core** | Avalonia-side bridge module that provides an internal Blender API set | Communicates with the Blender-side bridge module | `src/BlenderAvaloniaBridge.Core` |
+| **blender bridge core** | Blender-side bridge module | Communicates with the Avalonia-side bridge module | `src/blender_extension/avalonia_bridge/core` |
+| avalonia example | Standalone runnable Avalonia desktop app integrated with the avalonia bridge core | Used for demos and as a code example | `src/BlenderAvaloniaBridge.Sample` |
+| blender extension | Extension that assembles the blender bridge core | Used for demos and can directly launch the avalonia example executable | `src/blender_extension/avalonia_bridge` |
+
 
 The two core layers already handle most bridge infrastructure: transport, session, frame delivery, input forwarding, and business messaging.
 
@@ -40,17 +43,6 @@ Integration usually focuses on:
 
 - Avalonia UI and business logic
 - Blender addon configuration and business-side wiring
-
-## Key Directories
-
-```text
-src/BlenderAvaloniaBridge.Core/
-src/BlenderAvaloniaBridge.Sample/
-src/blender_extension/avalonia_bridge/
-src/blender_extension/avalonia_bridge/core/
-docs/
-tests/
-```
 
 ## For Agents
 

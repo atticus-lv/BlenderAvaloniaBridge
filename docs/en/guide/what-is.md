@@ -15,6 +15,17 @@ Bridge brings Avalonia into Blender, preserving almost the full Avalonia framewo
   </figure>
 </div>
 
+The repository has four main parts.
+
+| Module | Description | Role | Path |
+| --- | --- | --- | --- |
+| **avalonia bridge core** | Avalonia-side bridge module that provides an internal Blender API set | Communicates with the Blender-side bridge module | `src/BlenderAvaloniaBridge.Core` |
+| **blender bridge core** | Blender-side bridge module | Communicates with the Avalonia-side bridge module | `src/blender_extension/avalonia_bridge/core` |
+| avalonia example | Standalone runnable Avalonia desktop app integrated with the avalonia bridge core | Used for demos and as a code example | `src/BlenderAvaloniaBridge.Sample` |
+| blender extension | Extension that assembles the blender bridge core | Used for demos and can directly launch the avalonia example executable | `src/blender_extension/avalonia_bridge` |
+
+In practice, the project is intended to be used like this:
+
 - The Avalonia side owns the actual UI, state, and business logic
 - The Blender side owns hosting and bridging
 

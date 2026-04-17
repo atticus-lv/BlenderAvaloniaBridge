@@ -15,6 +15,19 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
   </figure>
 </div>
 
+
+项目仓库包含四个主要部分
+
+| 模块                     | 介绍                                                         | 功能                                                 | 路径                                         |
+| ------------------------ | ------------------------------------------------------------ | ---------------------------------------------------- | -------------------------------------------- |
+| **avalonia bridge core** | avalonia侧的桥接模块，提供了一组内部的blender api            | 与blender侧桥接模块通信                              | `src/BlenderAvaloniaBridge.Core`             |
+| **blender bridge core**  | blender 侧的桥接模块                                         | 与avalonia 侧桥接模块通信                            | `src/blender_extension/avalonia_bridge/core` |
+| avalonia example         | 一个单独可运行的avalonia桌面程序，接入了avalonia bridge core | 用于功能展示和作为代码示例                           | `src/BlenderAvaloniaBridge.Sample`           |
+| blender extension        | 一个组装了blender bridge core的扩展（插件）                  | 用于功能展示，可直接调用avalonia example的可执行文件 | `src/blender_extension/avalonia_bridge`      |
+
+总的来说，这个项目是这样用
+
+
 - Avalonia 侧负责真正的 UI、状态和业务逻辑
 - Blender 侧负责宿主与桥接
 
