@@ -5,6 +5,135 @@ from _test_support import import_module
 
 
 class ControllerInputCaptureTests(unittest.TestCase):
+    def test_keyboard_event_whitelist_includes_expanded_supported_keys(self):
+        host_module = import_module("avalonia_bridge.core.view3d_overlay_host")
+
+        expected = {
+            "PERIOD",
+            "NUMPAD_PERIOD",
+            "COMMA",
+            "MINUS",
+            "PLUS",
+            "EQUAL",
+            "SEMI_COLON",
+            "QUOTE",
+            "SLASH",
+            "BACK_SLASH",
+            "LEFT_BRACKET",
+            "RIGHT_BRACKET",
+            "ACCENT_GRAVE",
+            "LEFT_SHIFT",
+            "RIGHT_SHIFT",
+            "LEFT_CTRL",
+            "RIGHT_CTRL",
+            "LEFT_ALT",
+            "RIGHT_ALT",
+            "OSKEY",
+            "APP",
+            "INSERT",
+            "PAGE_UP",
+            "PAGE_DOWN",
+            "LINE_FEED",
+            "NUMPAD_0",
+            "NUMPAD_1",
+            "NUMPAD_2",
+            "NUMPAD_3",
+            "NUMPAD_4",
+            "NUMPAD_5",
+            "NUMPAD_6",
+            "NUMPAD_7",
+            "NUMPAD_8",
+            "NUMPAD_9",
+            "NUMPAD_SLASH",
+            "NUMPAD_ASTERIX",
+            "NUMPAD_MINUS",
+            "NUMPAD_PLUS",
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7",
+            "F8",
+            "F9",
+            "F10",
+            "F11",
+            "F12",
+            "F13",
+            "F14",
+            "F15",
+            "F16",
+            "F17",
+            "F18",
+            "F19",
+            "F20",
+            "F21",
+            "F22",
+            "F23",
+            "F24",
+        }
+
+        self.assertTrue(expected.issubset(host_module.KEYBOARD_EVENT_TYPES))
+
+    def test_period_key_press_is_forwarded_with_text(self):
+        core = import_module("avalonia_bridge.core")
+        host = core.View3DOverlayHost()
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"), host=host)
+
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append(dict(header)) or True
+        controller.update_state(capture_input=True)
+
+        handled = controller.handle_event(
+            __import__("bpy").context,
+            SimpleNamespace(
+                type="PERIOD",
+                value="PRESS",
+                mouse_region_x=10,
+                mouse_region_y=10,
+                shift=False,
+                ctrl=False,
+                alt=False,
+                unicode=".",
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(["key_down", "text"], [packet["type"] for packet in sent])
+        self.assertEqual("PERIOD", sent[0]["key"])
+        self.assertEqual(".", sent[0]["text"])
+        self.assertEqual(".", sent[1]["text"])
+
+    def test_modifier_key_press_is_forwarded_without_text(self):
+        core = import_module("avalonia_bridge.core")
+        host = core.View3DOverlayHost()
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"), host=host)
+
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append(dict(header)) or True
+        controller.update_state(capture_input=True)
+
+        handled = controller.handle_event(
+            __import__("bpy").context,
+            SimpleNamespace(
+                type="LEFT_CTRL",
+                value="PRESS",
+                mouse_region_x=10,
+                mouse_region_y=10,
+                shift=False,
+                ctrl=True,
+                alt=False,
+                unicode="",
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(["key_down"], [packet["type"] for packet in sent])
+        self.assertEqual("LEFT_CTRL", sent[0]["key"])
+        self.assertEqual("", sent[0]["text"])
+        self.assertEqual(["ctrl"], sent[0]["modifiers"])
+
     def test_title_bar_drag_updates_overlay_offset_for_tweak_events(self):
         core = import_module("avalonia_bridge.core")
         host = core.View3DOverlayHost()

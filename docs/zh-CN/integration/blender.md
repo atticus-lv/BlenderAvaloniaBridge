@@ -67,6 +67,31 @@ Blender 侧分两层接入：
 - runtime adapter：构造 `BridgeConfig`，并组装 `BridgeController` 与可选的 `View3DOverlayHost`
 - modal operator：在 `TIMER` 中调用 `tick_once()`，在事件链路中调用 `handle_event(context, event)`
 
+当前会转发的 packet 类型：
+
+- 指针类：`pointer_down`、`pointer_up`、`pointer_move`、`wheel`
+- 键盘类：`key_down`、`key_up`
+- 文本类：按键带有非空 `event.unicode` 时发送 `text`
+
+当前 `View3DOverlayHost` 支持的 Blender `event.type`：
+
+- 指针与滚轮：`MOUSEMOVE`、`INBETWEEN_MOUSEMOVE`、`LEFTMOUSE`、`RIGHTMOUSE`、`MIDDLEMOUSE`、`WHEELUPMOUSE`、`WHEELDOWNMOUSE`、`EVT_TWEAK_L`、`EVT_TWEAK_M`、`EVT_TWEAK_R`
+- 仅用于标题栏拖拽：`LEFTMOUSE`、`EVT_TWEAK_L`
+- 字母键：`A`-`Z`
+- 主键盘数字：`ZERO`-`NINE`
+- 基本编辑与导航：`SPACE`、`TAB`、`RET`、`NUMPAD_ENTER`、`BACK_SPACE`、`DEL`、`INSERT`、`HOME`、`END`、`PAGE_UP`、`PAGE_DOWN`、`ESC`、`LINE_FEED`
+- 方向键：`LEFT_ARROW`、`RIGHT_ARROW`、`UP_ARROW`、`DOWN_ARROW`
+- 标点键：`PERIOD`、`NUMPAD_PERIOD`、`COMMA`、`MINUS`、`PLUS`、`EQUAL`、`SEMI_COLON`、`QUOTE`、`SLASH`、`BACK_SLASH`、`LEFT_BRACKET`、`RIGHT_BRACKET`、`ACCENT_GRAVE`
+- 修饰键：`LEFT_SHIFT`、`RIGHT_SHIFT`、`LEFT_CTRL`、`RIGHT_CTRL`、`LEFT_ALT`、`RIGHT_ALT`、`OSKEY`、`APP`
+- 小键盘：`NUMPAD_0`-`NUMPAD_9`、`NUMPAD_SLASH`、`NUMPAD_ASTERIX`、`NUMPAD_MINUS`、`NUMPAD_PLUS`
+- 功能键：`F1`-`F24`
+
+说明：
+
+- 键盘 packet 只会在 overlay 已捕获输入时转发
+- `desktop` 模式没有 frame host，不转发指针或键盘输入
+- `View3DOverlayHost` 会在本地消费标题栏拖拽事件，不会把它们作为键盘 packet 转发
+
 最小 modal operator 示例：
 
 ```python

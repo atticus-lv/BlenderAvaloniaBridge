@@ -67,6 +67,31 @@ Blender-side integration has two layers:
 - runtime adapter: build `BridgeConfig` and assemble `BridgeController` with an optional `View3DOverlayHost`
 - modal operator: call `tick_once()` on `TIMER` and `handle_event(context, event)` inside the event pipeline
 
+Current forwarded event packets:
+
+- pointer packets: `pointer_down`, `pointer_up`, `pointer_move`, `wheel`
+- keyboard packets: `key_down`, `key_up`
+- text packets: `text` when the pressed key carries a non-empty `event.unicode`
+
+Current Blender `event.type` support in `View3DOverlayHost`:
+
+- pointer and wheel: `MOUSEMOVE`, `INBETWEEN_MOUSEMOVE`, `LEFTMOUSE`, `RIGHTMOUSE`, `MIDDLEMOUSE`, `WHEELUPMOUSE`, `WHEELDOWNMOUSE`, `EVT_TWEAK_L`, `EVT_TWEAK_M`, `EVT_TWEAK_R`
+- title-bar drag handling only: `LEFTMOUSE`, `EVT_TWEAK_L`
+- letters: `A`-`Z`
+- top-row digits: `ZERO`-`NINE`
+- basic edit and navigation: `SPACE`, `TAB`, `RET`, `NUMPAD_ENTER`, `BACK_SPACE`, `DEL`, `INSERT`, `HOME`, `END`, `PAGE_UP`, `PAGE_DOWN`, `ESC`, `LINE_FEED`
+- arrow keys: `LEFT_ARROW`, `RIGHT_ARROW`, `UP_ARROW`, `DOWN_ARROW`
+- punctuation: `PERIOD`, `NUMPAD_PERIOD`, `COMMA`, `MINUS`, `PLUS`, `EQUAL`, `SEMI_COLON`, `QUOTE`, `SLASH`, `BACK_SLASH`, `LEFT_BRACKET`, `RIGHT_BRACKET`, `ACCENT_GRAVE`
+- modifier keys: `LEFT_SHIFT`, `RIGHT_SHIFT`, `LEFT_CTRL`, `RIGHT_CTRL`, `LEFT_ALT`, `RIGHT_ALT`, `OSKEY`, `APP`
+- numpad keys: `NUMPAD_0`-`NUMPAD_9`, `NUMPAD_SLASH`, `NUMPAD_ASTERIX`, `NUMPAD_MINUS`, `NUMPAD_PLUS`
+- function keys: `F1`-`F24`
+
+Notes:
+
+- keyboard packets are only forwarded while the overlay is capturing input
+- `desktop` mode does not forward pointer or keyboard input because it runs without the frame host
+- `View3DOverlayHost` consumes title-bar drag events locally and does not forward them as keyboard packets
+
 Minimal modal operator example:
 
 ```python
