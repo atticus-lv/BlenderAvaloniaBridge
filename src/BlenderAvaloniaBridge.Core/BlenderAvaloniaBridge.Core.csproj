@@ -13,11 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="12.0.0" />
-    <PackageReference Include="Avalonia.Headless" Version="12.0.0" />
-    <PackageReference Include="Avalonia.HarfBuzz" Version="12.0.0" />
-    <PackageReference Include="Avalonia.Skia" Version="12.0.0" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.0" />
+    <PackageReference Include="Avalonia" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Headless" Version="12.0.1" />
+    <PackageReference Include="Avalonia.HarfBuzz" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Skia" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.1" />
   </ItemGroup>
 
   <ItemGroup>
