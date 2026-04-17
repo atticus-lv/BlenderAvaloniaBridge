@@ -11,7 +11,9 @@ internal sealed class BridgeHeadlessApp : Application
     {
         return AppBuilder.Configure<BridgeHeadlessApp>()
             .UseSkia()
+#if !AVALONIA11_COMPAT
             .UseHarfBuzz()
+#endif
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
             {
                 UseHeadlessDrawing = false

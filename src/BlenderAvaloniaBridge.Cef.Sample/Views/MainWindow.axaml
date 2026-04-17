@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BlenderAvaloniaBridge.Cef.Sample.ViewModels"
+        x:Class="BlenderAvaloniaBridge.Cef.Sample.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Width="1280"
+        Height="840"
+        MinWidth="960"
+        MinHeight="640"
+        Title="{Binding PageTitle}"
+        Background="#0E1726"
+        d:DesignWidth="1280"
+        d:DesignHeight="840"
+        mc:Ignorable="d">
+  <Grid RowDefinitions="Auto,Auto,*">
+    <Border Grid.Row="0"
+            Padding="18,14"
+            Background="#132238"
+            BorderBrush="#223753"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+            ColumnSpacing="10">
+        <Button Grid.Column="0"
+                Command="{Binding GoBackCommand}"
+                Content="Back"
+                MinWidth="72" />
+        <Button Grid.Column="1"
+                Command="{Binding GoForwardCommand}"
+                Content="Forward"
+                MinWidth="72" />
+        <Button Grid.Column="2"
+                Command="{Binding ReloadCommand}"
+                Content="Reload"
+                MinWidth="72" />
+        <TextBox Grid.Column="3"
+                 Text="{Binding Address}"
+                 Watermark="Enter a URL and press Enter"
+                 VerticalContentAlignment="Center">
+          <TextBox.KeyBindings>
+            <KeyBinding Command="{Binding NavigateCommand}"
+                        Gesture="Enter" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <Button Grid.Column="4"
+                Command="{Binding NavigateCommand}"
+                Content="Open"
+                MinWidth="84" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          ColumnDefinitions="*,Auto"
+          ColumnSpacing="12"
+          Margin="18,12,18,12">
+      <TextBlock Grid.Column="0"
+                 Text="{Binding StatusText}"
+                 Foreground="#DCE7F7"
+                 FontSize="13" />
+      <TextBlock Grid.Column="1"
+                 Text="{Binding BridgeStatus}"
+                 Foreground="#8FB7E8"
+                 FontSize="13" />
+    </Grid>
+
+    <Border Grid.Row="2"
+            Margin="18,0,18,18"
+            Background="#09111D"
+            BorderBrush="#223753"
+            BorderThickness="1"
+            CornerRadius="18"
+            ClipToBounds="True">
+      <ContentControl x:Name="BrowserPresenter" />
+    </Border>
+  </Grid>
+</Window>

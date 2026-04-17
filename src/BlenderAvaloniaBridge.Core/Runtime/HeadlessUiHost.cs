@@ -73,7 +73,8 @@ internal sealed class HeadlessUiHost
             _blenderApiSink = ResolveBlenderApiSink(_window);
             _inputDispatcher = new InputDispatcher(_statusSink);
             _window.Show();
-            _window.SetRenderScaling(_renderScaling);
+            // Keep the captured frame size aligned with the protocol's render size.
+            HeadlessRenderScalingCompat.Apply(_window, _renderScaling);
             ExtendContinuousFrames(_options.ContinuousFrameWindow);
             return true;
         });

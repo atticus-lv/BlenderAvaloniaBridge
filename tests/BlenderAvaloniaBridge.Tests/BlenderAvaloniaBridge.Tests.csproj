@@ -5,6 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
@@ -16,5 +18,14 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BlenderAvaloniaBridge.Core\BlenderAvaloniaBridge.Core.csproj" />
     <ProjectReference Include="..\..\src\BlenderAvaloniaBridge.Sample\BlenderAvaloniaBridge.Sample.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\BlenderAvaloniaBridge.Cef.Sample\ViewModels\BrowserState.cs"
+             Link="CefSample\ViewModels\BrowserState.cs" />
+    <Compile Include="..\..\src\BlenderAvaloniaBridge.Cef.Sample\ViewModels\IBrowserController.cs"
+             Link="CefSample\ViewModels\IBrowserController.cs" />
+    <Compile Include="..\..\src\BlenderAvaloniaBridge.Cef.Sample\ViewModels\MainViewModel.cs"
+             Link="CefSample\ViewModels\MainViewModel.cs" />
   </ItemGroup>
 </Project>

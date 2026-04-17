@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>BlenderAvaloniaBridge</RootNamespace>
+    <AssemblyName>BlenderAvaloniaBridge.Core.Avalonia11</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <PackageId>BlenderAvaloniaBridge.Core.Avalonia11</PackageId>
+    <Description>Internal Avalonia 11 bridge build used by the Cef sample.</Description>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);AVALONIA11_COMPAT</DefineConstants>
+    <Version>0.1.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Headless" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\BlenderAvaloniaBridge.Core\**\*.cs"
+             Exclude="..\BlenderAvaloniaBridge.Core\obj\**\*;..\BlenderAvaloniaBridge.Core\bin\**\*;..\BlenderAvaloniaBridge.Core\artifacts\**\*;..\BlenderAvaloniaBridge.Core\avalonia\**\*"
+             Link="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
