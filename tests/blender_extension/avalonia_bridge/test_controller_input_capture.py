@@ -331,6 +331,106 @@ class ControllerInputCaptureTests(unittest.TestCase):
         self.assertTrue(handled)
         self.assertEqual(["pointer_down", "pointer_up"], [packet["type"] for packet in sent])
 
+    def test_trackpad_pan_is_forwarded_as_precise_wheel(self):
+        core = import_module("avalonia_bridge.core")
+        host = core.View3DOverlayHost()
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"), host=host)
+        import bpy
+
+        context = bpy.context
+        rect = host.get_overlay_rect(context)
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append(dict(header)) or True
+        controller.update_state(capture_input=True)
+
+        handled = controller.handle_event(
+            context,
+            SimpleNamespace(
+                type="TRACKPADPAN",
+                value="NOTHING",
+                mouse_x=130,
+                mouse_y=260,
+                mouse_prev_x=100,
+                mouse_prev_y=220,
+                mouse_region_x=rect["content_x"] + 10,
+                mouse_region_y=rect["content_y"] + 10,
+                shift=False,
+                ctrl=False,
+                alt=False,
+                unicode="",
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(["wheel"], [packet["type"] for packet in sent])
+        self.assertEqual(30.0, sent[0]["delta_x"])
+        self.assertEqual(40.0, sent[0]["delta_y"])
+
+    def test_trackpad_zoom_is_forwarded_as_vertical_wheel(self):
+        core = import_module("avalonia_bridge.core")
+        host = core.View3DOverlayHost()
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"), host=host)
+        import bpy
+
+        context = bpy.context
+        rect = host.get_overlay_rect(context)
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append(dict(header)) or True
+        controller.update_state(capture_input=True)
+
+        handled = controller.handle_event(
+            context,
+            SimpleNamespace(
+                type="TRACKPADZOOM",
+                value="NOTHING",
+                mouse_x=100,
+                mouse_y=180,
+                mouse_prev_x=100,
+                mouse_prev_y=150,
+                mouse_region_x=rect["content_x"] + 10,
+                mouse_region_y=rect["content_y"] + 10,
+                shift=False,
+                ctrl=False,
+                alt=False,
+                unicode="",
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(["wheel"], [packet["type"] for packet in sent])
+        self.assertEqual(0.0, sent[0]["delta_x"])
+        self.assertEqual(30.0, sent[0]["delta_y"])
+
+    def test_horizontal_wheel_is_forwarded(self):
+        core = import_module("avalonia_bridge.core")
+        host = core.View3DOverlayHost()
+        controller = core.BridgeController(core.BridgeConfig(executable_path="C:/bridge.exe"), host=host)
+        import bpy
+
+        context = bpy.context
+        rect = host.get_overlay_rect(context)
+        sent = []
+        controller.send_message = lambda header, payload=b"": sent.append(dict(header)) or True
+        controller.update_state(capture_input=True)
+
+        handled = controller.handle_event(
+            context,
+            SimpleNamespace(
+                type="WHEELRIGHTMOUSE",
+                value="PRESS",
+                mouse_region_x=rect["content_x"] + 10,
+                mouse_region_y=rect["content_y"] + 10,
+                shift=False,
+                ctrl=False,
+                alt=False,
+                unicode="",
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(1.0, sent[0]["delta_x"])
+        self.assertEqual(0.0, sent[0]["delta_y"])
+
     def test_right_button_up_is_forwarded_after_pointer_leaves_overlay(self):
         core = import_module("avalonia_bridge.core")
         host = core.View3DOverlayHost()

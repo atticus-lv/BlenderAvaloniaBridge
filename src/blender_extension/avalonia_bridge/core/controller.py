@@ -242,8 +242,12 @@ class BridgeController:
             self._render_width = int(header.get("width", self._render_width))
             self._render_height = int(header.get("height", self._render_height))
             pixel_format = header.get("pixel_format", "")
+            frame_transport = header.get("frame_transport", "")
+            handle_type = header.get("handle_type", "")
             update_started = time.perf_counter()
-            if pixel_format == "rgba32f_linear":
+            if frame_transport == "macos_iosurface" or handle_type == "iosurface":
+                self.image_bridge.update_from_macos_iosurface(header, self._render_width, self._render_height)
+            elif pixel_format == "rgba32f_linear":
                 self.image_bridge.update_from_rgba32f_linear(payload, self._render_width, self._render_height)
             else:
                 self.image_bridge.update_from_bgra(payload, self._render_width, self._render_height)
@@ -318,6 +322,9 @@ class BridgeController:
                     "shm_name": self.shared_memory_bridge.name,
                     "frame_size": self.shared_memory_bridge.frame_size,
                     "slot_count": self.shared_memory_bridge.slot_count,
+                    "supported_frame_transports": self.frame_pipeline.supported_frame_transports(
+                        enable_macos_gpu_interop=bool(getattr(self._config, "enable_macos_gpu_interop", True))
+                    ),
                 }
             )
         self.send_message(init_message)
@@ -373,11 +380,15 @@ class BridgeController:
             try:
                 self._diagnostics.record_frame_packet(header, now_ms)
                 read_started = time.perf_counter()
-                self.frame_pipeline.ingest_shared_frame(header)
-                self._diagnostics.record_timing("shared_memory_read_ms", (time.perf_counter() - read_started) * 1000.0)
-                self._replace_state(last_message=f"Frame slot {int(header.get('slot', 0))} received")
+                if header.get("frame_transport") == "macos_iosurface" or header.get("handle_type") == "iosurface":
+                    self.frame_pipeline.ingest_frame(header, b"")
+                    self._replace_state(last_message=f"IOSurface {int(header.get('handle_id', 0))} received")
+                else:
+                    self.frame_pipeline.ingest_shared_frame(header)
+                    self._diagnostics.record_timing("shared_memory_read_ms", (time.perf_counter() - read_started) * 1000.0)
+                    self._replace_state(last_message=f"Frame slot {int(header.get('slot', 0))} received")
             except Exception as exc:
-                message = f"Shared memory read failed: {exc}"
+                message = f"Frame ingest failed: {exc}"
                 _write_console_error(message)
                 self._replace_state(last_error=message)
         elif packet_type == "init":

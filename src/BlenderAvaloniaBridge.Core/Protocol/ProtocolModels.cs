@@ -101,6 +101,18 @@ public sealed class ProtocolEnvelope
     [JsonPropertyName("slot")]
     public int? Slot { get; set; }
 
+    [JsonPropertyName("supported_frame_transports")]
+    public List<string>? SupportedFrameTransports { get; set; }
+
+    [JsonPropertyName("frame_transport")]
+    public string? FrameTransport { get; set; }
+
+    [JsonPropertyName("handle_type")]
+    public string? HandleType { get; set; }
+
+    [JsonPropertyName("handle_id")]
+    public ulong? HandleId { get; set; }
+
     [JsonPropertyName("captured_at_unix_ms")]
     public long? CapturedAtUnixMs { get; set; }
 

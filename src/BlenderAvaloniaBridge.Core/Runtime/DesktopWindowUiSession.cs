@@ -95,7 +95,12 @@ internal sealed class DesktopWindowUiSession : IBridgeUiSession
         return Task.CompletedTask;
     }
 
-    public Task<FrameCaptureResult> CaptureFrameAsync(int seq)
+    public bool SupportsFrameTransport(BridgeFrameTransport transport)
+    {
+        return false;
+    }
+
+    public Task<FrameCaptureResult> CaptureFrameAsync(int seq, BridgeFrameTransport transport)
     {
         throw new NotSupportedException($"Frame capture is not supported in {nameof(DesktopWindowUiSession)}.");
     }

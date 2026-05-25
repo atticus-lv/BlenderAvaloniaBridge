@@ -21,7 +21,9 @@ internal interface IBridgeUiSession
 
     Task SetWatchRenderingActiveAsync(bool isActive);
 
-    Task<FrameCaptureResult> CaptureFrameAsync(int seq);
+    bool SupportsFrameTransport(BridgeFrameTransport transport);
+
+    Task<FrameCaptureResult> CaptureFrameAsync(int seq, BridgeFrameTransport transport);
 
     ProtocolPacket CreateInitAck(int seq);
 }

@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Threading.Tasks;
 using BlenderAvaloniaBridge.Runtime;
+using BlenderAvaloniaBridge.Runtime.MacOS;
 using Xunit;
 
 namespace BlenderAvaloniaBridge.Tests;
@@ -41,6 +42,13 @@ public sealed class BridgeClientTests
     public void IsRecoverableFrameFailure_ReturnsFalseForUnexpectedFailure()
     {
         Assert.False(BridgeClient.IsRecoverableFrameFailure(new InvalidOperationException("boom")));
+    }
+
+    [Fact]
+    public void IsRecoverableGpuFrameFailure_ReturnsTrueForMacInteropUnavailable()
+    {
+        Assert.True(BridgeClient.IsRecoverableGpuFrameFailure(
+            new MacGpuInteropUnavailableException("Metal unavailable")));
     }
 
     [Fact]

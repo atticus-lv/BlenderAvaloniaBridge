@@ -75,6 +75,14 @@ class OverlayDrawer:
             self._texture_shader.bind()
             view_projection = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
             self._texture_shader.uniform_float("viewProjectionMatrix", view_projection)
+            self._texture_shader.uniform_float(
+                "bgraSwizzle",
+                1.0 if getattr(self.runtime.image_bridge, "texture_swizzle_bgra", False) else 0.0,
+            )
+            self._texture_shader.uniform_float(
+                "srgbToLinear",
+                1.0 if getattr(self.runtime.image_bridge, "texture_srgb_to_linear", False) else 0.0,
+            )
             self._texture_shader.uniform_sampler("image", texture)
             batch.draw(self._texture_shader)
 
@@ -114,6 +122,8 @@ class OverlayDrawer:
     def _create_texture_shader(self):
         shader_info = gpu.types.GPUShaderCreateInfo()
         shader_info.push_constant("MAT4", "viewProjectionMatrix")
+        shader_info.push_constant("FLOAT", "bgraSwizzle")
+        shader_info.push_constant("FLOAT", "srgbToLinear")
         shader_info.sampler(0, "FLOAT_2D", "image")
         shader_info.vertex_in(0, "VEC2", "position")
         shader_info.vertex_in(1, "VEC2", "uv")
@@ -151,6 +161,13 @@ class OverlayDrawer:
                 return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
             }
 
+            vec3 srgbToLinearRgb(vec3 value)
+            {
+                vec3 lower = value / 12.92;
+                vec3 higher = pow((value + vec3(0.055)) / 1.055, vec3(2.4));
+                return mix(higher, lower, step(value, vec3(0.04045)));
+            }
+
             void main()
             {
                 vec2 clipCenter = clipRectInterp.xy + clipRectInterp.zw * 0.5;
@@ -158,6 +175,14 @@ class OverlayDrawer:
                 float distanceToEdge = roundedBoxSdf(localPoint, clipRectInterp.zw * 0.5, cornerRadiusInterp);
                 float mask = 1.0 - smoothstep(0.0, edgeSoftnessInterp, distanceToEdge);
                 vec4 texel = texture(image, uvInterp);
+                if (bgraSwizzle > 0.5)
+                {
+                    texel = vec4(texel.b, texel.g, texel.r, texel.a);
+                }
+                if (srgbToLinear > 0.5)
+                {
+                    texel = vec4(srgbToLinearRgb(texel.rgb), texel.a);
+                }
                 FragColor = vec4(texel.rgb, texel.a * mask);
             }
             """

@@ -133,4 +133,13 @@ internal sealed record FrameCaptureMetrics(
     double CaptureFrameMs,
     double CopyBgraMs);
 
-internal sealed record FrameCaptureResult(ProtocolPacket FramePacket, FrameCaptureMetrics Metrics, byte[] RawRgbaPayload);
+internal sealed record ExternalGpuFrameInfo(
+    string FrameTransport,
+    string HandleType,
+    ulong HandleId);
+
+internal sealed record FrameCaptureResult(
+    ProtocolPacket FramePacket,
+    FrameCaptureMetrics Metrics,
+    byte[] RawRgbaPayload,
+    ExternalGpuFrameInfo? ExternalGpuFrame = null);

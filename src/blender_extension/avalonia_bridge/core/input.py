@@ -7,6 +7,7 @@ from .view3d_overlay_host import (
     modifiers_from_event,
     mouse_button_name,
     overlay_rect,
+    precise_wheel_delta,
     to_avalonia_coords,
     wheel_delta,
 )
@@ -21,5 +22,6 @@ __all__ = [
     "to_avalonia_coords",
     "modifiers_from_event",
     "wheel_delta",
+    "precise_wheel_delta",
     "mouse_button_name",
 ]

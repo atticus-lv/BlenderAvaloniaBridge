@@ -14,6 +14,18 @@ class FramePipeline:
         self.shared_memory_bridge.create(frame_size, slot_count=slot_count)
         return frame_size
 
+    def supported_frame_transports(self, enable_macos_gpu_interop=True):
+        transports = ["shared_memory"]
+        if enable_macos_gpu_interop:
+            try:
+                from . import native_gpu
+
+                if native_gpu.available():
+                    transports.insert(0, "macos_iosurface")
+            except Exception:
+                pass
+        return transports
+
     def clear(self):
         self.image_bridge.clear()
         self.shared_memory_bridge.close()

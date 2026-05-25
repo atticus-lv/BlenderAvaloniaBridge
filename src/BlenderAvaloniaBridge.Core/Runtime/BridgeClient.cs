@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using BlenderAvaloniaBridge.Protocol;
 using BlenderAvaloniaBridge.Transport;
 using BlenderAvaloniaBridge.Runtime.FrameTransport;
+using BlenderAvaloniaBridge.Runtime.MacOS;
 
 namespace BlenderAvaloniaBridge.Runtime;
 
@@ -20,6 +21,7 @@ internal sealed class BridgeClient
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _frameSchedulerGate = new();
     private ISharedFrameWriter? _sharedMemoryWriter;
+    private BridgeFrameTransport _frameTransport = BridgeFrameTransport.InlineBgra;
     private int _sharedFrameSize;
     private int _sharedSlotCount;
     private int _sequence;
@@ -66,9 +68,11 @@ internal sealed class BridgeClient
             await _uiSession.DeliverBridgeMessageAsync(packet.Header);
 
             var canStreamFrames = _uiSession.SupportsFrames && _options.SupportsFrames;
-            ConfigureSharedMemory(packet.Header, canStreamFrames);
+            ConfigureFrameTransport(packet.Header, canStreamFrames);
 
-            await WritePacketAsync(_uiSession.CreateInitAck(NextSequence()), cancellationToken);
+            var initAck = _uiSession.CreateInitAck(NextSequence());
+            initAck.Header.FrameTransport = BridgeFrameTransportNames.ToProtocolName(_frameTransport);
+            await WritePacketAsync(initAck, cancellationToken);
             if (_options.SupportsBusiness)
             {
                 await _uiSession.AttachBusinessApiAsync(_businessEndpoint, _blenderApi);
@@ -123,21 +127,47 @@ internal sealed class BridgeClient
         }
     }
 
-    private void ConfigureSharedMemory(ProtocolEnvelope envelope, bool canStreamFrames)
+    private void ConfigureFrameTransport(ProtocolEnvelope envelope, bool canStreamFrames)
     {
         _sharedMemoryWriter?.Dispose();
         _sharedMemoryWriter = null;
+        _frameTransport = BridgeFrameTransport.InlineBgra;
         _sharedFrameSize = 0;
         _sharedSlotCount = 0;
 
-        if (!canStreamFrames || !_options.UseSharedMemory || string.IsNullOrWhiteSpace(envelope.SharedMemoryName) || !envelope.FrameSize.HasValue)
+        if (!canStreamFrames)
         {
             return;
         }
 
-        _sharedFrameSize = envelope.FrameSize.Value;
-        _sharedSlotCount = envelope.SlotCount.GetValueOrDefault(2);
-        _sharedMemoryWriter = _sharedFrameWriterFactory.Create(envelope.SharedMemoryName, _sharedFrameSize, _sharedSlotCount);
+        if (_options.UseSharedMemory && !string.IsNullOrWhiteSpace(envelope.SharedMemoryName) && envelope.FrameSize.HasValue)
+        {
+            _sharedFrameSize = envelope.FrameSize.Value;
+            _sharedSlotCount = envelope.SlotCount.GetValueOrDefault(2);
+            _sharedMemoryWriter = _sharedFrameWriterFactory.Create(envelope.SharedMemoryName, _sharedFrameSize, _sharedSlotCount);
+            _frameTransport = BridgeFrameTransport.SharedMemoryLinearRgba;
+        }
+
+        if (ShouldUseMacOSIOSurface(envelope))
+        {
+            _frameTransport = BridgeFrameTransport.MacOSIOSurface;
+        }
+    }
+
+    private bool ShouldUseMacOSIOSurface(ProtocolEnvelope envelope)
+    {
+        if (!_options.UseMacOSGpuInterop || !OperatingSystem.IsMacOS())
+        {
+            return false;
+        }
+
+        if (!_uiSession.SupportsFrameTransport(BridgeFrameTransport.MacOSIOSurface))
+        {
+            return false;
+        }
+
+        return envelope.SupportedFrameTransports?.Any(transport =>
+            string.Equals(transport, BridgeFrameTransportNames.MacOSIOSurface, StringComparison.OrdinalIgnoreCase)) == true;
     }
 
     private async Task ApplyPacketAsync(ProtocolPacket packet)
@@ -184,6 +214,40 @@ internal sealed class BridgeClient
         var linearConvertMs = 0.0;
         var sharedWriteMs = 0.0;
 
+        if (frameResult.ExternalGpuFrame is { } externalGpuFrame)
+        {
+            var externalReadyHeader = new ProtocolEnvelope
+            {
+                Type = "frame_ready",
+                Seq = framePacket.Header.Seq,
+                Width = framePacket.Header.Width,
+                Height = framePacket.Header.Height,
+                PixelFormat = framePacket.Header.PixelFormat,
+                Stride = framePacket.Header.Stride,
+                FrameTransport = externalGpuFrame.FrameTransport,
+                HandleType = externalGpuFrame.HandleType,
+                HandleId = externalGpuFrame.HandleId,
+                CapturedAtUnixMs = framePacket.Header.CapturedAtUnixMs,
+                CaptureStartedAtUnixMs = frameResult.Metrics.CaptureStartedAtUnixMs,
+                InputAppliedAtUnixMs = _lastInputAppliedAtUnixMs,
+                UiApplyMs = _lastUiApplyMs,
+                CaptureFrameMs = frameResult.Metrics.CaptureFrameMs,
+                CopyBgraMs = frameResult.Metrics.CopyBgraMs,
+                LinearConvertMs = 0.0,
+                SharedWriteMs = 0.0,
+                Message = "external-gpu-frame-ready"
+            };
+
+            var externalReadySendStopwatch = Stopwatch.StartNew();
+            externalReadyHeader.SentAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            await WritePacketAsync(ProtocolPacket.CreateControl(externalReadyHeader), cancellationToken);
+            externalReadySendStopwatch.Stop();
+            externalReadyHeader.FrameSendMs = externalReadySendStopwatch.Elapsed.TotalMilliseconds;
+            _diagnostics?.RecordFrame(frameResult, 0.0);
+            ClearPendingInputMetrics();
+            return;
+        }
+
         if (_sharedMemoryWriter is null)
         {
             framePacket.Header.UiApplyMs = _lastUiApplyMs;
@@ -216,6 +280,7 @@ internal sealed class BridgeClient
             Height = framePacket.Header.Height,
             PixelFormat = "rgba32f_linear",
             Stride = framePacket.Header.Width * 16,
+            FrameTransport = BridgeFrameTransportNames.SharedMemory,
             FrameSize = _sharedFrameSize,
             SlotCount = _sharedSlotCount,
             Slot = slot,
@@ -440,8 +505,16 @@ internal sealed class BridgeClient
     {
         try
         {
-            await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence()), cancellationToken);
+            await WriteFrameAsync(await _uiSession.CaptureFrameAsync(NextSequence(), _frameTransport), cancellationToken);
             return true;
+        }
+        catch (Exception ex) when (_frameTransport == BridgeFrameTransport.MacOSIOSurface && IsRecoverableGpuFrameFailure(ex))
+        {
+            Trace.WriteLine($"Bridge GPU frame capture disabled after recoverable failure: {ex}");
+            _frameTransport = _sharedMemoryWriter is not null
+                ? BridgeFrameTransport.SharedMemoryLinearRgba
+                : BridgeFrameTransport.InlineBgra;
+            return await TryWriteCurrentFrameAsync(cancellationToken);
         }
         catch (Exception ex) when (IsRecoverableFrameFailure(ex))
         {
@@ -494,6 +567,18 @@ internal sealed class BridgeClient
                 => true,
             AggregateException aggregateException when aggregateException.InnerExceptions.Count == 1
                 => IsRecoverableFrameFailure(aggregateException.InnerException!),
+            _ => false,
+        };
+    }
+
+    internal static bool IsRecoverableGpuFrameFailure(Exception exception)
+    {
+        return exception switch
+        {
+            MacGpuInteropUnavailableException => true,
+            PlatformNotSupportedException => true,
+            AggregateException aggregateException when aggregateException.InnerExceptions.Count == 1
+                => IsRecoverableGpuFrameFailure(aggregateException.InnerException!),
             _ => false,
         };
     }

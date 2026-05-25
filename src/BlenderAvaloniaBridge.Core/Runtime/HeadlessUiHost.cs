@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
 using System.Diagnostics;
+using BlenderAvaloniaBridge.Runtime.MacOS;
 using BlenderAvaloniaBridge.Protocol;
 
 namespace BlenderAvaloniaBridge.Runtime;
@@ -19,6 +20,7 @@ internal sealed class HeadlessUiHost
     private IBusinessEndpointSink? _businessEndpointSink;
     private IBlenderApiSink? _blenderApiSink;
     private InputDispatcher? _inputDispatcher;
+    private MacIOSurfaceFrameRenderer? _macIOSurfaceFrameRenderer;
     private Window? _window;
     private int _width;
     private int _height;
@@ -151,15 +153,44 @@ internal sealed class HeadlessUiHost
 
     public async Task<FrameCaptureResult> CaptureFrameAsync(int seq)
     {
+        return await CaptureFrameAsync(seq, BridgeFrameTransport.SharedMemoryLinearRgba);
+    }
+
+    public bool SupportsFrameTransport(BridgeFrameTransport transport)
+    {
+        return transport is BridgeFrameTransport.InlineBgra or BridgeFrameTransport.SharedMemoryLinearRgba
+            || (transport == BridgeFrameTransport.MacOSIOSurface && OperatingSystem.IsMacOS());
+    }
+
+    public async Task<FrameCaptureResult> CaptureFrameAsync(int seq, BridgeFrameTransport transport)
+    {
         await InitializeAsync();
         return await _runtimeThread.InvokeAsync(() =>
         {
             var captureStopwatch = Stopwatch.StartNew();
             var window = _window ?? throw new InvalidOperationException("Headless window is not initialized.");
+            if (transport == BridgeFrameTransport.MacOSIOSurface)
+            {
+                window.SetRenderScaling(1.0);
+                return CaptureMacIOSurfaceFrame(window, seq);
+            }
+
+            window.SetRenderScaling(_renderScaling);
             var bitmap = HeadlessFrameCapture.Capture(window);
             captureStopwatch.Stop();
             return FramePublisher.ExtractFrame(bitmap, seq, captureStopwatch.Elapsed.TotalMilliseconds);
         });
+    }
+
+    private FrameCaptureResult CaptureMacIOSurfaceFrame(Window window, int seq)
+    {
+        var renderer = _macIOSurfaceFrameRenderer ??= new MacIOSurfaceFrameRenderer();
+        return renderer.Capture(
+            window,
+            seq,
+            ScaleDimension(_width, _renderScaling),
+            ScaleDimension(_height, _renderScaling),
+            _renderScaling);
     }
 
     public ProtocolPacket CreateInitAck(int seq)
@@ -331,6 +362,8 @@ internal sealed class HeadlessUiHost
                 _businessEndpointSink = null;
                 _blenderApiSink = null;
                 _inputDispatcher = null;
+                _macIOSurfaceFrameRenderer?.Dispose();
+                _macIOSurfaceFrameRenderer = null;
                 _animationFrameQueued = false;
                 _watchRenderingActive = false;
                 _continuousFramesUntil = DateTimeOffset.MinValue;

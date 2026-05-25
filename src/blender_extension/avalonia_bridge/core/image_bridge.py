@@ -17,6 +17,8 @@ class ImageBridge:
         self._pending_rgba_bytes = None
         self._pending_rgba_float_source = None
         self._pending_size = (0, 0)
+        self._texture_swizzle_bgra = False
+        self._texture_srgb_to_linear = False
         self._stats = {
             "texture_update_ms": deque(maxlen=60),
             "image_fallback_ms": deque(maxlen=60),
@@ -39,6 +41,14 @@ class ImageBridge:
         return self._last_error
 
     @property
+    def texture_swizzle_bgra(self):
+        return self._texture_swizzle_bgra
+
+    @property
+    def texture_srgb_to_linear(self):
+        return self._texture_srgb_to_linear
+
+    @property
     def expects_gpu_draw(self):
         return (
                 self._texture is not None
@@ -55,6 +65,8 @@ class ImageBridge:
         self._pending_rgba_bytes = None
         self._pending_rgba_float_source = None
         self._pending_size = (0, 0)
+        self._texture_swizzle_bgra = False
+        self._texture_srgb_to_linear = False
         self._stats["texture_update_ms"].clear()
         self._stats["image_fallback_ms"].clear()
 
@@ -110,12 +122,38 @@ class ImageBridge:
         self._pending_rgba_float_source = rgba_floats
         self._pending_rgba_bytes = bytes(int(max(0.0, min(1.0, value)) * 255.0 + 0.5) for value in rgba_floats)
         self._pending_size = (width, height)
+        self._texture_swizzle_bgra = False
+        self._texture_srgb_to_linear = False
         return self._texture
 
     def update_from_rgba32f_linear(self, payload, width, height):
         self._pending_rgba_float_source = payload
         self._pending_rgba_bytes = None
         self._pending_size = (width, height)
+        self._texture_swizzle_bgra = False
+        self._texture_srgb_to_linear = False
+        return self._texture
+
+    def update_from_macos_iosurface(self, header, width, height):
+        from . import native_gpu
+
+        handle_id = int(header.get("handle_id", 0) or 0)
+        if handle_id <= 0:
+            self._last_mode = "macos-iosurface"
+            self._last_error = "IOSurface handle id is missing."
+            return self._texture
+
+        texture = self._ensure_external_texture(width, height)
+        started = perf_counter()
+        if native_gpu.copy_iosurface_to_texture(handle_id, texture, width, height):
+            self._last_mode = "macos-iosurface"
+            self._last_error = ""
+            self._texture_swizzle_bgra = True
+            self._texture_srgb_to_linear = True
+            self._stats["texture_update_ms"].append((perf_counter() - started) * 1000.0)
+        else:
+            self._last_mode = "macos-iosurface"
+            self._last_error = native_gpu.status()
         return self._texture
 
     def ensure_gpu_texture(self):
@@ -160,6 +198,14 @@ class ImageBridge:
         buffer = gpu.types.Buffer("FLOAT", [height, width, 4], float_source)
         self._texture = gpu.types.GPUTexture((width, height), format="RGBA32F", data=buffer)
         self._texture_size = (width, height)
+        self._texture_swizzle_bgra = False
+        self._texture_srgb_to_linear = False
+
+    def _ensure_external_texture(self, width, height):
+        if self._texture is None or self._texture_size != (width, height):
+            self._texture = gpu.types.GPUTexture((width, height), format="RGBA8", data=None)
+            self._texture_size = (width, height)
+        return self._texture
 
     def _update_image_from_rgba_source(self, rgba_source, width, height):
         image = self.ensure_image(width, height)

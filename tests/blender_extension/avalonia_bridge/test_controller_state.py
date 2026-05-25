@@ -96,6 +96,9 @@ class ControllerStateTests(unittest.TestCase):
         self.assertEqual(rect_before_frame["width"], rect_after_pending_frame["width"])
         self.assertEqual(rect_before_frame["height"], rect_after_pending_frame["height"])
         self.assertEqual(rect_before_frame["title_bar_height"], rect_after_pending_frame["title_bar_height"])
+        self.assertEqual(1100, rect_before_frame["content_width"])
+        self.assertEqual(760, rect_before_frame["content_height"])
+        self.assertEqual(1.0, rect_before_frame["display_scale"])
 
     def test_view3d_host_places_title_bar_above_content(self):
         core = import_module("avalonia_bridge.core")

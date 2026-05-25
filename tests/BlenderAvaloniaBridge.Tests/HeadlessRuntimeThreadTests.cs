@@ -83,6 +83,89 @@ public sealed class HeadlessRuntimeThreadTests
     }
 
     [Fact]
+    public async Task HeadlessUiHost_CapturesMacOSIOSurfaceFrameWhenRequested()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        using var host = new HeadlessUiHost(
+            HeadlessRuntimeThread.Shared,
+            () => new Window
+            {
+                Width = 32,
+                Height = 24,
+                Background = Brushes.DarkSlateBlue,
+                Content = new Border
+                {
+                    Width = 32,
+                    Height = 24,
+                    Background = Brushes.Goldenrod
+                }
+            },
+            new BlenderBridgeOptions
+            {
+                Width = 32,
+                Height = 24,
+                RenderScaling = 1.0,
+                UseSharedMemory = false,
+            });
+
+        var frame = await host.CaptureFrameAsync(7, BridgeFrameTransport.MacOSIOSurface);
+
+        Assert.Equal(32, frame.FramePacket.Header.Width);
+        Assert.Equal(24, frame.FramePacket.Header.Height);
+        Assert.Equal("bgra8_unorm", frame.FramePacket.Header.PixelFormat);
+        Assert.NotNull(frame.ExternalGpuFrame);
+        Assert.Equal(BridgeFrameTransportNames.MacOSIOSurface, frame.ExternalGpuFrame!.FrameTransport);
+        Assert.Equal("iosurface", frame.ExternalGpuFrame.HandleType);
+        Assert.True(frame.ExternalGpuFrame.HandleId > 0);
+    }
+
+    [Fact]
+    public async Task HeadlessUiHost_MacOSIOSurfaceCaptureKeepsLogicalContentBounds()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        Border? content = null;
+        using var host = new HeadlessUiHost(
+            HeadlessRuntimeThread.Shared,
+            () =>
+            {
+                content = new Border
+                {
+                    Background = Brushes.Goldenrod,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                };
+                return new Window
+                {
+                    Width = 32,
+                    Height = 24,
+                    Background = Brushes.DarkSlateBlue,
+                    Content = content,
+                };
+            },
+            new BlenderBridgeOptions
+            {
+                Width = 32,
+                Height = 24,
+                RenderScaling = 1.25,
+                UseSharedMemory = false,
+            });
+
+        await host.CaptureFrameAsync(8, BridgeFrameTransport.MacOSIOSurface);
+
+        var bounds = await HeadlessRuntimeThread.Shared.InvokeAsync(() => content!.Bounds);
+        Assert.Equal(32, bounds.Width);
+        Assert.Equal(24, bounds.Height);
+    }
+
+    [Fact]
     public async Task HeadlessUiHost_SharedRuntimeCanBeReusedSequentially()
     {
         static async Task<PixelSize> RenderWithSharedRuntimeAsync()

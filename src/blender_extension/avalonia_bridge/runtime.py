@@ -119,6 +119,7 @@ class BridgeRuntime:
             supports_business=True,
             supports_frames=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
             supports_input=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
+            enable_macos_gpu_interop=bool(getattr(preferences, "enable_macos_gpu_interop", True)),
             host="127.0.0.1",
             show_overlay_debug=bool(getattr(preferences, "show_overlay_debug", False)),
             overlay_offset_x=int(getattr(state, "overlay_offset_x", 0)),

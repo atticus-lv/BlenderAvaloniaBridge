@@ -36,9 +36,29 @@ POINTER_EVENT_TYPES = {
     "MIDDLEMOUSE",
     "WHEELUPMOUSE",
     "WHEELDOWNMOUSE",
+    "WHEELLEFTMOUSE",
+    "WHEELRIGHTMOUSE",
+    "WHEELINMOUSE",
+    "WHEELOUTMOUSE",
+    "TRACKPADPAN",
+    "TRACKPADZOOM",
+    "MOUSEROTATE",
+    "MOUSESMARTZOOM",
     "EVT_TWEAK_L",
     "EVT_TWEAK_M",
     "EVT_TWEAK_R",
+}
+WHEEL_EVENT_TYPES = {
+    "WHEELUPMOUSE",
+    "WHEELDOWNMOUSE",
+    "WHEELLEFTMOUSE",
+    "WHEELRIGHTMOUSE",
+    "WHEELINMOUSE",
+    "WHEELOUTMOUSE",
+    "TRACKPADPAN",
+    "TRACKPADZOOM",
+    "MOUSEROTATE",
+    "MOUSESMARTZOOM",
 }
 DRAG_START_EVENT_VALUES = {"PRESS", "CLICK_DRAG"}
 
@@ -177,6 +197,54 @@ def wheel_delta(event_type: str) -> tuple[float, float]:
         return 0.0, 1.0
     if event_type == "WHEELDOWNMOUSE":
         return 0.0, -1.0
+    if event_type == "WHEELLEFTMOUSE":
+        return -1.0, 0.0
+    if event_type == "WHEELRIGHTMOUSE":
+        return 1.0, 0.0
+    if event_type == "WHEELINMOUSE":
+        return 0.0, 1.0
+    if event_type == "WHEELOUTMOUSE":
+        return 0.0, -1.0
+    return 0.0, 0.0
+
+
+def precise_wheel_delta(event) -> tuple[float, float]:
+    event_type = getattr(event, "type", "")
+    if event_type not in {"TRACKPADPAN", "TRACKPADZOOM", "MOUSEROTATE", "MOUSESMARTZOOM"}:
+        return wheel_delta(event_type)
+
+    delta_x, delta_y = _event_mouse_delta(event)
+    if event_type == "TRACKPADPAN":
+        return delta_x, delta_y
+    if event_type == "TRACKPADZOOM":
+        return 0.0, delta_y if delta_y != 0 else delta_x
+    if event_type == "MOUSEROTATE":
+        return delta_x if delta_x != 0 else delta_y, 0.0
+    return 0.0, 1.0
+
+
+def _event_mouse_delta(event) -> tuple[float, float]:
+    current_x = getattr(event, "mouse_x", None)
+    current_y = getattr(event, "mouse_y", None)
+    previous_x = getattr(event, "mouse_prev_x", None)
+    previous_y = getattr(event, "mouse_prev_y", None)
+    try:
+        if current_x is not None and current_y is not None and previous_x is not None and previous_y is not None:
+            delta_x = float(current_x) - float(previous_x)
+            delta_y = float(current_y) - float(previous_y)
+            if delta_x != 0.0 or delta_y != 0.0:
+                return delta_x, delta_y
+    except (TypeError, ValueError):
+        pass
+
+    region_x = getattr(event, "mouse_region_x", None)
+    region_y = getattr(event, "mouse_region_y", None)
+    try:
+        if region_x is not None and region_y is not None and previous_x is not None and previous_y is not None:
+            return float(region_x) - float(previous_x), float(region_y) - float(previous_y)
+    except (TypeError, ValueError):
+        pass
+
     return 0.0, 0.0
 
 
@@ -332,14 +400,14 @@ class View3DOverlayHost:
             )
             return True
 
-        if event.type in {"WHEELUPMOUSE", "WHEELDOWNMOUSE"} and self.controller.capture_input:
+        if event.type in WHEEL_EVENT_TYPES and self.controller.capture_input:
             px, py = to_avalonia_coords(rect, x, y)
-            dx, dy = wheel_delta(event.type)
+            dx, dy = precise_wheel_delta(event)
             self.controller.flush_pointer_move()
             self.controller.send_message(
                 {"type": "wheel", "seq": 7, "x": px, "y": py, "delta_x": dx, "delta_y": dy, "modifiers": modifiers}
             )
-            self.controller.update_state(last_message=f"Wheel {dy:+.0f}")
+            self.controller.update_state(last_message=f"Wheel {dx:+.1f},{dy:+.1f}")
             self.tag_redraw()
             return True
 
@@ -379,9 +447,4 @@ class View3DOverlayHost:
         self.tag_redraw()
 
     def _overlay_display_scale(self, context) -> float:
-        system_preferences = getattr(getattr(context, "preferences", None), "system", None)
-        dpi = getattr(system_preferences, "dpi", 72)
-        try:
-            return max(1.0, float(dpi) / 96.0)
-        except (TypeError, ValueError):
-            return 1.0
+        return 1.0

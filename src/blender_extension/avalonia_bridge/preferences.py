@@ -30,6 +30,17 @@ class AvaloniaBridgeAddonPreferences(bpy.types.AddonPreferences):
         description="Show debug text in the GPU overlay",
         default=False,
     )
+    enable_macos_gpu_interop: bpy.props.BoolProperty(
+        name="Enable macOS GPU Interop",
+        description="Use the native Metal IOSurface path when available",
+        default=True,
+    )
+    native_library_path: bpy.props.StringProperty(
+        name="Native GPU Hook",
+        subtype="FILE_PATH",
+        description="Optional path to avalonia_bridge_native.dylib",
+        default="",
+    )
     bridge_transport_mode: bpy.props.EnumProperty(
         name="Bridge Mode",
         description="Choose whether to stream a headless overlay or open a real Avalonia window with business-only transport",
@@ -49,6 +60,8 @@ class AvaloniaBridgeAddonPreferences(bpy.types.AddonPreferences):
         box.label(text="Display")
         box.prop(self, "show_diagnostics_json")
         box.prop(self, "show_overlay_debug")
+        box.prop(self, "enable_macos_gpu_interop")
+        box.prop(self, "native_library_path")
 
 
 CLASSES = (

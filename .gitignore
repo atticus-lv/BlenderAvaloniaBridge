@@ -10,4 +10,6 @@ __pycache__/
 node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+src/blender_native/build/
+src/blender_extension/avalonia_bridge/native/
 .DS_Store

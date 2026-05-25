@@ -34,6 +34,8 @@ public sealed class BlenderBridgeOptions
 
     public bool UseSharedMemory { get; set; } = true;
 
+    public bool UseMacOSGpuInterop { get; set; } = true;
+
     public bool EnableDiagnostics { get; set; } = true;
 
     public BlenderApiOptions Api { get; set; } = new();
@@ -64,6 +66,7 @@ public sealed class BlenderBridgeOptions
             IdleHeartbeatFps = IdleHeartbeatFps,
             ContinuousFrameWindowMs = ContinuousFrameWindowMs,
             UseSharedMemory = UseSharedMemory,
+            UseMacOSGpuInterop = UseMacOSGpuInterop,
             EnableDiagnostics = EnableDiagnostics,
             Api = Api.Clone(),
         };
