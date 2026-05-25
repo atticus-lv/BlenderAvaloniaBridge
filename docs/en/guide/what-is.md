@@ -7,7 +7,7 @@ Bridge brings Avalonia into Blender, preserving almost the full Avalonia framewo
 <div class="doc-image-row">
   <figure class="doc-image-card">
     <img src="/statics/images/headlessmode.png" alt="Blender Avalonia Bridge overview">
-    <figcaption>Blender-embedded UI in headless mode</figcaption>
+    <figcaption>Blender-embedded UI in offscreen mode</figcaption>
   </figure>
   <figure class="doc-image-card">
     <img src="/statics/images/windowmode.png" alt="Blender Avalonia Bridge runtime modes">
@@ -19,15 +19,15 @@ The repository has four main parts.
 
 | Module | Description | Role | Path |
 | --- | --- | --- | --- |
-| **avalonia bridge core** | Avalonia-side bridge module that provides an internal Blender API set | Communicates with the Blender-side bridge module | `src/BlenderAvaloniaBridge.Core` |
-| **blender bridge core** | Blender-side bridge module | Communicates with the Avalonia-side bridge module | `src/blender_extension/avalonia_bridge/core` |
-| avalonia example | Standalone runnable Avalonia desktop app integrated with the avalonia bridge core | Used for demos and as a code example | `src/BlenderAvaloniaBridge.Sample` |
-| blender extension | Extension that assembles the blender bridge core | Used for demos and can directly launch the avalonia example executable | `src/blender_extension/avalonia_bridge` |
+| **avalonia bridge core** | .NET / Avalonia runtime that includes the custom offscreen Avalonia backend, stable frame pump, frame transport, input dispatch, business channel, and `BlenderApi` | Hosts Avalonia UI and exchanges frames, input, and business messages with the Blender-side bridge module | `src/BlenderAvaloniaBridge.Core` |
+| **blender bridge core** | Blender-side runtime that includes `BridgeController`, socket transport, business endpoints, and `View3DOverlayHost` | Launches the Avalonia process, forwards input, receives the latest frame, and draws the 3D View overlay | `src/blender_extension/avalonia_bridge/core` |
+| avalonia sample | Standalone runnable Avalonia sample app integrated with the avalonia bridge core | Used for demos, offscreen / desktop mode verification, and code examples | `src/BlenderAvaloniaBridge.Sample` |
+| blender extension | Blender extension that assembles the blender bridge core | Provides Blender panel configuration, startup entry points, and sample integration | `src/blender_extension/avalonia_bridge` |
 
 In practice, the project is intended to be used like this:
 
-- The Avalonia side owns the actual UI, state, and business logic
-- The Blender side owns hosting and bridging
+- The Avalonia side owns UI, state, and business logic, and produces frames in offscreen mode through the custom Avalonia backend and stable frame pump
+- The Blender side owns hosting, input forwarding, latest-frame consumption, 3D View overlay drawing, and business request forwarding
 
 You do not need to maintain your own Blender GPU-based UI stack, and you do not have to push all UI behavior into Blender panels and Python-only workflows.
 
@@ -37,7 +37,7 @@ This is not a "build everything as Blender Python panels" approach.
 
 If you only need a very small Blender panel or utility, a traditional addon is simpler.
 
-This bridge fits projects where Blender acts as the host and bridge layer, while the Avalonia app owns the UI and business logic.
+This bridge fits projects where Blender owns hosting, input, and the overlay, while the Avalonia app owns UI, business logic, and offscreen frame production.
 
 ### Advantages
 
@@ -57,10 +57,10 @@ Keeping business logic on the .NET side fits large data processing, complex comp
 
 If you do not want to distribute core business logic as Python source, you can compile the Avalonia project as a native program with .NET AOT.
 
-### Known limitations in headless mode
+### Known limitations in offscreen mode
 
 - Currently supported on Windows and macOS only
-- Some UI scenarios may show stutter or dropped frames.
+- Frame cadence depends on Blender redraw scheduling and bridge target FPS. Blender consumes the latest frame instead of requesting frames faster from the bridge.
 - External drag and drop is not supported because Blender captures the drop event first.
 
 ## Next Step

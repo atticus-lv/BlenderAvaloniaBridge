@@ -21,13 +21,17 @@ Typical integration flow:
 The following values are provided on the Blender-side Python runtime when creating `BridgeConfig`.
 
 - `executable_path`: path to the Avalonia app executable. The Blender side starts the bridge process from this path.
-- `window_mode`: runtime mode. `headless` enables `frames + input + business`, while `desktop` establishes `business` only.
+- `window_mode`: runtime mode. `headless` is the compatibility value for offscreen UI and enables `frames + input + business`; `desktop` establishes `business` only.
 - `width` and `height`: logical Avalonia window size.
-- `render_scaling`: render density used in headless mode to improve sharpness.
+- `render_scaling`: render density and Blender overlay display scale used in offscreen UI mode.
 
 `executable_path` can point to a Debug or Release executable during development. For published builds, use an AOT executable. The path should be visible to the Blender process and match the current platform, such as a Windows `.exe` or the executable inside a macOS app bundle.
 
 `window_mode`, `width`, `height`, and `render_scaling` affect the Avalonia side through bridge startup parameters.
+
+In offscreen UI mode, `width` and `height` remain the logical UI size. `render_scaling` increases the rendered frame size and the Blender overlay display size, while input coordinates are mapped back to the logical size.
+
+The frame producer runs in the bridge process at the configured target frame cadence. Blender consumes the latest received frame during its modal timer instead of requesting frames faster from the bridge.
 
 ## Core vs Sample / Addon
 

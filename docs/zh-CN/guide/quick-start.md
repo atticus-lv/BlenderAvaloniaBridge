@@ -48,7 +48,9 @@ src\blender_extension
 
 1. 打开 `View3D > Sidebar > AvaloniaBridgeDemo`
 2. 在 `Avalonia Executable` 中选择刚刚发布出来的 bridge 程序的可执行文件
-3. 按需调整 `Display Size` 和 `Render Scaling`
-5. 点击 `Start UI Bridge`
+3. 按需调整 `Display Size` 和 `Render Scaling`。`Display Size` 是 Avalonia 逻辑尺寸；`Render Scaling` 控制渲染密度和 Blender overlay 显示倍率。
+4. 点击 `Start UI Bridge`
 
 如果一切正常，你会看到 sample UI 出现在 Blender overlay 中。
+
+修改尺寸或倍率后需要重启 bridge。Diagnostics 面板会显示 frame cadence，以及 capture、transport、GPU upload、overlay draw 等阶段耗时。

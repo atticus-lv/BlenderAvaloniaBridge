@@ -48,7 +48,9 @@ After enabling the extension:
 
 1. Open `View3D > Sidebar > AvaloniaBridgeDemo`
 2. Set `Avalonia Executable` to the executable file of the bridge program you just published
-3. Adjust `Display Size` and `Render Scaling` if needed
+3. Adjust `Display Size` and `Render Scaling` if needed. `Display Size` is the logical Avalonia size; `Render Scaling` controls render density and the Blender overlay display scale.
 4. Click `Start UI Bridge`
 
 If everything works correctly, the sample UI should appear in the Blender overlay.
+
+After changing size or scaling, restart the bridge. The diagnostics panel shows frame cadence and per-stage timings for capture, transport, GPU upload, and overlay draw.

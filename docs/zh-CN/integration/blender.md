@@ -12,8 +12,32 @@ Blender 侧的职责划分：
 
 - `BridgeController`：bridge core，本身只负责进程生命周期、传输、frame pipeline、business packet、状态与诊断
 - `View3DOverlayHost`：可选的 `3D View` 宿主，负责 overlay 绘制、标题栏拖拽、hit-test、输入转发与 redraw
+- `native_gpu`：可选的 native GPU hook 加载层，用于更快地把外部 frame 复制到 Blender GPU texture
 
-## 2. 组装 controller
+## 2. 构建 native GPU hook
+
+Offscreen UI 的快速 frame 路径需要 Blender 侧 native hook。这个 hook 由 `ctypes` 加载，默认构建产物会输出到扩展目录：
+
+```text
+src\blender_extension\avalonia_bridge\native\
+```
+
+在仓库根目录执行：
+
+```sh
+cmake -S src/blender_native -B src/blender_native/build
+cmake --build src/blender_native/build --config Release
+```
+
+macOS 上，这个 hook 会解析 Blender 的 Metal GPU texture 符号，把 Avalonia 传来的 `IOSurfaceID` 导入为 Metal texture，并复制到 Blender 创建的 `gpu.types.GPUTexture`。如果 hook 不存在或加载失败，bridge 会记录诊断信息，并回退到可用的 frame 传输路径。
+
+集成到你自己的扩展时，可以选择下面任一种方式：
+
+- 把构建产物随扩展一起放到 `your_addon/native/`
+- 设置环境变量 `AVALONIA_BRIDGE_NATIVE_PATH`
+- 在扩展 preferences 中提供 `native_library_path`
+
+## 3. 组装 controller
 
 最小组装示例：
 
@@ -51,16 +75,19 @@ controller = BridgeController(
 controller.start()
 ```
 
-- `headless`：`BridgeController(..., host=View3DOverlayHost(...))`
+- offscreen UI（`window_mode="headless"`）：`BridgeController(..., host=View3DOverlayHost(...))`
 - `desktop` / business-only：`BridgeController(..., host=None)`
 
-## 3. 选择展示宿主
+## 4. 选择展示宿主
 
 - `View3DOverlayHost` 是 Blender `3D View` 的可选展示宿主
-- 当前示例在 `headless` 模式下使用它把 UI 绘制到 `3D View`
+- 当前示例在 offscreen UI 模式下使用它把 UI 绘制到 `3D View`
 - 如果不希望绘制到 `3D View`，可以不组装 `View3DOverlayHost`，只保留 business 通道
 - 其他 Blender 展示方式需要在 addon 层自行组装适配
-## 4. 生命周期与事件驱动
+
+默认宿主会在后台 socket 线程接收 frame，并且只保留最新 frame。Modal timer 调用 `tick_once()` 时展示最新 frame 并处理排队的 business packet。它不会反向请求 bridge 进程提高产帧频率。
+
+## 5. 生命周期与事件驱动
 
 Blender 侧分两层接入：
 

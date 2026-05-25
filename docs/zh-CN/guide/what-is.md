@@ -7,7 +7,7 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 <div class="doc-image-row">
   <figure class="doc-image-card">
     <img src="/statics/images/headlessmode.png" alt="Blender Avalonia Bridge 总览">
-    <figcaption>Headless 模式中的 Blender 内嵌 UI</figcaption>
+    <figcaption>Offscreen 模式中的 Blender 内嵌 UI</figcaption>
   </figure>
   <figure class="doc-image-card">
     <img src="/statics/images/windowmode.png" alt="Blender Avalonia Bridge 运行模式">
@@ -18,18 +18,18 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 项目仓库包含四个主要部分
 
-| 模块                     | 介绍                                                         | 功能                                                 | 路径                                         |
-| ------------------------ | ------------------------------------------------------------ | ---------------------------------------------------- | -------------------------------------------- |
-| **avalonia bridge core** | avalonia侧的桥接模块，提供了一组内部的blender api            | 与blender侧桥接模块通信                              | `src/BlenderAvaloniaBridge.Core`             |
-| **blender bridge core**  | blender 侧的桥接模块                                         | 与avalonia 侧桥接模块通信                            | `src/blender_extension/avalonia_bridge/core` |
-| avalonia example         | 一个单独可运行的avalonia桌面程序，接入了avalonia bridge core | 用于功能展示和作为代码示例                           | `src/BlenderAvaloniaBridge.Sample`           |
-| blender extension        | 一个组装了blender bridge core的扩展（插件）                  | 用于功能展示，可直接调用avalonia example的可执行文件 | `src/blender_extension/avalonia_bridge`      |
+| 模块                     | 介绍                                                                        | 功能                                                     | 路径                                         |
+| ------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------- |
+| **avalonia bridge core** | .NET / Avalonia 侧运行时，包含自定义 offscreen Avalonia backend、稳定 frame pump、帧传输、输入派发、业务通道和 `BlenderApi` | 承载 Avalonia UI，并与 Blender 侧桥接模块交换 frame、input 和 business 消息 | `src/BlenderAvaloniaBridge.Core`             |
+| **blender bridge core**  | Blender 侧运行时，包含 `BridgeController`、socket transport、业务端点和 `View3DOverlayHost` | 启动 Avalonia 进程、转发输入、接收最新 frame，并在 3D View 中绘制 overlay | `src/blender_extension/avalonia_bridge/core` |
+| avalonia sample          | 一个单独可运行的 Avalonia 示例程序，接入了 avalonia bridge core             | 用于功能展示、offscreen / desktop 模式验证和代码示例     | `src/BlenderAvaloniaBridge.Sample`           |
+| blender extension        | 一个组装了 blender bridge core 的扩展（插件）                               | 提供 Blender 面板配置、启动入口和示例集成                | `src/blender_extension/avalonia_bridge`      |
 
 总的来说，这个项目是这样用
 
 
-- Avalonia 侧负责真正的 UI、状态和业务逻辑
-- Blender 侧负责宿主与桥接
+- Avalonia 侧负责 UI、状态和业务逻辑，并在 offscreen 模式下通过自定义 Avalonia backend 与稳定 frame pump 产出 frame
+- Blender 侧负责宿主、输入转发、最新 frame 消费、3D View overlay 绘制和业务请求转发
 
 这样你不需要在 Blender 里自己维护一整套 GPU 绘制 UI 框架，也不需要把所有业务都写成 Python 面板逻辑。
 
@@ -41,7 +41,7 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 如果你只是要做一个很简单的 Blender 面板或小工具，直接用传统 addon 开发更轻。
 
-这个 bridge 更适合“Blender 负责宿主与桥接，Avalonia 程序负责 UI 和业务”的分工模式。
+这个 bridge 更适合“Blender 负责宿主、输入和 overlay，Avalonia 程序负责 UI、业务和 offscreen frame 生产”的分工模式。
 
 ### 优势
 
@@ -63,10 +63,10 @@ Bridge 把 Avalonia 带进 Blender，在保留 Avalonia 几乎完整框架能力
 
 
 
-### Headless 模式下的已知限制
+### Offscreen 模式下的已知限制
 
 - 当前只支持 Windows 和 macOS 平台
-- 部分 UI 场景可能出现画面卡顿或缺帧问题
+- Frame cadence 受 Blender redraw 调度和 bridge 目标帧率影响。Blender 只消费最新 frame，不会反向请求 bridge 加速产帧
 - 不支持外部拖拽，因为 Blender 会先捕获 drop 事件
 
 

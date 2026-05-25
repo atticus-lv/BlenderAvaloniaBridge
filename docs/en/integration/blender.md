@@ -12,8 +12,32 @@ Blender-side structure:
 
 - `BridgeController`: bridge core only. It owns process lifecycle, transport, frame pipeline, business packets, state, and diagnostics
 - `View3DOverlayHost`: optional `3D View` host for overlay drawing, title-bar drag, hit-testing, input forwarding, and redraw
+- `native_gpu`: optional native GPU hook loader used to copy external frames into Blender GPU textures faster
 
-## 2. Assemble the controller
+## 2. Build the native GPU hook
+
+The fast frame path for offscreen UI needs the Blender-side native hook. The hook is loaded through `ctypes`, and its default build output goes into the extension directory:
+
+```text
+src\blender_extension\avalonia_bridge\native\
+```
+
+Run from the repository root:
+
+```sh
+cmake -S src/blender_native -B src/blender_native/build
+cmake --build src/blender_native/build --config Release
+```
+
+On macOS, this hook resolves Blender's Metal GPU texture symbols, imports the Avalonia `IOSurfaceID` as a Metal texture, and copies it into a Blender-created `gpu.types.GPUTexture`. If the hook is missing or fails to load, the bridge records diagnostics and falls back to an available frame transport path.
+
+When integrating into your own extension, use one of these options:
+
+- Ship the built library in `your_addon/native/`
+- Set the `AVALONIA_BRIDGE_NATIVE_PATH` environment variable
+- Provide `native_library_path` in the extension preferences
+
+## 3. Assemble the controller
 
 Minimal assembly example:
 
@@ -51,16 +75,19 @@ controller = BridgeController(
 controller.start()
 ```
 
-- `headless`: `BridgeController(..., host=View3DOverlayHost(...))`
+- offscreen UI (`window_mode="headless"`): `BridgeController(..., host=View3DOverlayHost(...))`
 - `desktop` / business-only: `BridgeController(..., host=None)`
 
-## 3. Choose the presentation host
+## 4. Choose the presentation host
 
 - `View3DOverlayHost` is the optional presentation host for Blender `3D View`
-- The current sample uses it in `headless` mode to draw the UI into `3D View`
+- The current sample uses it in offscreen UI mode to draw the UI into `3D View`
 - If you do not want to draw in `3D View`, do not assemble `View3DOverlayHost` and keep only the business channel
 - Other Blender presentation paths should be assembled at the addon layer
-## 4. Lifecycle and event driving
+
+In the default host, Blender receives frames on a background socket thread and stores only the latest frame. The modal timer calls `tick_once()` to present that latest frame and process queued business packets. It does not request a higher frame rate from the bridge process.
+
+## 5. Lifecycle and event driving
 
 Blender-side integration has two layers:
 

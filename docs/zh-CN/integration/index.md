@@ -21,13 +21,17 @@
 下面这些配置由 Blender 侧 Python runtime / addon 在创建 `BridgeConfig` 时提供。
 
 - `executable_path`：Avalonia 程序可执行文件路径。Blender 侧通过这个路径启动 bridge 进程。
-- `window_mode`：运行模式。`headless` 启用 `frames + input + business`，`desktop` 只建立 `business` 连接。
+- `window_mode`：运行模式。`headless` 是 offscreen UI 的兼容配置值，启用 `frames + input + business`；`desktop` 只建立 `business` 连接。
 - `width` 和 `height`：Avalonia 逻辑窗口尺寸。
-- `render_scaling`：headless 模式下的渲染倍率，用于提高清晰度。
+- `render_scaling`：offscreen UI 模式下的渲染密度和 Blender overlay 显示倍率。
 
 `executable_path` 可以指向开发期的 Debug / Release 可执行文件。发布场景优先使用 AOT 可执行文件。路径应对 Blender 进程可见，并与当前平台一致，例如 Windows 上的 `.exe` 或 macOS 上的应用可执行文件。
 
 其中 `window_mode`、`width`、`height` 和 `render_scaling` 会作为 bridge 启动参数影响 Avalonia 端运行方式。
+
+在 offscreen UI 模式下，`width` 和 `height` 始终是逻辑 UI 尺寸。`render_scaling` 会增大渲染 frame 尺寸和 Blender overlay 显示尺寸，输入坐标仍映射回逻辑尺寸。
+
+Frame producer 在 bridge 进程中按目标帧率稳定产帧。Blender 在 modal timer 中消费最新收到的 frame，不会反向请求 bridge 加速产帧。
 
 ## Core 与 Sample / Addon 的边界
 
