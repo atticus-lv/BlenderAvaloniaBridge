@@ -72,6 +72,16 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
             diag_box.label(text=f"Input -> next frame: {diagnostics['input_to_next_frame_ms']:.1f} ms")
         else:
             diag_box.label(text="Input -> next frame: waiting")
+        if diagnostics["capture_frame_ms"] is not None:
+            diag_box.label(text=f"Capture: {diagnostics['capture_frame_ms']:.1f} ms")
+        if diagnostics["capture_to_blender_recv_ms"] is not None:
+            diag_box.label(text=f"Capture -> recv: {diagnostics['capture_to_blender_recv_ms']:.1f} ms")
+        if diagnostics["convert_ms"] is not None:
+            diag_box.label(text=f"Convert/copy: {diagnostics['convert_ms']:.1f} ms")
+        if diagnostics["gpu_upload_ms"] is not None:
+            diag_box.label(text=f"GPU upload: {diagnostics['gpu_upload_ms']:.1f} ms")
+        if diagnostics["overlay_draw_ms"] is not None:
+            diag_box.label(text=f"Overlay draw: {diagnostics['overlay_draw_ms']:.1f} ms")
         diag_box.label(text=f"PointerMove drop: {diagnostics['pointer_move_drop_pct']:.0f}%")
         diag_box.label(text=f"Pending move: {'yes' if diagnostics['pending_pointer_move'] else 'no'}")
 

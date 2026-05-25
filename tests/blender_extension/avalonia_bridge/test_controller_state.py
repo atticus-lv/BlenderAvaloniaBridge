@@ -1,5 +1,6 @@
 import io
 import unittest
+import unittest.mock
 
 from _test_support import import_module
 
@@ -96,9 +97,34 @@ class ControllerStateTests(unittest.TestCase):
         self.assertEqual(rect_before_frame["width"], rect_after_pending_frame["width"])
         self.assertEqual(rect_before_frame["height"], rect_after_pending_frame["height"])
         self.assertEqual(rect_before_frame["title_bar_height"], rect_after_pending_frame["title_bar_height"])
-        self.assertEqual(1100, rect_before_frame["content_width"])
-        self.assertEqual(760, rect_before_frame["content_height"])
-        self.assertEqual(1.0, rect_before_frame["display_scale"])
+        self.assertEqual(1375, rect_before_frame["content_width"])
+        self.assertEqual(950, rect_before_frame["content_height"])
+        self.assertEqual(1100, rect_before_frame["source_width"])
+        self.assertEqual(760, rect_before_frame["source_height"])
+        self.assertEqual(1.25, rect_before_frame["display_scale"])
+
+    def test_view3d_host_render_scaling_changes_display_size_not_input_source(self):
+        core = import_module("avalonia_bridge.core")
+        import bpy
+
+        host = core.View3DOverlayHost()
+        core.BridgeController(
+            core.BridgeConfig(
+                executable_path="C:/bridge.exe",
+                width=800,
+                height=600,
+                render_scaling=1.5,
+            ),
+            host=host,
+        )
+
+        rect = host.get_overlay_rect(bpy.context)
+
+        self.assertEqual(1200, rect["content_width"])
+        self.assertEqual(900, rect["content_height"])
+        self.assertEqual(800, rect["source_width"])
+        self.assertEqual(600, rect["source_height"])
+        self.assertEqual(1.5, rect["display_scale"])
 
     def test_view3d_host_places_title_bar_above_content(self):
         core = import_module("avalonia_bridge.core")

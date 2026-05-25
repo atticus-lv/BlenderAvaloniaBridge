@@ -50,6 +50,8 @@ ResolverState g_resolver;
 uint64_t g_copy_calls = 0;
 uint64_t g_copy_failures = 0;
 uint32_t g_last_surface_id = 0;
+id<MTLDevice> g_command_queue_device = nil;
+id<MTLCommandQueue> g_command_queue = nil;
 std::vector<std::string> g_symbol_matches;
 
 std::string narrow(const std::wstring &value)
@@ -161,6 +163,27 @@ bool resolve_blender_gpu_symbols()
   return g_resolver.available;
 }
 
+id<MTLCommandQueue> command_queue_for_device(id<MTLDevice> device)
+{
+  if (device == nil) {
+    return nil;
+  }
+  if (g_command_queue != nil && g_command_queue_device == device) {
+    return g_command_queue;
+  }
+  if (g_command_queue != nil) {
+    [g_command_queue release];
+    g_command_queue = nil;
+  }
+  if (g_command_queue_device != nil) {
+    [g_command_queue_device release];
+    g_command_queue_device = nil;
+  }
+  g_command_queue_device = [device retain];
+  g_command_queue = [device newCommandQueue];
+  return g_command_queue;
+}
+
 BPyGPUTextureCompat *as_python_texture(const uint64_t py_texture)
 {
   if (py_texture == 0) {
@@ -217,7 +240,6 @@ bool copy_iosurface_to_texture(const uint32_t surface_id,
       }
 
       id<MTLTexture> source_texture = nil;
-      id<MTLCommandQueue> queue = nil;
       @try {
         const int surface_width = int(IOSurfaceGetWidth(surface));
         const int surface_height = int(IOSurfaceGetHeight(surface));
@@ -248,7 +270,7 @@ bool copy_iosurface_to_texture(const uint32_t surface_id,
           return false;
         }
 
-        queue = [device newCommandQueue];
+        id<MTLCommandQueue> queue = command_queue_for_device(device);
         if (queue == nil) {
           g_resolver.message = "Could not create Metal command queue";
           return false;
@@ -283,9 +305,6 @@ bool copy_iosurface_to_texture(const uint32_t surface_id,
       @finally {
         if (source_texture != nil) {
           [source_texture release];
-        }
-        if (queue != nil) {
-          [queue release];
         }
         CFRelease(surface);
       }
@@ -335,6 +354,14 @@ std::string status_json()
 
 ABN_EXPORT int ava_blender_native_install(const wchar_t *blender_path, const wchar_t * /*pdb_path*/)
 {
+  if (g_command_queue != nil) {
+    [g_command_queue release];
+    g_command_queue = nil;
+  }
+  if (g_command_queue_device != nil) {
+    [g_command_queue_device release];
+    g_command_queue_device = nil;
+  }
   g_resolver = ResolverState{};
   g_resolver.blender_path = blender_path ? blender_path : L"";
   return resolve_blender_gpu_symbols() ? 1 : 0;

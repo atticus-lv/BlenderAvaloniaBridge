@@ -11,9 +11,11 @@ namespace BlenderAvaloniaBridge.Runtime.MacOS;
 
 internal sealed class MacIOSurfaceFrameRenderer : IDisposable
 {
-    private const int RetainedFrameCount = 4;
-    private readonly Queue<MacIOSurfaceRenderTarget> _retainedFrames = new();
+    private const int TargetPoolSize = 4;
+    private readonly List<MacIOSurfaceRenderTarget> _targetPool = [];
     private MacMetalContextLease? _metalContext;
+    private PixelSize? _targetPoolSize;
+    private int _nextTargetIndex;
     private bool _isDisposed;
 
     public FrameCaptureResult Capture(Window window, int seq, int width, int height, double scaling)
@@ -27,7 +29,6 @@ internal sealed class MacIOSurfaceFrameRenderer : IDisposable
         var target = CaptureToTarget(window, pixelSize, scaling);
         stopwatch.Stop();
 
-        Retain(target);
         var capturedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         return new FrameCaptureResult(
@@ -65,10 +66,7 @@ internal sealed class MacIOSurfaceFrameRenderer : IDisposable
         }
 
         _isDisposed = true;
-        while (_retainedFrames.TryDequeue(out var frame))
-        {
-            frame.Dispose();
-        }
+        ClearTargetPool();
 
         _metalContext?.Dispose();
         _metalContext = null;
@@ -81,7 +79,7 @@ internal sealed class MacIOSurfaceFrameRenderer : IDisposable
         Dispatcher.UIThread.RunJobs();
 
         var metalContext = _metalContext ??= MacMetalContextProvider.Create();
-        var target = MacIOSurfaceRenderTarget.Create(pixelSize, metalContext);
+        var target = RentTarget(pixelSize, metalContext);
         try
         {
             var canvas = target.Surface.Canvas;
@@ -100,13 +98,36 @@ internal sealed class MacIOSurfaceFrameRenderer : IDisposable
         }
     }
 
-    private void Retain(MacIOSurfaceRenderTarget target)
+    private MacIOSurfaceRenderTarget RentTarget(PixelSize pixelSize, MacMetalContextLease metalContext)
     {
-        _retainedFrames.Enqueue(target);
-        while (_retainedFrames.Count > RetainedFrameCount)
+        if (_targetPoolSize != pixelSize)
         {
-            _retainedFrames.Dequeue().Dispose();
+            ClearTargetPool();
+            _targetPoolSize = pixelSize;
+            _nextTargetIndex = 0;
         }
+
+        if (_targetPool.Count < TargetPoolSize)
+        {
+            var target = MacIOSurfaceRenderTarget.Create(pixelSize, metalContext);
+            _targetPool.Add(target);
+            _nextTargetIndex = _targetPool.Count % TargetPoolSize;
+            return target;
+        }
+
+        var pooledTarget = _targetPool[_nextTargetIndex];
+        _nextTargetIndex = (_nextTargetIndex + 1) % TargetPoolSize;
+        return pooledTarget;
+    }
+
+    private void ClearTargetPool()
+    {
+        foreach (var target in _targetPool)
+        {
+            target.Dispose();
+        }
+
+        _targetPool.Clear();
     }
 
     private static Visual GetRenderRoot(Window window)

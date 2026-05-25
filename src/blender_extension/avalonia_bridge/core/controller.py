@@ -95,6 +95,10 @@ class BridgeController:
         return self._state.capture_input
 
     @property
+    def render_scaling(self) -> float:
+        return self._render_scaling
+
+    @property
     def remote_supports_input(self) -> bool:
         return self._remote_supports_input
 

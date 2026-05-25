@@ -7,7 +7,7 @@ namespace BlenderAvaloniaBridge.Tests;
 public sealed class FrameDispatchSchedulerTests
 {
     [Fact]
-    public void PointerMoveWithinInterval_KeepsSingleFrameDeadline()
+    public void PointerMoveWithinInterval_RespectsActiveFrameInterval()
     {
         var scheduler = new FrameDispatchScheduler(TimeSpan.FromMilliseconds(16), TimeSpan.FromMilliseconds(250));
         var start = new DateTimeOffset(2026, 4, 13, 0, 0, 0, TimeSpan.Zero);
@@ -21,6 +21,8 @@ public sealed class FrameDispatchSchedulerTests
 
         Assert.Equal(TimeSpan.FromMilliseconds(14), firstDelay);
         Assert.Equal(TimeSpan.FromMilliseconds(10), secondDelay);
+        Assert.False(scheduler.IsFrameDue(start.AddMilliseconds(6)));
+        Assert.True(scheduler.IsFrameDue(start.AddMilliseconds(16)));
     }
 
     [Fact]
@@ -47,6 +49,20 @@ public sealed class FrameDispatchSchedulerTests
 
         Assert.Equal(TimeSpan.Zero, scheduler.GetDelayUntilNextFrame(later));
         Assert.True(scheduler.IsFrameDue(later));
+    }
+
+    [Fact]
+    public void ResizeWithinInterval_StillRespectsActiveFrameInterval()
+    {
+        var scheduler = new FrameDispatchScheduler(TimeSpan.FromMilliseconds(16), TimeSpan.FromMilliseconds(250));
+        var start = new DateTimeOffset(2026, 4, 13, 0, 0, 0, TimeSpan.Zero);
+        scheduler.MarkFrameSent(start);
+
+        var resizeAt = start.AddMilliseconds(5);
+        scheduler.NotifyMessageApplied(new ProtocolEnvelope { Type = "resize", Width = 100, Height = 80 }, resizeAt);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(11), scheduler.GetDelayUntilNextFrame(resizeAt));
+        Assert.False(scheduler.IsFrameDue(resizeAt));
     }
 
     [Fact]

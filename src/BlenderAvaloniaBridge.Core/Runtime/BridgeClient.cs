@@ -79,9 +79,10 @@ internal sealed class BridgeClient
             }
             if (canStreamFrames)
             {
+                var initialFrameStartedAt = DateTimeOffset.UtcNow;
                 if (await TryWriteCurrentFrameAsync(cancellationToken))
                 {
-                    _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                    _frameScheduler.MarkFrameSent(initialFrameStartedAt);
                 }
             }
 
@@ -451,6 +452,7 @@ internal sealed class BridgeClient
                 }
             }
 
+            var frameStartedAt = DateTimeOffset.UtcNow;
             if (!await TryWriteCurrentFrameAsync(cancellationToken))
             {
                 lock (_frameSchedulerGate)
@@ -463,7 +465,7 @@ internal sealed class BridgeClient
 
             lock (_frameSchedulerGate)
             {
-                _frameScheduler.MarkFrameSent(DateTimeOffset.UtcNow);
+                _frameScheduler.MarkFrameSent(frameStartedAt);
             }
         }
     }

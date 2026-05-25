@@ -14,6 +14,7 @@ internal static class SkiaVisualRendererBridge
     private const string DrawingContextImplTypeName = "Avalonia.Platform.IDrawingContextImpl, Avalonia.Base";
     private const string ImmediateRendererTypeName = "Avalonia.Rendering.ImmediateRenderer, Avalonia.Base";
     private const string PlatformDrawingContextTypeName = "Avalonia.Media.PlatformDrawingContext, Avalonia.Base";
+    private static readonly Lazy<BridgeReflection> Reflection = new(CreateReflection);
 
     public static void RenderVisual(SKCanvas canvas, Visual visual, Rect clipRect, double scaling)
     {
@@ -32,6 +33,23 @@ internal static class SkiaVisualRendererBridge
 
     private static IDisposable CreateDrawingContextImpl(SKCanvas canvas)
     {
+        return Reflection.Value.WrapSkiaCanvas.Invoke(obj: null, [canvas, new Vector(96.0, 96.0)]) as IDisposable
+            ?? throw new MacGpuInteropUnavailableException("Avalonia.Skia.Helpers.DrawingContextHelper.WrapSkiaCanvas did not return a disposable drawing context implementation.");
+    }
+
+    private static DrawingContext CreateDrawingContext(IDisposable platformImpl)
+    {
+        return Reflection.Value.PlatformDrawingContext.Invoke([platformImpl, false]) as DrawingContext
+            ?? throw new MacGpuInteropUnavailableException("Avalonia.Media.PlatformDrawingContext could not be created.");
+    }
+
+    private static void RenderImmediate(DrawingContext context, Visual visual)
+    {
+        Reflection.Value.RenderImmediate.Invoke(obj: null, [context, visual]);
+    }
+
+    private static BridgeReflection CreateReflection()
+    {
         var helperType = Type.GetType(DrawingContextHelperTypeName, throwOnError: true)
             ?? throw new MacGpuInteropUnavailableException($"Type '{DrawingContextHelperTypeName}' was not found.");
         var wrapMethod = helperType.GetMethod(
@@ -42,12 +60,6 @@ internal static class SkiaVisualRendererBridge
             modifiers: null)
             ?? throw new MacGpuInteropUnavailableException("Avalonia.Skia.Helpers.DrawingContextHelper.WrapSkiaCanvas(SKCanvas, Vector) was not found.");
 
-        return wrapMethod.Invoke(obj: null, [canvas, new Vector(96.0, 96.0)]) as IDisposable
-            ?? throw new MacGpuInteropUnavailableException("Avalonia.Skia.Helpers.DrawingContextHelper.WrapSkiaCanvas did not return a disposable drawing context implementation.");
-    }
-
-    private static DrawingContext CreateDrawingContext(IDisposable platformImpl)
-    {
         var contextType = Type.GetType(PlatformDrawingContextTypeName, throwOnError: true)
             ?? throw new MacGpuInteropUnavailableException($"Type '{PlatformDrawingContextTypeName}' was not found.");
         var implType = Type.GetType(DrawingContextImplTypeName, throwOnError: true)
@@ -59,12 +71,6 @@ internal static class SkiaVisualRendererBridge
             modifiers: null)
             ?? throw new MacGpuInteropUnavailableException("Avalonia.Media.PlatformDrawingContext(IDrawingContextImpl, bool) was not found.");
 
-        return constructor.Invoke([platformImpl, false]) as DrawingContext
-            ?? throw new MacGpuInteropUnavailableException("Avalonia.Media.PlatformDrawingContext could not be created.");
-    }
-
-    private static void RenderImmediate(DrawingContext context, Visual visual)
-    {
         var rendererType = Type.GetType(ImmediateRendererTypeName, throwOnError: true)
             ?? throw new MacGpuInteropUnavailableException($"Type '{ImmediateRendererTypeName}' was not found.");
         var method = rendererType.GetMethod(
@@ -75,6 +81,11 @@ internal static class SkiaVisualRendererBridge
             modifiers: null)
             ?? throw new MacGpuInteropUnavailableException("Avalonia.Rendering.ImmediateRenderer.Render(DrawingContext, Visual) was not found.");
 
-        method.Invoke(obj: null, [context, visual]);
+        return new BridgeReflection(wrapMethod, constructor, method);
     }
+
+    private sealed record BridgeReflection(
+        MethodInfo WrapSkiaCanvas,
+        ConstructorInfo PlatformDrawingContext,
+        MethodInfo RenderImmediate);
 }

@@ -26,8 +26,11 @@ internal sealed class HeadlessUiHost
     private int _height;
     private double _renderScaling;
     private DateTimeOffset _continuousFramesUntil = DateTimeOffset.MinValue;
+    private readonly object _continuousFrameTimerGate = new();
+    private Timer? _continuousFrameTimer;
     private bool _watchRenderingActive;
-    private bool _animationFrameQueued;
+    private bool _continuousFrameTimerQueued;
+    private bool _isDisposed;
 
     public bool SupportsFrames => _options.SupportsFrames;
 
@@ -141,7 +144,10 @@ internal sealed class HeadlessUiHost
     {
         return _runtimeThread.InvokeAsync(() =>
         {
-            _watchRenderingActive = isActive;
+            lock (_continuousFrameTimerGate)
+            {
+                _watchRenderingActive = isActive;
+            }
             if (isActive)
             {
                 ExtendContinuousFrames(_options.ContinuousFrameWindow);
@@ -232,35 +238,68 @@ internal sealed class HeadlessUiHost
     private void ExtendContinuousFrames(TimeSpan duration)
     {
         var until = DateTimeOffset.UtcNow + duration;
-        if (until > _continuousFramesUntil)
+        lock (_continuousFrameTimerGate)
         {
-            _continuousFramesUntil = until;
+            if (until > _continuousFramesUntil)
+            {
+                _continuousFramesUntil = until;
+            }
         }
 
-        QueueAnimationFrame();
+        QueueContinuousFrameTick(TimeSpan.Zero);
     }
 
-    private void QueueAnimationFrame()
+    private void QueueContinuousFrameTick(TimeSpan dueTime)
     {
-        if (_window is null || _animationFrameQueued)
+        if (_window is null)
         {
             return;
         }
 
-        _animationFrameQueued = true;
-        _window.RequestAnimationFrame(OnAnimationFrame);
-    }
-
-    private void OnAnimationFrame(TimeSpan _)
-    {
-        _animationFrameQueued = false;
-        FrameRequested?.Invoke();
-
-        if (_watchRenderingActive || DateTimeOffset.UtcNow < _continuousFramesUntil)
+        lock (_continuousFrameTimerGate)
         {
-            QueueAnimationFrame();
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            if (_continuousFrameTimerQueued)
+            {
+                return;
+            }
+
+            _continuousFrameTimerQueued = true;
+            _continuousFrameTimer ??= new Timer(OnContinuousFrameTimerTick);
+            _continuousFrameTimer.Change(dueTime, Timeout.InfiniteTimeSpan);
         }
     }
+
+    private void OnContinuousFrameTimerTick(object? _)
+    {
+        bool shouldContinue;
+        lock (_continuousFrameTimerGate)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _continuousFrameTimerQueued = false;
+            shouldContinue = _watchRenderingActive || DateTimeOffset.UtcNow < _continuousFramesUntil;
+        }
+
+        FrameRequested?.Invoke();
+
+        if (shouldContinue)
+        {
+            QueueContinuousFrameTick(ContinuousFrameInterval);
+        }
+    }
+
+    private TimeSpan ContinuousFrameInterval =>
+        _options.ActiveFrameInterval > TimeSpan.Zero
+            ? _options.ActiveFrameInterval
+            : TimeSpan.FromMilliseconds(16);
 
     private static IBlenderBridgeStatusSink? ResolveStatusSink(Window window)
     {
@@ -346,6 +385,10 @@ internal sealed class HeadlessUiHost
         {
             _runtimeThread.InvokeAsync(() =>
             {
+                lock (_continuousFrameTimerGate)
+                {
+                    _isDisposed = true;
+                }
                 if (_window is not null)
                 {
                     _window.LayoutUpdated -= OnWindowLayoutUpdated;
@@ -364,9 +407,14 @@ internal sealed class HeadlessUiHost
                 _inputDispatcher = null;
                 _macIOSurfaceFrameRenderer?.Dispose();
                 _macIOSurfaceFrameRenderer = null;
-                _animationFrameQueued = false;
-                _watchRenderingActive = false;
-                _continuousFramesUntil = DateTimeOffset.MinValue;
+                lock (_continuousFrameTimerGate)
+                {
+                    _continuousFrameTimer?.Dispose();
+                    _continuousFrameTimer = null;
+                    _continuousFrameTimerQueued = false;
+                    _watchRenderingActive = false;
+                    _continuousFramesUntil = DateTimeOffset.MinValue;
+                }
                 return true;
             }).GetAwaiter().GetResult();
         }

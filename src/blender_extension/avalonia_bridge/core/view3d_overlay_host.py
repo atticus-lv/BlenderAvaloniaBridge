@@ -447,4 +447,7 @@ class View3DOverlayHost:
         self.tag_redraw()
 
     def _overlay_display_scale(self, context) -> float:
-        return 1.0
+        try:
+            return max(0.25, float(self.controller.render_scaling))
+        except (TypeError, ValueError):
+            return 1.0
