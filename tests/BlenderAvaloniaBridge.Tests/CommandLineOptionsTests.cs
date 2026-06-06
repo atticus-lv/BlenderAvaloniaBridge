@@ -48,6 +48,7 @@ public sealed class CommandLineOptionsTests
         Assert.True(options.SupportsBusiness);
         Assert.True(options.SupportsFrames);
         Assert.True(options.SupportsInput);
+        Assert.Equal(120, options.TargetFps);
         Assert.Equal(new[] { "--theme", "dark" }, options.AppArgs);
     }
 

@@ -18,7 +18,7 @@ public sealed class BlenderBridgeOptionsTests
         Assert.True(options.SupportsBusiness);
         Assert.True(options.SupportsFrames);
         Assert.True(options.SupportsInput);
-        Assert.Equal(60, options.TargetFps);
+        Assert.Equal(120, options.TargetFps);
         Assert.Equal(4, options.IdleHeartbeatFps);
         Assert.Equal(1000, options.ContinuousFrameWindowMs);
         Assert.True(options.UseSharedMemory);

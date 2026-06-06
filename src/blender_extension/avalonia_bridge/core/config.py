@@ -11,6 +11,7 @@ class BridgeConfig:
     supports_business: bool = True
     supports_frames: bool = True
     supports_input: bool = True
+    target_fps: int = 120
     enable_macos_gpu_interop: bool = True
     host: str = "127.0.0.1"
     show_overlay_debug: bool = False

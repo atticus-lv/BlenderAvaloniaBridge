@@ -55,6 +55,7 @@ config = BridgeConfig(
     width=1100,
     height=760,
     render_scaling=1.25,
+    target_fps=120,
     window_mode="headless",
     supports_business=True,
     supports_frames=True,
@@ -145,7 +146,7 @@ class BRIDGE_OT_modal(bpy.types.Operator):
     _timer = None
 
     def invoke(self, context, _event):
-        self._timer = context.window_manager.event_timer_add(1.0 / 60.0, window=context.window)
+        self._timer = context.window_manager.event_timer_add(1.0 / 120.0, window=context.window)
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 

@@ -29,7 +29,7 @@ class _RecordingProcessManager:
     def __init__(self):
         self.calls = []
 
-    def start(self, executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input):
+    def start(self, executable_path, host, port, width, height, render_scaling, window_mode, supports_business, supports_frames, supports_input, target_fps):
         self.calls.append(
             {
                 "executable_path": executable_path,
@@ -42,6 +42,7 @@ class _RecordingProcessManager:
                 "supports_business": supports_business,
                 "supports_frames": supports_frames,
                 "supports_input": supports_input,
+                "target_fps": target_fps,
             }
         )
         return types.SimpleNamespace(pid=2468)
@@ -95,6 +96,7 @@ class ControllerRenderScalingTests(unittest.TestCase):
         self.assertEqual(1100, process_manager.calls[0]["width"])
         self.assertEqual(760, process_manager.calls[0]["height"])
         self.assertEqual(1.25, process_manager.calls[0]["render_scaling"])
+        self.assertEqual(120, process_manager.calls[0]["target_fps"])
         self.assertEqual(1375 * 950 * 16, controller.shared_memory_bridge.frame_size)
 
 

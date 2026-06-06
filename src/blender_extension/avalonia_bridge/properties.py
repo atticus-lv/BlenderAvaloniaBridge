@@ -16,6 +16,7 @@ class AvaloniaBridgeState(bpy.types.PropertyGroup):
         max=4.0,
         precision=2,
     )
+    target_fps: bpy.props.IntProperty(name="Target FPS", default=120, min=1, max=1000)
     process_id: bpy.props.IntProperty(name="Process ID", default=0)
     listen_port: bpy.props.IntProperty(name="Listen Port", default=0)
     remote_window_mode: bpy.props.StringProperty(name="Remote Window Mode", default="unknown")

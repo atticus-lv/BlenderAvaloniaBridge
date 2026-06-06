@@ -26,7 +26,7 @@ public sealed class BlenderBridgeOptions
 
     public bool SupportsInput { get; set; } = true;
 
-    public int TargetFps { get; set; } = 60;
+    public int TargetFps { get; set; } = 120;
 
     public int IdleHeartbeatFps { get; set; } = 4;
 

@@ -24,14 +24,15 @@ The following values are provided on the Blender-side Python runtime when creati
 - `window_mode`: runtime mode. `headless` is the compatibility value for offscreen UI and enables `frames + input + business`; `desktop` establishes `business` only.
 - `width` and `height`: logical Avalonia window size.
 - `render_scaling`: render density and Blender overlay display scale used in offscreen UI mode.
+- `target_fps`: target frame cadence for the bridge process. The default is `120`.
 
 `executable_path` can point to a Debug or Release executable during development. For published builds, use an AOT executable. The path should be visible to the Blender process and match the current platform, such as a Windows `.exe` or the executable inside a macOS app bundle.
 
-`window_mode`, `width`, `height`, and `render_scaling` affect the Avalonia side through bridge startup parameters.
+`window_mode`, `width`, `height`, `render_scaling`, and `target_fps` affect the Avalonia side through bridge startup parameters.
 
 In offscreen UI mode, `width` and `height` remain the logical UI size. `render_scaling` increases the rendered frame size and the Blender overlay display size, while input coordinates are mapped back to the logical size.
 
-The frame producer runs in the bridge process at the configured target frame cadence. Blender consumes the latest received frame during its modal timer instead of requesting frames faster from the bridge.
+The frame producer runs in the bridge process at `target_fps`. Blender uses the same target cadence in its modal timer and consumes the latest received frame instead of requesting frames faster from the bridge.
 
 ## Core vs Sample / Addon
 

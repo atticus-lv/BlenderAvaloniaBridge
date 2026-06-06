@@ -170,6 +170,7 @@ class BridgeController:
             self._config.supports_business,
             self._config.supports_frames,
             self._config.supports_input,
+            self._config.target_fps,
         )
         self._pending_pointer_move = None
         with self._business_lock:

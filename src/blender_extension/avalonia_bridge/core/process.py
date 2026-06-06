@@ -59,6 +59,7 @@ def build_command(
     supports_business: bool,
     supports_frames: bool,
     supports_input: bool,
+    target_fps: int,
 ) -> tuple[CommandLine, str]:
     path = validate_executable_path(executable_path)
     bridge_args = [
@@ -72,6 +73,7 @@ def build_command(
         "--blender-bridge-supports-business", str(bool(supports_business)).lower(),
         "--blender-bridge-supports-frames", str(bool(supports_frames)).lower(),
         "--blender-bridge-supports-input", str(bool(supports_input)).lower(),
+        "--blender-bridge-target-fps", str(max(0, int(target_fps))),
     ]
     args = [str(path), *bridge_args]
     if path.suffix.lower() == ".dll":
@@ -114,6 +116,7 @@ class ProcessManager:
         supports_business: bool,
         supports_frames: bool,
         supports_input: bool,
+        target_fps: int,
     ) -> subprocess.Popen[str]:
         args, cwd = build_command(
             executable_path,
@@ -126,6 +129,7 @@ class ProcessManager:
             supports_business,
             supports_frames,
             supports_input,
+            target_fps,
         )
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         env = os.environ.copy()

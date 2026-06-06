@@ -56,6 +56,13 @@ class BridgeRuntime:
     def tick_once(self):
         self.controller.tick_once()
 
+    def target_fps(self, context=None):
+        state = self._resolve_state(context)
+        return max(1, int(getattr(state, "target_fps", 120)))
+
+    def target_frame_interval(self, context=None):
+        return 1.0 / float(self.target_fps(context))
+
     def handle_event(self, context, event):
         return self.controller.handle_event(context, event)
 
@@ -119,6 +126,7 @@ class BridgeRuntime:
             supports_business=True,
             supports_frames=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
             supports_input=getattr(preferences, "bridge_transport_mode", "headless") != "desktop",
+            target_fps=max(1, int(getattr(state, "target_fps", 120))),
             enable_macos_gpu_interop=bool(getattr(preferences, "enable_macos_gpu_interop", True)),
             host="127.0.0.1",
             show_overlay_debug=bool(getattr(preferences, "show_overlay_debug", False)),

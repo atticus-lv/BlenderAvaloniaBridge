@@ -32,9 +32,10 @@ class VIEW3D_PT_avalonia_bridge(bpy.types.Panel):
         row.prop(state, "overlay_width", text="W")
         row.prop(state, "overlay_height", text="H")
         size_box.prop(state, "render_scaling", text="Render Scaling")
+        size_box.prop(state, "target_fps", text="Target FPS")
 
         if state.process_running:
-            size_box.label(text="Restart the bridge after changing size or scaling.")
+            size_box.label(text="Restart the bridge after changing size, scaling, or FPS.")
 
         status_box = layout.box()
         status_box.label(text=f"Process: {'Running' if snapshot.process_running else 'Stopped'}")

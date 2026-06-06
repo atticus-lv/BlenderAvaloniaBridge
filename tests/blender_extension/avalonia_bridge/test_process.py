@@ -25,6 +25,7 @@ class ProcessTests(unittest.TestCase):
                 True,
                 True,
                 True,
+                120,
             )
 
         self.assertEqual(str(executable), args[0])
@@ -36,6 +37,8 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("1.25", args)
         self.assertIn("--blender-bridge-window-mode", args)
         self.assertIn("headless", args)
+        self.assertIn("--blender-bridge-target-fps", args)
+        self.assertIn("120", args)
 
     def test_validate_executable_path_accepts_executable_without_windows_suffix(self):
         process = import_module("avalonia_bridge.core.process")
@@ -68,6 +71,7 @@ class ProcessTests(unittest.TestCase):
                     True,
                     True,
                     True,
+                    144,
                 )
 
         self.assertEqual("/custom/dotnet", args[0])

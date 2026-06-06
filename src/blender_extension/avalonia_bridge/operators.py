@@ -70,7 +70,10 @@ class AVALONIA_BRIDGE_OT_ui_bridge_modal(bpy.types.Operator):
         if self.__class__._running:
             return {"CANCELLED"}
         self.__class__._running = True
-        self.__class__._timer = context.window_manager.event_timer_add(1.0 / 60.0, window=context.window)
+        self.__class__._timer = context.window_manager.event_timer_add(
+            get_runtime().target_frame_interval(context),
+            window=context.window,
+        )
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 

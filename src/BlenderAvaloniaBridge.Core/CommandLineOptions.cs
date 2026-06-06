@@ -61,7 +61,7 @@ public sealed record CommandLineOptions(
             SupportsBusiness: ParseBool(values.GetValueOrDefault("supports-business"), true),
             SupportsFrames: ParseBool(values.GetValueOrDefault("supports-frames"), defaultFrames),
             SupportsInput: ParseBool(values.GetValueOrDefault("supports-input"), defaultInput),
-            TargetFps: int.TryParse(values.GetValueOrDefault("target-fps", "60"), out var targetFps) ? targetFps : 60,
+            TargetFps: int.TryParse(values.GetValueOrDefault("target-fps", "120"), out var targetFps) ? targetFps : 120,
             IdleHeartbeatFps: int.TryParse(values.GetValueOrDefault("idle-heartbeat-fps", "4"), out var idleHeartbeatFps) ? idleHeartbeatFps : 4,
             ContinuousFrameWindowMs: int.TryParse(values.GetValueOrDefault("continuous-frame-window-ms", "1000"), out var continuousFrameWindowMs) ? continuousFrameWindowMs : 1000,
             UseSharedMemory: !string.Equals(values.GetValueOrDefault("shared-memory", "true"), "false", StringComparison.OrdinalIgnoreCase),

@@ -24,14 +24,15 @@
 - `window_mode`：运行模式。`headless` 是 offscreen UI 的兼容配置值，启用 `frames + input + business`；`desktop` 只建立 `business` 连接。
 - `width` 和 `height`：Avalonia 逻辑窗口尺寸。
 - `render_scaling`：offscreen UI 模式下的渲染密度和 Blender overlay 显示倍率。
+- `target_fps`：bridge 进程的目标产帧率，默认 `120`。
 
 `executable_path` 可以指向开发期的 Debug / Release 可执行文件。发布场景优先使用 AOT 可执行文件。路径应对 Blender 进程可见，并与当前平台一致，例如 Windows 上的 `.exe` 或 macOS 上的应用可执行文件。
 
-其中 `window_mode`、`width`、`height` 和 `render_scaling` 会作为 bridge 启动参数影响 Avalonia 端运行方式。
+其中 `window_mode`、`width`、`height`、`render_scaling` 和 `target_fps` 会作为 bridge 启动参数影响 Avalonia 端运行方式。
 
 在 offscreen UI 模式下，`width` 和 `height` 始终是逻辑 UI 尺寸。`render_scaling` 会增大渲染 frame 尺寸和 Blender overlay 显示尺寸，输入坐标仍映射回逻辑尺寸。
 
-Frame producer 在 bridge 进程中按目标帧率稳定产帧。Blender 在 modal timer 中消费最新收到的 frame，不会反向请求 bridge 加速产帧。
+Frame producer 在 bridge 进程中按 `target_fps` 稳定产帧。Blender 的 modal timer 使用同一个目标帧率消费最新收到的 frame，不会反向请求 bridge 加速产帧。
 
 ## Core 与 Sample / Addon 的边界
 
